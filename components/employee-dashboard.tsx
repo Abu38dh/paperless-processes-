@@ -21,12 +21,14 @@ import {
 import Sidebar from "@/components/sidebar"
 import RequestTracking from "@/components/student/request-tracking"
 import RequestSubmissionForm from "@/components/student/request-submission-form"
+import RequestList from "@/components/request-list"
+import RequestDetail from "@/components/request-detail"
 import { DashboardSkeleton, TableSkeleton } from "@/components/ui/loading-skeleton"
 import { ErrorMessage } from "@/components/ui/error-message"
 import { EmptyState } from "@/components/ui/empty-state"
 import { getEmployeeInbox, getEmployeeStats, processRequest, getEmployeeRequests } from "@/app/actions/employee"
 import { getAvailableFormTemplates } from "@/app/actions/forms"
-import { CheckCircle, XCircle, Clock, FileText, RotateCcw, Redo2 } from "lucide-react"
+import { CheckCircle, XCircle, Clock, FileText, RotateCcw, Redo2, Upload } from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import AdminFormsPage from "@/components/admin/admin-forms-page"
 import WorkflowsEditor from "@/components/admin/workflows-editor"
@@ -73,6 +75,9 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
     open: false,
     type: null
   })
+  const [attachment, setAttachment] = useState<{ name: string; content: string } | null>(null)
+  const [internalNote, setInternalNote] = useState("")
+  const [filePreview, setFilePreview] = useState<{ open: boolean; type: 'image' | 'pdf' | 'other'; content: string; name: string } | null>(null)
 
   useEffect(() => {
     fetchInboxData()
@@ -196,11 +201,17 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
     setError(null)
 
     try {
+      const fullComment = internalNote
+        ? `[ملاحظة داخلية]: ${internalNote}\n\n${actionComment}`
+        : actionComment
+
       const result = await processRequest(
         selectedRequest.id,
         actionDialog.type,
-        actionComment,
-        userData.university_id
+        fullComment,
+        userData.university_id,
+        attachment?.content,
+        attachment?.name
       )
 
       if (result.success) {
@@ -208,6 +219,8 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
         await fetchInboxData()
         await fetchStats()
         setActionComment("")
+        setInternalNote("")
+        setAttachment(null)
         setSelectedRequest(null)
         setActionDialog({ open: false, type: null })
       } else {
@@ -248,7 +261,7 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
         onMenuClick={() => setIsMobileMenuOpen(true)}
       />
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1">
 
         {/* Desktop Sidebar */}
         <div className="hidden md:block h-full">
@@ -276,43 +289,57 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
           </SheetContent>
         </Sheet>
 
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1">
           {/* My Requests View */}
           {currentView === "requests" && (
             <div className="p-6">
               <h2 className="text-2xl font-bold mb-4">طلباتي</h2>
-              <Card>
-                <CardContent className="p-6">
-                  {myRequests.length === 0 ? (
-                    <EmptyState
-                      icon="📝"
-                      title="لا توجد طلبات"
-                      description="لم تقم بتقديم أي طلبات بعد. اضغط على 'طلب جديد' لتقديم طلبك الأول."
+              {myRequests.length === 0 ? (
+                <EmptyState
+                  icon="📝"
+                  title="لا توجد طلبات"
+                  description="لم تقم بتقديم أي طلبات بعد. اضغط على 'طلب جديد' لتقديم طلبك الأول."
+                  action={{
+                    label: "تقديم طلب جديد",
+                    onClick: () => setCurrentView("submit")
+                  }}
+                />
+              ) : (
+                <div className="flex flex-col md:flex-row gap-6 min-h-[600px]">
+                  <div className="w-full md:w-1/3 border border-border bg-card rounded-lg">
+                    <RequestList
+                      requests={myRequests.map(r => ({ ...r, title: r.type }))}
+                      selectedId={selectedRequest?.id}
+                      onSelect={(id) => {
+                        const req = myRequests.find(r => r.id === id)
+                        if (req) setSelectedRequest(req)
+                      }}
                     />
-                  ) : (
-                    <div className="space-y-4">
-                      {myRequests.map((req) => (
-                        <Card key={req.id} className="cursor-pointer hover:bg-muted/50 transition-colors"
-                          onClick={() => {
-                            // Can re-use request detail logic or open in sheet like history.
-                            handleViewHistory(req.id)
-                          }}
-                        >
-                          <CardHeader className="p-4">
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <CardTitle className="text-base">{req.type}</CardTitle>
-                                <CardDescription className="text-sm mt-1">{req.date}</CardDescription>
-                              </div>
-                              {getStatusBadge(req.status)}
-                            </div>
-                          </CardHeader>
-                        </Card>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                  </div>
+                  <div className="w-full md:w-2/3 flex flex-col bg-slate-50/50 p-6 rounded-lg border border-border/50">
+                    {selectedRequest && !selectedRequest.applicant ? (
+                      /* Since we reused selectedRequest for both Inbox and MyRequests, we need to handle the shape. 
+                         Here we are in My Requests view, selectedRequest should be from myRequests list. 
+                      */
+                      <RequestDetail
+                        request={selectedRequest}
+                        // Employee normally can't edit unless returned, similar to student
+                        onEdit={(selectedRequest.status === 'pending' || selectedRequest.status === 'returned') ? () => {
+                          // Handle edit logic if needed, or just show unavailable
+                          // For now passing null/undefined if not implemented
+                        } : undefined}
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-muted-foreground">
+                        <div className="text-center">
+                          <FileText className="w-12 h-12 mx-auto mb-2 opacity-20" />
+                          <p>اختر طلباً لعرض التفاصيل</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -370,9 +397,9 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                       />
                     </div>
                   ) : (
-                    <div className="flex h-full">
+                    <div className="flex flex-col md:flex-row gap-6 items-start">
                       {/* Requests List */}
-                      <div className="w-full md:w-1/3 border-l border-border overflow-auto p-4 space-y-2">
+                      <div className="w-full md:w-1/3 border border-border bg-card rounded-lg p-4 space-y-2">
                         <h3 className="font-semibold mb-4">صندوق الوارد ({inboxRequests.length})</h3>
                         {inboxRequests.map((req) => (
                           <Card
@@ -396,7 +423,7 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                       </div>
 
                       {/* Request Detail */}
-                      <div className="hidden md:flex md:w-2/3 flex-col overflow-auto p-6">
+                      <div className="w-full md:w-2/3 flex flex-col p-6 bg-slate-50/50 rounded-lg border border-border/50">
                         {selectedRequest ? (
                           <div className="space-y-6">
                             <div>
@@ -449,7 +476,40 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                                         <span className="text-sm font-medium text-muted-foreground md:col-span-1">{field.label}:</span>
                                         <span className="text-sm font-semibold text-foreground md:col-span-2 break-words whitespace-pre-wrap">
                                           {typeof value === 'boolean' ? (value ? 'نعم' : 'لا') :
-                                            field.type === 'file' ? 'تم إرفاق ملف' :
+                                            field.type === 'file' ? (
+                                              /* Render file preview */
+                                              typeof value === 'string' && value.startsWith('data:') ? (
+                                                value.startsWith('data:image') ? (
+                                                  <div className="mt-2 text-center">
+                                                    <img
+                                                      src={value}
+                                                      alt="Attached file"
+                                                      className="max-w-full h-auto max-h-[300px] rounded-md border border-border mx-auto"
+                                                    />
+                                                  </div>
+                                                ) : (
+                                                  <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                      const isPdf = value.startsWith('data:application/pdf');
+                                                      setFilePreview({
+                                                        open: true,
+                                                        type: isPdf ? 'pdf' : 'other',
+                                                        content: value,
+                                                        name: field.label
+                                                      })
+                                                    }}
+                                                    className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 border-blue-200"
+                                                  >
+                                                    <FileText className="w-4 h-4" />
+                                                    عرض الملف
+                                                  </Button>
+                                                )
+                                              ) : (
+                                                <span className="text-muted-foreground italic">تم إرفاق ملف (معاينة غير متاحة)</span>
+                                              )
+                                            ) :
                                               field.type === 'date' ? new Date(value).toLocaleDateString('ar-EG') :
                                                 String(value)}
                                         </span>
@@ -481,37 +541,84 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                                     <p className="text-yellow-600 text-sm mt-1">يرجى التواصل مع المدير لمنحك الصلاحيات المطلوبة</p>
                                   </div>
                                 ) : (
-                                  <div className="grid grid-cols-2 gap-3">
-                                    <Button
-                                      onClick={() => openActionDialog('approve')}
-                                      className="bg-green-600 hover:bg-green-700 w-full"
-                                    >
-                                      <CheckCircle className="w-4 h-4 me-2" />
-                                      موافقة
-                                    </Button>
-                                    <Button
-                                      onClick={() => openActionDialog('approve_with_changes')}
-                                      className="bg-blue-600 hover:bg-blue-700 w-full"
-                                    >
-                                      <RotateCcw className="w-4 h-4 me-2" />
-                                      موافقة بتعديلات
-                                    </Button>
-                                    <Button
-                                      onClick={() => openActionDialog('reject_with_changes')}
-                                      variant="outline"
-                                      className="w-full"
-                                    >
-                                      <Redo2 className="w-4 h-4 me-2" />
-                                      إعادة للتعديل
-                                    </Button>
-                                    <Button
-                                      onClick={() => openActionDialog('reject')}
-                                      variant="destructive"
-                                      className="w-full"
-                                    >
-                                      <XCircle className="w-4 h-4 me-2" />
-                                      رفض نهائي
-                                    </Button>
+                                  <div className="space-y-6">
+                                    {/* Internal Note */}
+                                    <div className="space-y-2">
+                                      <Label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                                        📝 ملاحظات إدارية (داخلية فقط)
+                                      </Label>
+                                      <Textarea
+                                        placeholder="اكتب ملاحظات للموظف التالي أو للإدارة (لن تظهر للطالب)..."
+                                        value={internalNote}
+                                        onChange={(e) => setInternalNote(e.target.value)}
+                                        className="bg-slate-50 min-h-[80px] resize-none"
+                                      />
+                                    </div>
+
+                                    {/* Attachment */}
+                                    <div className="space-y-2">
+                                      <Label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                                        📎 إرفاق ملف (اختياري)
+                                      </Label>
+                                      <div className="flex items-center gap-2 bg-slate-50 p-3 rounded-md border border-input border-dashed">
+                                        <Input
+                                          type="file"
+                                          onChange={(e) => {
+                                            const file = e.target.files?.[0]
+                                            if (file) {
+                                              const reader = new FileReader()
+                                              reader.onloadend = () => {
+                                                setAttachment({ name: file.name, content: reader.result as string })
+                                              }
+                                              reader.readAsDataURL(file)
+                                            } else {
+                                              setAttachment(null)
+                                            }
+                                          }}
+                                          className="text-right border-0 bg-transparent shadow-none p-0 h-auto"
+                                        />
+                                      </div>
+                                      {attachment && (
+                                        <p className="text-xs text-green-600 flex items-center gap-1">
+                                          <CheckCircle className="w-3 h-3" />
+                                          تم اختيار: {attachment.name}
+                                        </p>
+                                      )}
+                                    </div>
+
+                                    {/* Action Buttons */}
+                                    <div className="grid grid-cols-2 gap-3 pt-2 border-t">
+                                      <Button
+                                        onClick={() => openActionDialog('approve')}
+                                        className="bg-green-600 hover:bg-green-700 w-full"
+                                      >
+                                        <CheckCircle className="w-4 h-4 me-2" />
+                                        موافقة
+                                      </Button>
+                                      <Button
+                                        onClick={() => openActionDialog('approve_with_changes')}
+                                        className="bg-blue-600 hover:bg-blue-700 w-full"
+                                      >
+                                        <RotateCcw className="w-4 h-4 me-2" />
+                                        موافقة بتعديلات
+                                      </Button>
+                                      <Button
+                                        onClick={() => openActionDialog('reject_with_changes')}
+                                        variant="outline"
+                                        className="w-full"
+                                      >
+                                        <Redo2 className="w-4 h-4 me-2" />
+                                        إعادة للتعديل
+                                      </Button>
+                                      <Button
+                                        onClick={() => openActionDialog('reject')}
+                                        variant="destructive"
+                                        className="w-full"
+                                      >
+                                        <XCircle className="w-4 h-4 me-2" />
+                                        رفض نهائي
+                                      </Button>
+                                    </div>
                                   </div>
                                 )}
                               </CardContent>
@@ -709,7 +816,7 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                   onBack={() => setSelectedRequestType(null)}
                   onSubmit={() => {
                     setSelectedRequestType(null)
-                    setCurrentView("inbox")
+                    setCurrentView("requests")
                   }}
                 />
               )}
@@ -816,7 +923,9 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                 <p className="text-xs text-red-500">* هذا الحقل مطلوب</p>
               )}
             </div>
+
           </div>
+
 
           <DialogFooter>
             <Button
@@ -838,11 +947,49 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                   : "bg-red-600 hover:bg-red-700"
               }
             >
-              {isProcessing ? "جاري التنفيذ..." : "تأكيد الإجراء"}
+              تأكيد
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* File Preview Dialog */}
+      <Dialog open={!!filePreview?.open} onOpenChange={(open) => !open && setFilePreview(null)}>
+        <DialogContent className="max-w-4xl w-full h-[90vh] flex flex-col p-0">
+          <DialogHeader className="px-6 py-4 border-b">
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-6 text-primary" />
+              {filePreview?.name || "معاينة الملف"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 bg-slate-100 flex items-center justify-center p-4 overflow-hidden relative">
+            {filePreview?.type === 'pdf' ? (
+              <iframe
+                src={filePreview.content}
+                className="w-full h-full rounded-md bg-white shadow-sm"
+                title="PDF Preview"
+              />
+            ) : filePreview?.type === 'image' ? (
+              <img
+                src={filePreview.content}
+                alt="Preview"
+                className="max-w-full max-h-full object-contain rounded-md"
+              />
+            ) : (
+              <div className="text-center">
+                <p className="mb-4 text-muted-foreground">لا يمكن معاينة هذا النوع من الملفات مباشرة داخل النظام.</p>
+                <Button asChild>
+                  <a href={filePreview?.content} download="downloaded-file">
+                    <Upload className="w-4 h-4 me-2" />
+                    تحميل الملف
+                  </a>
+                </Button>
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
   )
 }
+

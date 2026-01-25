@@ -17,9 +17,10 @@ interface Request {
   title: string
   type: string
   date: string
-  status: "pending" | "approved" | "approved_with_changes" | "rejected_with_changes" | "rejected" | "processing"
+  status: "pending" | "approved" | "approved_with_changes" | "rejected_with_changes" | "rejected" | "processing" | "returned"
   description: string
   workflow?: WorkflowStep[]
+  attachments?: string[] | any[]
 }
 
 interface RequestDetailProps {
@@ -60,7 +61,8 @@ export default function RequestDetail({ request, onEdit }: RequestDetailProps) {
     rejected: { color: "bg-red-100 text-red-800", icon: CheckCircle, label: "مرفوض" },
     processing: { color: "bg-blue-100 text-blue-800", icon: Clock, label: "قيد المراجعة" },
     approved_with_changes: { color: "bg-primary/10 text-primary", icon: CheckCircle, label: "موافق بتعديلات" },
-    rejected_with_changes: { color: "bg-secondary/10 text-secondary", icon: Edit2, label: "معاد للتعديل" },
+    rejected_with_changes: { color: "bg-orange-100 text-orange-800", icon: Edit2, label: "معاد للتعديل" },
+    returned: { color: "bg-orange-100 text-orange-800", icon: Edit2, label: "معاد للتعديل" },
   }
 
   const config = statusConfig[request.status] || statusConfig.pending
@@ -99,6 +101,42 @@ export default function RequestDetail({ request, onEdit }: RequestDetailProps) {
           </div>
         </div>
       </Card>
+
+      {request.attachments && request.attachments.length > 0 && (
+        <Card className="p-4 bg-muted/20 border border-slate-200">
+          <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+            <Download className="w-4 h-4" />
+            المرفقات
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {request.attachments.map((file: any, idx: number) => {
+              // Handle different shapes of attachments if mapped or raw
+              const fileName = file.storage_location ? file.storage_location.split('/').pop() : 'file';
+              const fileUrl = file.storage_location || '#';
+              const uploader = file.uploader_name || 'مستخدم';
+              const date = file.uploaded_at ? new Date(file.uploaded_at).toLocaleDateString('ar-SA') : '';
+
+              return (
+                <a
+                  key={idx}
+                  href={fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between p-2 bg-white rounded border hover:bg-slate-50 transition-colors"
+                >
+                  <div className="flex items-center gap-2 overflow-hidden">
+                    <span className="bg-slate-100 p-1.5 rounded text-slate-500">
+                      {fileName.endsWith('.pdf') ? '📄' : '📎'}
+                    </span>
+                    <div className="truncate text-sm font-medium">{fileName}</div>
+                  </div>
+                  <span className="text-xs text-muted-foreground mr-2 shrink-0">{date}</span>
+                </a>
+              )
+            })}
+          </div>
+        </Card>
+      )}
 
       {request.workflow && request.workflow.length > 0 && <RequestTracking workflow={request.workflow} />
       }

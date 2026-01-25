@@ -153,7 +153,7 @@ export default function StudentDashboard({ onLogout, userData }: StudentDashboar
         onMenuClick={() => setIsMobileMenuOpen(true)}
       />
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1">
         {/* Desktop Sidebar */}
         <div className="hidden md:block h-full">
           <Sidebar currentView={currentView} onViewChange={(view) => setCurrentView(view as any)} userRole="student" />
@@ -174,7 +174,7 @@ export default function StudentDashboard({ onLogout, userData }: StudentDashboar
           </SheetContent>
         </Sheet>
 
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1">
           {/* Requests View */}
           {currentView === "requests" && !editingRequestId && (
             <>
@@ -226,8 +226,8 @@ export default function StudentDashboard({ onLogout, userData }: StudentDashboar
                       />
                     </div>
                   ) : (
-                    <div className="flex h-full">
-                      <div className="w-full md:w-1/3 border-l border-border overflow-auto">
+                    <div className="flex flex-col md:flex-row gap-6 items-start">
+                      <div className="w-full md:w-1/3 border border-border bg-card rounded-lg">
                         <RequestList
                           requests={requests}
                           selectedId={selectedRequest}
@@ -235,7 +235,7 @@ export default function StudentDashboard({ onLogout, userData }: StudentDashboar
                           loading={loading}
                         />
                       </div>
-                      <div className="hidden md:flex md:w-2/3 flex-col overflow-auto">
+                      <div className="w-full md:w-2/3 flex flex-col bg-slate-50/50 p-6 rounded-lg border border-border/50">
                         {selectedRequest ? (
                           <RequestDetail
                             request={requests.find((r) => r.id === selectedRequest)!}
@@ -243,7 +243,7 @@ export default function StudentDashboard({ onLogout, userData }: StudentDashboar
                             userId={userData.university_id}
                           />
                         ) : (
-                          <div className="flex items-center justify-center h-full text-muted-foreground">
+                          <div className="flex items-center justify-center p-12 text-muted-foreground w-full">
                             اختر طلباً لعرض التفاصيل
                           </div>
                         )}

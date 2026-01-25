@@ -55,6 +55,7 @@ export default function ReviewerInbox({ onBack }: ReviewerInboxProps) {
   const [searchTerm, setSearchTerm] = useState("")
   const [activeTab, setActiveTab] = useState<"pending" | "approved" | "rejected">("pending")
   const [loading, setLoading] = useState(true)
+  const [attachment, setAttachment] = useState<{ name: string; content: string } | null>(null)
   const [actionDialog, setActionDialog] = useState<{
     open: boolean
     action: "approved" | "approved_with_changes" | "rejected_with_changes" | "rejected" | null
@@ -117,7 +118,7 @@ export default function ReviewerInbox({ onBack }: ReviewerInboxProps) {
           action === "rejected" ? "reject" :
             action === "approved_with_changes" ? "approve_with_changes" :
               action === "rejected_with_changes" ? "reject_with_changes" : "approve"
-      await processRequest(selectedRequest.id, apiAction, notes, "EMP001")
+      await processRequest(selectedRequest.id, apiAction, notes, "EMP001", attachment?.content, attachment?.name)
     } catch (e) {
       console.error("Failed to process request", e)
     }
@@ -128,6 +129,7 @@ export default function ReviewerInbox({ onBack }: ReviewerInboxProps) {
     }
 
     setNotes("")
+    setAttachment(null)
     setActionDialog({ open: false, action: null })
   }
 
@@ -438,6 +440,31 @@ export default function ReviewerInbox({ onBack }: ReviewerInboxProps) {
                 onChange={(e) => setNotes(e.target.value)}
                 className="min-h-20 mt-2"
               />
+            </div>
+
+            <div>
+              <label className="text-sm font-semibold text-foreground mb-2 block">إرفاق ملف (اختياري)</label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="file"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) {
+                      const reader = new FileReader()
+                      reader.onloadend = () => {
+                        setAttachment({ name: file.name, content: reader.result as string })
+                      }
+                      reader.readAsDataURL(file)
+                    } else {
+                      setAttachment(null)
+                    }
+                  }}
+                  className="text-right"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                يمكنك إرفاق ملف ليكون مرئياً للموظف التالي في المسار (مثل: كشف درجات، تقرير، إلخ).
+              </p>
             </div>
           </div>
 

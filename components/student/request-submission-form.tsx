@@ -291,7 +291,12 @@ export default function RequestSubmissionForm({
                             id={`file-${field.id}`}
                             onChange={(e) => {
                               if (e.target.files?.[0]) {
-                                handleInputChange(field.key, e.target.files[0].name)
+                                const file = e.target.files[0]
+                                const reader = new FileReader()
+                                reader.onloadend = () => {
+                                  handleInputChange(field.key, reader.result)
+                                }
+                                reader.readAsDataURL(file)
                               }
                             }}
                           />
@@ -299,7 +304,9 @@ export default function RequestSubmissionForm({
                             <Upload className="w-10 h-10 text-muted-foreground" />
                             <div className="space-y-1">
                               <p className="text-base font-medium text-foreground">
-                                {formData[field.key] ? formData[field.key] : "اضغط لرفع ملف"}
+                                {formData[field.key] ? (
+                                  String(formData[field.key]).startsWith('data:') ? 'تم اختيار ملف' : formData[field.key]
+                                ) : "اضغط لرفع ملف"}
                               </p>
                               {!formData[field.key] && (
                                 <p className="text-sm text-muted-foreground">أو اسحب الملف وأفلته هنا</p>

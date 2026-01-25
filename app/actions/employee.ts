@@ -74,8 +74,28 @@ export async function getEmployeeRequests(employeeId: string) {
         const requests = await db.requests.findMany({
             where: { requester_id: user.user_id },
             include: {
-                form_templates: true,
-                workflow_steps: true
+                form_templates: {
+                    include: {
+                        request_types: {
+                            include: {
+                                workflows: {
+                                    include: {
+                                        workflow_steps: {
+                                            include: { roles: true, users: true },
+                                            orderBy: { order: 'asc' }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                workflow_steps: true,
+                workflow_steps: true,
+                users: true, // requester info
+                attachments: {
+                    include: { users: true }
+                }
             },
             orderBy: { submitted_at: 'desc' }
         })
@@ -84,11 +104,59 @@ export async function getEmployeeRequests(employeeId: string) {
             success: true,
             requests: requests.map((r: any) => ({
                 id: r.request_id.toString(),
+                title: r.form_templates?.name || "General",
                 type: r.form_templates?.name || "General",
+                formId: r.form_templates?.form_id?.toString() || r.form_id?.toString(),
                 date: r.submitted_at?.toISOString().split('T')[0] || "",
                 status: r.status,
-                description: (r.submission_data as any)?.reason || "",
-                submissionData: r.submission_data
+                description: (r.submission_data as any)?.reason || "لا يوجد وصف",
+                submissionData: r.submission_data,
+                reference_no: r.reference_no,
+                // Include raw data for client mapping if needed, or map workflow here
+                // Mapping workflow here to be safe and consistent
+                workflow: (() => {
+                    const steps = r.form_templates?.request_types?.workflows?.workflow_steps || [];
+                    const currentStepId = r.current_step_id;
+                    const requestStatus = r.status;
+                    const currentStepIndex = steps.findIndex((s: any) => s.step_id === currentStepId);
+
+                    return steps.map((step: any, index: number) => {
+                        let status = "pending";
+                        if (requestStatus === "approved") {
+                            status = "approved";
+                        } else if (requestStatus === "rejected") {
+                            if (index < currentStepIndex) status = "approved";
+                            else if (index === currentStepIndex) status = "rejected";
+                            else status = "pending";
+                        } else if (requestStatus === "returned") {
+                            if (index < currentStepIndex) status = "approved";
+                            else if (index === currentStepIndex) status = "returned";
+                            else status = "pending";
+                        } else {
+                            if (index < currentStepIndex) status = "approved";
+                            else if (index === currentStepIndex) status = "processing";
+                            else status = "pending";
+
+                            // Fallback for new requests
+                            if (currentStepIndex === -1 && index === 0 && requestStatus !== 'approved' && requestStatus !== 'rejected' && requestStatus !== 'returned') {
+                                status = "processing";
+                            }
+                        }
+
+                        return {
+                            step: index + 1,
+                            department: step.name || `خطوة ${index + 1}`,
+                            role: step.users?.full_name || step.roles?.role_name || "موافق",
+                            status: status
+                        };
+                    });
+                })(),
+                attachments: r.attachments?.map((a: any) => ({
+                    file_id: a.file_id,
+                    storage_location: a.storage_location,
+                    uploaded_at: a.uploaded_at,
+                    uploader_name: a.users?.full_name
+                })) || []
             }))
         }
     } catch (error) {
@@ -138,7 +206,10 @@ export async function getEmployeeHistory(employeeId: string) {
     }
 }
 
-export async function processRequest(requestId: string, action: 'approve' | 'reject' | 'approve_with_changes' | 'reject_with_changes', comment: string, actorId: string) {
+import fs from 'fs'
+import path from 'path'
+
+export async function processRequest(requestId: string, action: 'approve' | 'reject' | 'approve_with_changes' | 'reject_with_changes', comment: string, actorId: string, attachmentData?: string, attachmentName?: string) {
     try {
         const user = await db.users.findUnique({
             where: { university_id: actorId },
@@ -180,13 +251,50 @@ export async function processRequest(requestId: string, action: 'approve' | 'rej
 
         // Use transaction for atomicity
         await db.$transaction(async (tx) => {
+            // Handle Attachment if present
+            let finalComment = comment
+            if (attachmentData && attachmentName) {
+                try {
+                    // Create uploads directory if not exists
+                    const uploadDir = path.join(process.cwd(), 'public', 'uploads')
+                    if (!fs.existsSync(uploadDir)) {
+                        fs.mkdirSync(uploadDir, { recursive: true })
+                    }
+
+                    // Save file
+                    const fileName = `req-${request.request_id}-act-${Date.now()}-${attachmentName}`
+                    const filePath = path.join(uploadDir, fileName)
+
+                    // Decode base64 (remove data:application/pdf;base64, prefix if exists)
+                    const base64Data = attachmentData.split(';base64,').pop() || ""
+                    fs.writeFileSync(filePath, base64Data, { encoding: 'base64' })
+
+                    // Create DB Record
+                    await tx.attachments.create({
+                        data: {
+                            request_id: request.request_id,
+                            uploader_id: user.user_id,
+                            storage_location: `/uploads/${fileName}`,
+                            file_type: attachmentName.split('.').pop() || 'file',
+                            uploaded_at: new Date()
+                        }
+                    })
+
+                    finalComment += `\n\n[تم إرفاق ملف: ${attachmentName}]`
+                } catch (err) {
+                    console.error("Failed to save attachment:", err)
+                    // Continue without attachment but log it
+                    finalComment += `\n\n[فشل رفع الملف: ${attachmentName}]`
+                }
+            }
+
             // Record the action
             await tx.request_actions.create({
                 data: {
                     request_id: request.request_id,
                     actor_id: user.user_id,
                     action: action,
-                    comment: comment,
+                    comment: finalComment,
                     step_id: request.current_step_id
                 }
             })

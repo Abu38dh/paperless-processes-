@@ -392,7 +392,19 @@ export default function FormTemplatesList({ onEditForm, onCreateNewForm, onBack 
                         <Badge variant="outline">
                           {form.target_audience === 'all_students' ? 'جميع الطلاب' :
                             form.target_audience === 'all_employees' ? 'جميع الموظفين' :
-                              form.target_audience === 'specific' ? 'محدد' : 'الكل'}
+                              form.target_audience === 'specific' ? (() => {
+                                const conf = form.audience_config
+                                const parts = []
+                                if (conf?.colleges?.length > 0) {
+                                  const names = conf.colleges.map((id: number) => colleges.find(c => c.college_id === id)?.name).filter(Boolean)
+                                  if (names.length > 0) parts.push(`كليات: ${names.join('، ')}`)
+                                }
+                                if (conf?.departments?.length > 0) {
+                                  const names = conf.departments.map((id: number) => departments.find(d => d.department_id === id)?.dept_name).filter(Boolean)
+                                  if (names.length > 0) parts.push(`أقسام: ${names.join('، ')}`)
+                                }
+                                return parts.length > 0 ? parts.join(' - ') : 'محدد'
+                              })() : 'الكل'}
                         </Badge>
                         <span>•</span>
                         <span>{form.is_active ? 'منشور' : 'مسودة'}</span>

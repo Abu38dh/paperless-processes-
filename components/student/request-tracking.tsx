@@ -7,7 +7,7 @@ interface WorkflowStep {
   step: number
   department: string
   role: string
-  status: "pending" | "approved" | "rejected" | "processing"
+  status: "pending" | "approved" | "rejected" | "processing" | "returned" | "rejected_with_changes"
 }
 
 interface RequestTrackingProps {
@@ -15,7 +15,10 @@ interface RequestTrackingProps {
 }
 
 export default function RequestTracking({ workflow }: RequestTrackingProps) {
-  const currentStepIndex = workflow.findIndex((step) => step.status === "processing" || step.status === "pending")
+  const rejectedStepIndex = workflow.findIndex((step) => step.status === "rejected" || step.status === "rejected_with_changes")
+  const currentStepIndex = rejectedStepIndex !== -1
+    ? -1
+    : workflow.findIndex((step) => step.status === "processing" || step.status === "pending")
 
   let completedSteps: WorkflowStep[] = []
   let currentStep: WorkflowStep | undefined
@@ -96,19 +99,21 @@ export default function RequestTracking({ workflow }: RequestTrackingProps) {
         </Card>
       ) : (
         // Check for rejected state to show appropriate card
-        workflow.some(s => s.status === 'rejected') && (
-          <Card className="p-4 border border-red-100 bg-red-50/30">
+        (workflow.some(s => s.status === 'rejected') || workflow.some(s => s.status === 'returned' || s.status === 'rejected_with_changes')) && (
+          <Card className={`p-4 border ${workflow.some(s => s.status === 'rejected') ? 'border-red-100 bg-red-50/30' : 'border-orange-100 bg-orange-50/30'}`}>
             <div className="flex items-start gap-4">
-              <div className="p-2 bg-red-100 rounded-full text-red-600 mt-1">
-                <XCircle className="w-5 h-5" />
+              <div className={`p-2 rounded-full mt-1 ${workflow.some(s => s.status === 'rejected') ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'}`}>
+                {workflow.some(s => s.status === 'rejected') ? <XCircle className="w-5 h-5" /> : <Clock className="w-5 h-5" />}
               </div>
               <div>
-                <p className="text-sm font-medium text-red-900 mb-1">تم رفض الطلب من قبل:</p>
+                <p className={`text-sm font-medium mb-1 ${workflow.some(s => s.status === 'rejected') ? 'text-red-900' : 'text-orange-900'}`}>
+                  {workflow.some(s => s.status === 'rejected') ? 'تم رفض الطلب من قبل:' : 'تم إعادة الطلب للتعديل من قبل:'}
+                </p>
                 <h4 className="text-lg font-bold text-gray-900">
-                  {workflow.find(s => s.status === 'rejected')?.department}
+                  {workflow.find(s => s.status === 'rejected' || s.status === 'returned' || s.status === 'rejected_with_changes')?.department}
                 </h4>
                 <p className="text-sm text-gray-500 mt-1">
-                  {workflow.find(s => s.status === 'rejected')?.role}
+                  {workflow.find(s => s.status === 'rejected' || s.status === 'returned' || s.status === 'rejected_with_changes')?.role}
                 </p>
               </div>
             </div>

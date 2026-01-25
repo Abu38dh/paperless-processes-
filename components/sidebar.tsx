@@ -51,8 +51,10 @@ export default function Sidebar({ currentView, onViewChange, userRole = "student
       baseMenu.push({ id: "workflows", label: "مسارات العمل", icon: Zap })
     }
 
-    // Always show history
-    baseMenu.push({ id: "history", label: "سجل الإجراءات", icon: CheckCircle })
+    // Show history only if can review
+    if (hasPermission("review_requests")) {
+      baseMenu.push({ id: "history", label: "سجل الإجراءات", icon: CheckCircle })
+    }
 
     // Always show settings
     baseMenu.push({ id: "settings", label: "الإعدادات", icon: Settings })

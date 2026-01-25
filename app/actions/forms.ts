@@ -31,7 +31,21 @@ export async function getAllFormTemplates(page: number = 1, limit: number = 20) 
             data: templates.map(t => ({
                 ...t,
                 created_at: t.created_at?.toISOString() || null,
-                updated_at: (t as any).updated_at?.toISOString() || null
+                updated_at: (t as any).updated_at?.toISOString() || null,
+                target_audience: (() => {
+                    const conf = t.audience_config as any
+                    if (!conf) return 'all_students'
+
+                    if ((conf.colleges && conf.colleges.length > 0) || (conf.departments && conf.departments.length > 0)) {
+                        return 'specific'
+                    }
+
+                    if (conf.student && conf.employee) return 'all'
+                    if (conf.employee) return 'all_employees'
+                    if (conf.student) return 'all_students'
+
+                    return 'all_students' // Default
+                })()
             })),
             pagination: {
                 page,
