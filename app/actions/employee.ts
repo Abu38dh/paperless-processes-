@@ -63,6 +63,40 @@ export async function getEmployeeInbox(employeeId: string) {
     }
 }
 
+export async function getEmployeeRequests(employeeId: string) {
+    try {
+        const user = await db.users.findUnique({
+            where: { university_id: employeeId },
+        })
+
+        if (!user) throw new Error("Employee not found")
+
+        const requests = await db.requests.findMany({
+            where: { requester_id: user.user_id },
+            include: {
+                form_templates: true,
+                workflow_steps: true
+            },
+            orderBy: { submitted_at: 'desc' }
+        })
+
+        return {
+            success: true,
+            requests: requests.map((r: any) => ({
+                id: r.request_id.toString(),
+                type: r.form_templates?.name || "General",
+                date: r.submitted_at?.toISOString().split('T')[0] || "",
+                status: r.status,
+                description: (r.submission_data as any)?.reason || "",
+                submissionData: r.submission_data
+            }))
+        }
+    } catch (error) {
+        console.error("Employee Requests Error:", error)
+        return { success: false, error: "Failed to fetch requests" }
+    }
+}
+
 export async function getEmployeeHistory(employeeId: string) {
     try {
         const user = await db.users.findUnique({
@@ -256,7 +290,7 @@ export async function processRequest(requestId: string, action: 'approve' | 'rej
             user.full_name
         )
 
-        revalidatePath('/')
+        // revalidatePath('/')
         return { success: true }
     } catch (error) {
         console.error("Process Request Error:", error)
@@ -396,7 +430,7 @@ export async function createDelegation(data: {
             }
         })
 
-        revalidatePath('/')
+        // revalidatePath('/')
         return { success: true, data: delegation }
     } catch (error) {
         console.error("Create Delegation Error:", error)
@@ -431,7 +465,7 @@ export async function updateDelegation(
             data: updateData
         })
 
-        revalidatePath('/')
+        // revalidatePath('/')
         return { success: true, data: delegation }
     } catch (error) {
         console.error("Update Delegation Error:", error)
@@ -449,7 +483,7 @@ export async function deleteDelegation(delegationId: number) {
             data: { is_active: false }
         })
 
-        revalidatePath('/')
+        // revalidatePath('/')
         return { success: true }
     } catch (error) {
         console.error("Delete Delegation Error:", error)
@@ -467,7 +501,7 @@ export async function toggleDelegation(delegationId: number, isActive: boolean) 
             data: { is_active: isActive }
         })
 
-        revalidatePath('/')
+        // revalidatePath('/')
         return { success: true, data: delegation }
     } catch (error) {
         console.error("Toggle Delegation Error:", error)

@@ -86,7 +86,6 @@ export default function AdminDashboard({ onLogout, userData }: AdminDashboardPro
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   const fetchStats = async () => {
-    setLoading(true)
     setError(null)
 
     try {

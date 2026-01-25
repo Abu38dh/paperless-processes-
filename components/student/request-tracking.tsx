@@ -1,7 +1,7 @@
 "use client"
 
 import { Card } from "@/components/ui/card"
-import { CheckCircle, Clock } from "lucide-react"
+import { CheckCircle, Clock, XCircle } from "lucide-react"
 
 interface WorkflowStep {
   step: number
@@ -64,6 +64,7 @@ export default function RequestTracking({ workflow }: RequestTrackingProps) {
               <div className={`flex items-center px-4 py-1.5 rounded-full border text-sm transition-colors whitespace-nowrap ${badgeClass}`}>
                 {step.status === "approved" && <CheckCircle className="w-3.5 h-3.5 ml-2" />}
                 {step.status === "processing" && <Clock className="w-3.5 h-3.5 ml-2 animate-pulse" />}
+                {step.status === "rejected" && <XCircle className="w-3.5 h-3.5 ml-2" />}
                 {step.department}
               </div>
 
@@ -80,7 +81,7 @@ export default function RequestTracking({ workflow }: RequestTrackingProps) {
       </div>
 
       {/* Current Step Detailed Card */}
-      {currentStep && (
+      {currentStep ? (
         <Card className="p-4 border border-blue-100 bg-blue-50/30">
           <div className="flex items-start gap-4">
             <div className="p-2 bg-blue-100 rounded-full text-blue-600 mt-1">
@@ -93,6 +94,26 @@ export default function RequestTracking({ workflow }: RequestTrackingProps) {
             </div>
           </div>
         </Card>
+      ) : (
+        // Check for rejected state to show appropriate card
+        workflow.some(s => s.status === 'rejected') && (
+          <Card className="p-4 border border-red-100 bg-red-50/30">
+            <div className="flex items-start gap-4">
+              <div className="p-2 bg-red-100 rounded-full text-red-600 mt-1">
+                <XCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-red-900 mb-1">تم رفض الطلب من قبل:</p>
+                <h4 className="text-lg font-bold text-gray-900">
+                  {workflow.find(s => s.status === 'rejected')?.department}
+                </h4>
+                <p className="text-sm text-gray-500 mt-1">
+                  {workflow.find(s => s.status === 'rejected')?.role}
+                </p>
+              </div>
+            </div>
+          </Card>
+        )
       )}
     </div>
   )

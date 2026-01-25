@@ -23,7 +23,6 @@ export default function AdminReportsPage({ onBack }: AdminReportsPageProps) {
   }, [])
 
   const fetchData = async () => {
-    setLoading(true)
     setError(null)
 
     try {

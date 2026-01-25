@@ -77,7 +77,6 @@ export default function WorkflowsEditor({ onBack }: WorkflowsEditorProps) {
   }, [])
 
   const fetchData = async () => {
-    setLoading(true)
     setError(null)
 
     try {

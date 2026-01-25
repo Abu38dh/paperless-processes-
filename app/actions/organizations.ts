@@ -45,7 +45,7 @@ export async function createCollege(data: {
             }
         })
 
-        revalidatePath('/admin')
+        // revalidatePath('/admin')
         return { success: true, data: college }
     } catch (error) {
         console.error("Create College Error:", error)
@@ -73,7 +73,7 @@ export async function updateCollege(
             data: updateData
         })
 
-        revalidatePath('/admin')
+        // revalidatePath('/admin')
         return { success: true, data: college }
     } catch (error) {
         console.error("Update College Error:", error)
@@ -102,7 +102,7 @@ export async function deleteCollege(collegeId: number) {
             where: { college_id: collegeId }
         })
 
-        revalidatePath('/admin')
+        // revalidatePath('/admin')
         return { success: true }
     } catch (error) {
         console.error("Delete College Error:", error)
@@ -156,7 +156,7 @@ export async function createDepartment(data: {
             }
         })
 
-        revalidatePath('/admin')
+        // revalidatePath('/admin')
         return { success: true, data: department }
     } catch (error) {
         console.error("Create Department Error:", error)
@@ -186,7 +186,7 @@ export async function updateDepartment(
             data: updateData
         })
 
-        revalidatePath('/admin')
+        // revalidatePath('/admin')
         return { success: true, data: department }
     } catch (error) {
         console.error("Update Department Error:", error)
@@ -215,7 +215,7 @@ export async function deleteDepartment(departmentId: number) {
             where: { department_id: departmentId }
         })
 
-        revalidatePath('/admin')
+        // revalidatePath('/admin')
         return { success: true }
     } catch (error) {
         console.error("Delete Department Error:", error)

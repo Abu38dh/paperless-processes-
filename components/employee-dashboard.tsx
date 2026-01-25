@@ -24,7 +24,7 @@ import RequestSubmissionForm from "@/components/student/request-submission-form"
 import { DashboardSkeleton, TableSkeleton } from "@/components/ui/loading-skeleton"
 import { ErrorMessage } from "@/components/ui/error-message"
 import { EmptyState } from "@/components/ui/empty-state"
-import { getEmployeeInbox, getEmployeeStats, processRequest } from "@/app/actions/employee"
+import { getEmployeeInbox, getEmployeeStats, processRequest, getEmployeeRequests } from "@/app/actions/employee"
 import { getAvailableFormTemplates } from "@/app/actions/forms"
 import { CheckCircle, XCircle, Clock, FileText, RotateCcw, Redo2 } from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
@@ -58,6 +58,7 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
 
   // Data states
   const [inboxRequests, setInboxRequests] = useState<any[]>([])
+  const [myRequests, setMyRequests] = useState<any[]>([])
   const [historyRequests, setHistoryRequests] = useState<any[]>([])
   const [availableForms, setAvailableForms] = useState<any[]>([])
   const [stats, setStats] = useState({ totalActions: 0, approved: 0, rejected: 0, pending: 0 })
@@ -75,15 +76,26 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
 
   useEffect(() => {
     fetchInboxData()
+    fetchMyRequests()
     fetchStats()
     fetchAvailableForms()
     fetchHistoryData()
   }, [])
 
+  const fetchMyRequests = async () => {
+    try {
+      const result = await getEmployeeRequests(userData.university_id)
+      if (result.success && result.requests) {
+        setMyRequests(result.requests)
+      }
+    } catch (err) {
+      console.error("Failed to fetch my requests:", err)
+    }
+  }
+
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   const fetchInboxData = async () => {
-    setLoading(true)
     setError(null)
 
     try {
@@ -271,11 +283,34 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
               <h2 className="text-2xl font-bold mb-4">طلباتي</h2>
               <Card>
                 <CardContent className="p-6">
-                  <EmptyState
-                    icon="📝"
-                    title="لا توجد طلبات"
-                    description="لم تقم بتقديم أي طلبات بعد. اضغط على 'طلب جديد' لتقديم طلبك الأول."
-                  />
+                  {myRequests.length === 0 ? (
+                    <EmptyState
+                      icon="📝"
+                      title="لا توجد طلبات"
+                      description="لم تقم بتقديم أي طلبات بعد. اضغط على 'طلب جديد' لتقديم طلبك الأول."
+                    />
+                  ) : (
+                    <div className="space-y-4">
+                      {myRequests.map((req) => (
+                        <Card key={req.id} className="cursor-pointer hover:bg-muted/50 transition-colors"
+                          onClick={() => {
+                            // Can re-use request detail logic or open in sheet like history.
+                            handleViewHistory(req.id)
+                          }}
+                        >
+                          <CardHeader className="p-4">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <CardTitle className="text-base">{req.type}</CardTitle>
+                                <CardDescription className="text-sm mt-1">{req.date}</CardDescription>
+                              </div>
+                              {getStatusBadge(req.status)}
+                            </div>
+                          </CardHeader>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>

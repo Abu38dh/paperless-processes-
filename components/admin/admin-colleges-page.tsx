@@ -49,7 +49,6 @@ export default function AdminCollegesPage({ onBack }: AdminCollegesPageProps) {
     }, [])
 
     const fetchData = async () => {
-        setLoading(true)
         setError(null)
 
         try {

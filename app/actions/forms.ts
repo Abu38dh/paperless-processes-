@@ -108,7 +108,7 @@ export async function saveFormTemplate(data: {
                 }
             })
 
-            revalidatePath('/admin')
+            // revalidatePath('/admin')
             return { success: true, data: updated }
         } else {
             // Create new
@@ -122,7 +122,7 @@ export async function saveFormTemplate(data: {
                 }
             })
 
-            revalidatePath('/admin')
+            // revalidatePath('/admin')
             return { success: true, data: created }
         }
     } catch (error) {
@@ -234,7 +234,7 @@ export async function publishFormTemplate(
             })
         })
 
-        revalidatePath('/admin')
+        // revalidatePath('/admin')
         return { success: true }
     } catch (error) {
         console.error("Publish Form Template Error:", error)
@@ -252,7 +252,7 @@ export async function toggleFormStatus(formId: number, isActive: boolean) {
             data: { is_active: isActive }
         })
 
-        revalidatePath('/admin')
+        // revalidatePath('/admin')
         return { success: true, data: updated }
     } catch (error) {
         console.error("Toggle Form Status Error:", error)
@@ -279,7 +279,7 @@ export async function deleteFormTemplate(formId: number) {
                 data: { is_active: false }
             })
 
-            revalidatePath('/admin')
+            // revalidatePath('/admin')
             return {
                 success: true,
                 message: "تم تعطيل النموذج لوجود طلبات مرتبطة به"
@@ -291,7 +291,7 @@ export async function deleteFormTemplate(formId: number) {
             where: { form_id: formId }
         })
 
-        revalidatePath('/admin')
+        // revalidatePath('/admin')
         return { success: true, message: "تم حذف النموذج نهائياً" }
     } catch (error) {
         console.error("Delete Form Template Error:", error)

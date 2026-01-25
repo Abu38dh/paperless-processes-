@@ -47,7 +47,6 @@ export default function StudentDashboard({ onLogout, userData }: StudentDashboar
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   const fetchDashboardData = async () => {
-    setLoading(true)
     setError(null)
 
     try {

@@ -134,7 +134,7 @@ export async function submitRequest(data: any) {
             )
         }
 
-        revalidatePath('/')
+        // revalidatePath('/')
         return { success: true, data: newRequest }
     } catch (error) {
         console.error("Submit Request Error:", error)
@@ -342,7 +342,7 @@ export async function updateRequest(requestId: number, data: any, userId: string
             }
         }
 
-        revalidatePath('/')
+        // revalidatePath('/')
         return { success: true }
     } catch (error) {
         console.error("Update Request Error:", error)

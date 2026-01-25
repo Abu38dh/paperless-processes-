@@ -63,7 +63,6 @@ export default function AdminUsersPage({ onBack }: AdminUserPageProps) {
   }, [])
 
   const fetchData = async () => {
-    setLoading(true)
     setError(null)
 
     try {

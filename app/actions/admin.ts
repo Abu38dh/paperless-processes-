@@ -84,7 +84,7 @@ export async function createUser(data: any) {
                 department_id: data.department_id ? parseInt(data.department_id) : null
             }
         })
-        revalidatePath('/admin')
+        // revalidatePath('/admin')
         return { success: true }
     } catch (e) {
         console.error("Create User Error:", e)
@@ -123,7 +123,7 @@ export async function updateUser(userId: number, data: any) {
 
         console.log("Update Result:", result)
 
-        revalidatePath('/admin')
+        // revalidatePath('/admin')
         return { success: true }
     } catch (e: any) {
         console.error("Update User Error:", e)
@@ -142,7 +142,7 @@ export async function deleteUser(userId: number) {
             data: { is_active: false }
         })
 
-        revalidatePath('/admin')
+        // revalidatePath('/admin')
         return { success: true }
     } catch (e) {
         console.error("Delete User Error:", e)

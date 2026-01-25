@@ -52,7 +52,6 @@ export default function AdminDepartmentsPage({ onBack }: AdminDepartmentsPagePro
     }, [])
 
     const fetchData = async () => {
-        setLoading(true)
         setError(null)
 
         try {

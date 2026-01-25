@@ -65,7 +65,7 @@ export async function uploadAttachment(data: {
             }
         })
 
-        revalidatePath('/')
+        // revalidatePath('/')
         return { success: true, data: attachment }
     } catch (error) {
         console.error("Upload Attachment Error:", error)
@@ -111,7 +111,7 @@ export async function deleteAttachment(attachmentId: number, userId: string) {
             where: { file_id: attachmentId }
         })
 
-        revalidatePath('/')
+        // revalidatePath('/')
         return { success: true }
     } catch (error) {
         console.error("Delete Attachment Error:", error)

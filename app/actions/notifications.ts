@@ -59,7 +59,7 @@ export async function createNotification(data: {
             }
         })
 
-        revalidatePath('/')
+        // revalidatePath('/')
         return { success: true, data: notification }
     } catch (error) {
         console.error("Create Notification Error:", error)
@@ -96,7 +96,7 @@ export async function createBulkNotifications(data: {
             }))
         })
 
-        revalidatePath('/')
+        // revalidatePath('/')
         return { success: true }
     } catch (error) {
         console.error("Create Bulk Notifications Error:", error)

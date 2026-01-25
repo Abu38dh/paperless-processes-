@@ -101,7 +101,7 @@ export async function createWorkflow(data: {
             }
         })
 
-        revalidatePath('/admin')
+        // revalidatePath('/admin')
         return { success: true, data: workflow }
     } catch (error) {
         console.error("Create Workflow Error:", error)
@@ -162,7 +162,7 @@ export async function updateWorkflow(
             })
         }
 
-        revalidatePath('/admin')
+        // revalidatePath('/admin')
         return { success: true }
     } catch (error) {
         console.error("Update Workflow Error:", error)
@@ -197,7 +197,7 @@ export async function deleteWorkflow(workflowId: number) {
             where: { workflow_id: workflowId }
         })
 
-        revalidatePath('/admin')
+        // revalidatePath('/admin')
         return { success: true }
     } catch (error) {
         console.error("Delete Workflow Error:", error)
@@ -218,7 +218,7 @@ export async function assignWorkflowToFormType(
             data: { workflow_id: workflowId }
         })
 
-        revalidatePath('/admin')
+        // revalidatePath('/admin')
         return { success: true }
     } catch (error) {
         console.error("Assign Workflow Error:", error)

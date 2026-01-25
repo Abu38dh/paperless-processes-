@@ -71,7 +71,6 @@ export default function FormTemplatesList({ onEditForm, onCreateNewForm, onBack 
   }
 
   const fetchForms = async () => {
-    setLoading(true)
     setError(null)
 
     try {
