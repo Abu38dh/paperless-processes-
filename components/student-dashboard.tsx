@@ -14,7 +14,7 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { getStudentDashboardData } from "@/app/actions/student"
 import { getAvailableFormTemplates } from "@/app/actions/forms"
 import { Badge } from "@/components/ui/badge"
-import { Sheet, SheetContent } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 
 interface StudentDashboardProps {
   onLogout: () => void
@@ -110,9 +110,14 @@ export default function StudentDashboard({ onLogout, userData }: StudentDashboar
         setRequests(mappedRequests)
         setStats(dashboardResult.data.stats)
 
-        if (mappedRequests.length > 0 && !selectedRequest) {
-          setSelectedRequest(mappedRequests[0].id)
-        }
+        // Only auto-select first request if we are on a larger screen (can't easily detect here without window, so let's default to no selection to be mobile-safe, or check client width)
+        // Ideally we want desktop users to see something.
+        // Let's rely on the user clicking for now, or use a media query hook if available, but for now simple is better.
+        // If we want to keep desktop behavior, we could potentially set it, but then mobile users get thrown into detail view.
+        // Compromise: Don't auto-select. This is safer for mobile.
+        // if (mappedRequests.length > 0 && !selectedRequest) {
+        //   setSelectedRequest(mappedRequests[0].id)
+        // }
       } else {
         setError(dashboardResult.error || "فشل في تحميل البيانات")
       }
@@ -146,7 +151,7 @@ export default function StudentDashboard({ onLogout, userData }: StudentDashboar
   const requestTypes = availableForms
 
   return (
-    <div className="min-h-screen bg-background flex flex-col" dir="rtl">
+    <div className="min-h-screen bg-background flex flex-col overflow-x-hidden" dir="rtl">
       <Header
         userType={`طالب - ${userData.full_name}`}
         onLogout={onLogout}
@@ -162,6 +167,10 @@ export default function StudentDashboard({ onLogout, userData }: StudentDashboar
         {/* Mobile Sidebar Sheet */}
         <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
           <SheetContent side="right" className="p-0 border-0 w-64">
+            <div className="sr-only">
+              <SheetTitle>قائمة التنقل</SheetTitle>
+              <SheetDescription>قائمة التنقل الجانبية للوصول للخدمات</SheetDescription>
+            </div>
             <Sidebar
               currentView={currentView}
               onViewChange={(view) => {
@@ -189,24 +198,25 @@ export default function StudentDashboard({ onLogout, userData }: StudentDashboar
               ) : (
                 <>
                   {/* Stats Cards */}
-                  <div className="p-6 border-b bg-muted/30">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <Card>
-                        <CardHeader className="pb-2">
-                          <CardDescription>إجمالي الطلبات</CardDescription>
-                          <CardTitle className="text-3xl">{stats.total}</CardTitle>
+                  {/* Stats Cards */}
+                  <div className="p-3 md:p-6 border-b bg-muted/30 w-full overflow-hidden">
+                    <div className="grid grid-cols-3 gap-2 md:gap-4">
+                      <Card className="md:min-w-0 shadow-sm border-slate-200">
+                        <CardHeader className="p-2 md:pb-2 text-center md:text-right">
+                          <CardDescription className="text-[10px] md:text-sm whitespace-nowrap overflow-hidden text-ellipsis">الكل</CardDescription>
+                          <CardTitle className="text-lg md:text-3xl">{stats.total}</CardTitle>
                         </CardHeader>
                       </Card>
-                      <Card>
-                        <CardHeader className="pb-2">
-                          <CardDescription>قيد المعالجة</CardDescription>
-                          <CardTitle className="text-3xl text-yellow-600">{stats.pending}</CardTitle>
+                      <Card className="md:min-w-0 shadow-sm border-slate-200">
+                        <CardHeader className="p-2 md:pb-2 text-center md:text-right">
+                          <CardDescription className="text-[10px] md:text-sm whitespace-nowrap overflow-hidden text-ellipsis">قيد المعالجة</CardDescription>
+                          <CardTitle className="text-lg md:text-3xl text-yellow-600">{stats.pending}</CardTitle>
                         </CardHeader>
                       </Card>
-                      <Card>
-                        <CardHeader className="pb-2">
-                          <CardDescription>مكتملة</CardDescription>
-                          <CardTitle className="text-3xl text-green-600">{stats.completed}</CardTitle>
+                      <Card className="md:min-w-0 shadow-sm border-slate-200">
+                        <CardHeader className="p-2 md:pb-2 text-center md:text-right">
+                          <CardDescription className="text-[10px] md:text-sm whitespace-nowrap overflow-hidden text-ellipsis">مكتملة</CardDescription>
+                          <CardTitle className="text-lg md:text-3xl text-green-600">{stats.completed}</CardTitle>
                         </CardHeader>
                       </Card>
                     </div>
@@ -227,7 +237,9 @@ export default function StudentDashboard({ onLogout, userData }: StudentDashboar
                     </div>
                   ) : (
                     <div className="flex flex-col md:flex-row gap-6 items-start">
-                      <div className="w-full md:w-1/3 border border-border bg-card rounded-lg">
+                      {/* Request List Column */}
+                      <div className={`w-full md:w-1/3 space-y-4 ${selectedRequest ? 'hidden md:block' : 'block'
+                        }`}>
                         <RequestList
                           requests={requests}
                           selectedId={selectedRequest}
@@ -235,11 +247,15 @@ export default function StudentDashboard({ onLogout, userData }: StudentDashboar
                           loading={loading}
                         />
                       </div>
-                      <div className="w-full md:w-2/3 flex flex-col bg-slate-50/50 p-6 rounded-lg border border-border/50">
+
+                      {/* Request Detail Column */}
+                      <div className={`w-full md:w-2/3 flex flex-col bg-slate-50/50 p-4 md:p-6 rounded-lg border border-border/50 ${!selectedRequest ? 'hidden md:flex' : 'flex'
+                        }`}>
                         {selectedRequest ? (
                           <RequestDetail
                             request={requests.find((r) => r.id === selectedRequest)!}
                             onEdit={() => setEditingRequestId(selectedRequest)}
+                            onBack={() => setSelectedRequest("")}
                             userId={userData.university_id}
                           />
                         ) : (

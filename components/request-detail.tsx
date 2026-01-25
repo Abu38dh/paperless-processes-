@@ -26,6 +26,7 @@ interface Request {
 interface RequestDetailProps {
   request: Request
   onEdit?: () => void
+  onBack?: () => void
   userId?: string
 }
 
@@ -44,7 +45,7 @@ export interface RequestAction {
   comment?: string
 }
 
-export default function RequestDetail({ request, onEdit }: RequestDetailProps) {
+export default function RequestDetail({ request, onEdit, onBack }: RequestDetailProps) {
   const [history, setHistory] = useState<RequestAction[]>([])
 
   useEffect(() => {
@@ -69,8 +70,20 @@ export default function RequestDetail({ request, onEdit }: RequestDetailProps) {
   const StatusIcon = config.icon
 
   return (
-    <div className="p-6 space-y-6" >
+    <div className="p-4 md:p-6 space-y-6" >
       <div>
+        {/* Mobile Back Button */}
+        {onBack && (
+          <Button
+            variant="ghost"
+            className="md:hidden mb-4 pl-0 -mr-4 flex items-center text-muted-foreground hover:text-foreground"
+            onClick={onBack}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="ml-1 w-4 h-4"><path d="m9 18 6-6-6-6" /></svg>
+            العودة
+          </Button>
+        )}
+
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-2xl font-bold text-foreground">{request.title}</h2>
           <span className={`px-3 py-1 rounded-full text-sm font-medium ${config.color}`}>

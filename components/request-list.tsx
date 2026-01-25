@@ -57,30 +57,32 @@ export default function RequestList({ requests, selectedId, onSelect, loading }:
       <div className="relative mb-4">
         <Search className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="بحث..."
-          className="pr-9"
+          placeholder="بحث عن طلب..."
+          className="pr-9 bg-white border-slate-200 focus:border-primary/50 focus:ring-primary/20 transition-all rounded-xl shadow-sm"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
       {filteredRequests.map((request) => (
-        <Card
+        <div
           key={request.id}
           onClick={() => onSelect(request.id)}
-          className={`p-4 cursor-pointer transition-all border ${selectedId === request.id
-            ? "border-primary bg-primary/5 shadow-md"
-            : "border-slate-200 hover:border-primary/50"
+          className={`group p-3 cursor-pointer transition-all rounded-lg border ${selectedId === request.id
+            ? "border-primary bg-primary/5 shadow-sm"
+            : "border-transparent bg-white shadow-sm hover:border-primary/20 hover:shadow-md"
             }`}
         >
-          <div className="flex items-start justify-between mb-2">
-            <h4 className="font-semibold text-foreground">{request.title}</h4>
-            <span className={`text-xs px-2 py-1 rounded ${statusColors[request.status]}`}>
+          <div className="flex items-center justify-between mb-1">
+            <h4 className="font-bold text-foreground group-hover:text-primary transition-colors text-sm">{request.title}</h4>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${statusColors[request.status]}`}>
               {statusLabels[request.status]}
             </span>
           </div>
-          <p className="text-sm text-muted-foreground mb-2">{request.type}</p>
-          <p className="text-xs text-muted-foreground">{request.date}</p>
-        </Card>
+          <div className="flex justify-between items-center">
+            <p className="text-[10px] text-muted-foreground bg-slate-100 px-1.5 py-0.5 rounded inline-block">{request.type}</p>
+            <p className="text-[10px] text-muted-foreground/70 font-mono">{request.date}</p>
+          </div>
+        </div>
       ))}
     </div>
   )
