@@ -74,6 +74,35 @@ export async function createUser(data: any) {
     try {
         const password = data.password || "123" // Use provided password or default
         const hash = await bcrypt.hash(password, 10)
+
+        // Fetch the role to get its default permissions
+        const role = await db.roles.findUnique({
+            where: { role_id: parseInt(data.role_id) }
+        })
+
+        let customPermissions: string[] | null = null
+
+        if (role) {
+            // Start with role's default permissions
+            const currentPermissions = (role.permissions as string[]) || []
+            const newPermissions = new Set(currentPermissions)
+
+            // Add automatic permissions based on role
+            if (role.role_name === 'manager' || role.role_name === 'dean') {
+                newPermissions.add('review_requests')
+                newPermissions.add('manage_forms')
+                // Managers also need to see reports usually
+                newPermissions.add('view_reports')
+            } else if (role.role_name === 'admin') {
+                newPermissions.add('all')
+            }
+
+            // Only set custom_permissions if we added something new or if we want to enforce specific permissions
+            if (newPermissions.size > 0) {
+                customPermissions = Array.from(newPermissions)
+            }
+        }
+
         await db.users.create({
             data: {
                 university_id: data.university_id,
@@ -81,7 +110,8 @@ export async function createUser(data: any) {
                 password_hash: hash,
                 phone: data.phone || null,
                 role_id: parseInt(data.role_id),
-                department_id: data.department_id ? parseInt(data.department_id) : null
+                department_id: data.department_id ? parseInt(data.department_id) : null,
+                custom_permissions: customPermissions ? JSON.stringify(customPermissions) : null
             }
         })
         // revalidatePath('/admin')

@@ -278,7 +278,7 @@ export default function AdminUsersPage({ onBack }: AdminUserPageProps) {
             >
               <option value="">جميع الكليات</option>
               {colleges.map((college: any) => (
-                <option key={college.college_id} value={college.college_id}>{college.college_name}</option>
+                <option key={college.college_id} value={college.college_id}>{college.name}</option>
               ))}
             </select>
             <select
@@ -366,7 +366,7 @@ export default function AdminUsersPage({ onBack }: AdminUserPageProps) {
                         >
                           <option value="">اختر الكلية (اختياري للفلترة)</option>
                           {colleges.map((college: any) => (
-                            <option key={college.college_id} value={college.college_id}>{college.college_name}</option>
+                            <option key={college.college_id} value={college.college_id}>{college.name}</option>
                           ))}
                         </select>
                       </div>
