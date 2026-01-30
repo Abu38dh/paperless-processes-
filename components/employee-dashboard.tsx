@@ -825,22 +825,22 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
 
           {/* Forms Management View */}
           {currentView === "forms" && hasPermission('manage_forms') && (
-            <AdminFormsPage onBack={() => setCurrentView("requests")} />
+            <AdminFormsPage onBack={() => setCurrentView("requests")} currentUserId={userData.university_id} />
           )}
 
           {/* Workflows Management View */}
           {currentView === "workflows" && hasPermission('manage_workflows') && (
-            <WorkflowsEditor onBack={() => setCurrentView("requests")} />
+            <WorkflowsEditor onBack={() => setCurrentView("requests")} currentUserId={userData.university_id} />
           )}
 
           {/* Users Management View */}
           {currentView === "users" && hasPermission('manage_users') && (
-            <AdminUsersPage onBack={() => setCurrentView("requests")} />
+            <AdminUsersPage onBack={() => setCurrentView("requests")} currentUserId={userData.university_id} />
           )}
 
           {/* Departments Management View */}
           {currentView === "departments" && hasPermission('manage_departments') && (
-            <AdminDepartmentsPage onBack={() => setCurrentView("requests")} />
+            <AdminDepartmentsPage onBack={() => setCurrentView("requests")} currentUserId={userData.university_id} />
           )}
 
           {/* Reports View */}

@@ -1,4 +1,5 @@
 "use client"
+// Force rebuild
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -14,6 +15,7 @@ import { ErrorMessage } from "@/components/ui/error-message"
 import { getUsers, createUser, updateUser, deleteUser, getAllRoles } from "@/app/actions/admin"
 import { getAllColleges } from "@/app/actions/organizations"
 import { useToast } from "@/hooks/use-toast"
+import { translateRole } from "@/lib/translations"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,9 +29,10 @@ import {
 
 interface AdminUserPageProps {
   onBack: () => void
+  currentUserId?: string
 }
 
-export default function AdminUsersPage({ onBack }: AdminUserPageProps) {
+export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageProps) {
   const [users, setUsers] = useState<any[]>([])
   const [roles, setRoles] = useState<any[]>([])
   const [colleges, setColleges] = useState<any[]>([])
@@ -58,19 +61,68 @@ export default function AdminUsersPage({ onBack }: AdminUserPageProps) {
   const [newUserDeptId, setNewUserDeptId] = useState("")
   const [newUserCollegeId, setNewUserCollegeId] = useState("") // للموظفين
 
+  const [isCollegeDisabled, setIsCollegeDisabled] = useState(false)
+  const [isDeptDisabled, setIsDeptDisabled] = useState(false)
+  const [currentUserScope, setCurrentUserScope] = useState<{ role?: string, collegeId?: number | null, departmentId?: number | null }>({})
+
   useEffect(() => {
     fetchData()
-  }, [])
+  }, [currentUserId])
 
   const fetchData = async () => {
     setError(null)
 
     try {
       const [usersResult, rolesResult, collegesResult] = await Promise.all([
-        getUsers(),
+        getUsers(1, 50, currentUserId),
         getAllRoles(),
         getAllColleges()
       ])
+
+      // Determine scope and filter data
+      let availableColleges = collegesResult.data || []
+
+      // Extract all departments initially
+      let allDepts = availableColleges.flatMap((c: any) =>
+        (c.departments || []).map((d: any) => ({
+          ...d,
+          college_id: c.college_id
+        }))
+      )
+
+      if (currentUserId) {
+        try {
+          const { getCurrentUserScope } = await import("@/app/actions/admin")
+          const scopeResult = await getCurrentUserScope(currentUserId)
+
+          if (scopeResult.success && scopeResult.data) {
+            setCurrentUserScope(scopeResult.data) // Store scope for UI logic
+            const { role, collegeId, departmentId } = scopeResult.data
+            console.log("Scope Result:", scopeResult.data)
+
+            if (role === 'dean' && collegeId) {
+              // Dean: See only their college, but all departments in it
+              availableColleges = availableColleges.filter((c: any) => c.college_id === collegeId)
+              allDepts = allDepts.filter((d: any) => d.college_id === collegeId)
+
+              setSelectedCollegeId(collegeId.toString())
+              setIsCollegeDisabled(true)
+            }
+            else if ((role === 'head' || role === 'manager') && departmentId && collegeId) {
+              // Head: See only their college and their department
+              availableColleges = availableColleges.filter((c: any) => c.college_id === collegeId)
+              allDepts = allDepts.filter((d: any) => d.department_id === departmentId)
+
+              setSelectedCollegeId(collegeId.toString())
+              setIsCollegeDisabled(true)
+              setSelectedDeptId(departmentId.toString())
+              setIsDeptDisabled(true)
+            }
+          }
+        } catch (e) {
+          console.error("Error fetching scope:", e)
+        }
+      }
 
       if (usersResult.success && usersResult.data) {
         setUsers(usersResult.data)
@@ -80,17 +132,10 @@ export default function AdminUsersPage({ onBack }: AdminUserPageProps) {
         setRoles(rolesResult.data)
       }
 
-      if (collegesResult.success && collegesResult.data) {
-        setColleges(collegesResult.data)
-        // Extract all departments from colleges
-        const allDepts = collegesResult.data.flatMap((c: any) =>
-          (c.departments || []).map((d: any) => ({
-            ...d,
-            college_id: c.college_id
-          }))
-        )
-        setDepartments(allDepts)
-      }
+      // Set filtered colleges and departments
+      setColleges(availableColleges)
+      setDepartments(allDepts)
+
     } catch (err) {
       console.error("Failed to fetch data:", err)
       setError("فشل في تحميل البيانات")
@@ -120,7 +165,10 @@ export default function AdminUsersPage({ onBack }: AdminUserPageProps) {
       // تحديد القسم بناءً على نوع المستخدم
       // تحديد القسم
       let departmentId = undefined
-      if (newUserDeptId) {
+
+      if (currentUserScope.departmentId) {
+        departmentId = currentUserScope.departmentId
+      } else if (newUserDeptId) {
         departmentId = parseInt(newUserDeptId)
       }
 
@@ -274,9 +322,10 @@ export default function AdminUsersPage({ onBack }: AdminUserPageProps) {
                 setSelectedCollegeId(e.target.value)
                 setSelectedDeptId("")
               }}
-              className="w-full px-3 py-2 border rounded-lg text-right bg-background"
+              disabled={isCollegeDisabled}
+              className={`w-full px-3 py-2 border rounded-lg text-right bg-background ${isCollegeDisabled ? 'opacity-50 cursor-not-allowed bg-muted' : ''}`}
             >
-              <option value="">جميع الكليات</option>
+              {!isCollegeDisabled && <option value="">جميع الكليات</option>}
               {colleges.map((college: any) => (
                 <option key={college.college_id} value={college.college_id}>{college.name}</option>
               ))}
@@ -284,7 +333,8 @@ export default function AdminUsersPage({ onBack }: AdminUserPageProps) {
             <select
               value={selectedDeptId}
               onChange={(e) => setSelectedDeptId(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg text-right bg-background"
+              disabled={isDeptDisabled}
+              className={`w-full px-3 py-2 border rounded-lg text-right bg-background ${isDeptDisabled ? 'opacity-50 cursor-not-allowed bg-muted' : ''}`}
             >
               <option value="">جميع الأقسام</option>
               {filteredDepartments.map((dept: any) => (
@@ -340,9 +390,24 @@ export default function AdminUsersPage({ onBack }: AdminUserPageProps) {
                   onChange={(e) => setNewUserRoleId(parseInt(e.target.value))}
                   className="w-full px-3 py-1.5 h-9 text-sm border rounded-lg bg-transparent border-input shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] transition-[color,box-shadow] outline-none"
                 >
-                  {roles.map((role: any) => (
-                    <option key={role.role_id} value={role.role_id}>{role.role_name}</option>
-                  ))}
+                  {roles
+                    .filter(role => {
+                      if (!currentUserScope.role || currentUserScope.role === 'admin') return true;
+
+                      const rName = role.role_name.toLowerCase();
+                      if (currentUserScope.role === 'dean') {
+                        // Dean can create: Head, Manager, Employee, Student (Not Admin or another Dean)
+                        return ['head', 'manager', 'head_of_department', 'employee', 'student'].includes(rName);
+                      }
+                      if (currentUserScope.role === 'head' || currentUserScope.role === 'manager') {
+                        // Head can create: Only Student
+                        return rName === 'student';
+                      }
+                      return false;
+                    })
+                    .map((role: any) => (
+                      <option key={role.role_id} value={role.role_id}>{translateRole(role.role_name)}</option>
+                    ))}
                 </select>
               </div>
 
@@ -351,23 +416,32 @@ export default function AdminUsersPage({ onBack }: AdminUserPageProps) {
                 const selectedRoleName = roles.find(r => r.role_id === newUserRoleId)?.role_name?.toLowerCase();
                 const isStudent = selectedRoleName === 'student';
 
+                // Determine restrictions
+                const isRestrictedCollege = !!currentUserScope.collegeId;
+                const isRestrictedDept = !!currentUserScope.departmentId;
+
                 return (
                   <>
                     {!isStudent && (
                       <div>
                         <Label className="text-sm font-medium mb-2 block">الكلية (اختياري)</Label>
                         <select
-                          value={newUserCollegeId}
+                          value={isRestrictedCollege ? (currentUserScope.collegeId ?? "") : newUserCollegeId}
                           onChange={(e) => {
-                            setNewUserCollegeId(e.target.value)
-                            setNewUserDeptId("")
+                            if (!isRestrictedCollege) {
+                              setNewUserCollegeId(e.target.value)
+                              setNewUserDeptId("")
+                            }
                           }}
-                          className="w-full px-3 py-1.5 h-9 text-sm border rounded-lg bg-transparent border-input shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] transition-[color,box-shadow] outline-none"
+                          disabled={isRestrictedCollege}
+                          className={`w-full px-3 py-1.5 h-9 text-sm border rounded-lg bg-transparent border-input shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] transition-[color,box-shadow] outline-none ${isRestrictedCollege ? 'opacity-50 cursor-not-allowed bg-muted' : ''}`}
                         >
-                          <option value="">اختر الكلية (اختياري للفلترة)</option>
-                          {colleges.map((college: any) => (
-                            <option key={college.college_id} value={college.college_id}>{college.name}</option>
-                          ))}
+                          {!isRestrictedCollege && <option value="">اختر الكلية (اختياري للفلترة)</option>}
+                          {colleges
+                            .filter((c: any) => isRestrictedCollege ? c.college_id === currentUserScope.collegeId : true)
+                            .map((college: any) => (
+                              <option key={college.college_id} value={college.college_id}>{college.name}</option>
+                            ))}
                         </select>
                       </div>
                     )}
@@ -375,15 +449,25 @@ export default function AdminUsersPage({ onBack }: AdminUserPageProps) {
                     <div>
                       <Label className="text-sm font-medium mb-2 block" required>القسم</Label>
                       <select
-                        value={newUserDeptId}
-                        onChange={(e) => setNewUserDeptId(e.target.value)}
-                        className="w-full px-3 py-1.5 h-9 text-sm border rounded-lg bg-transparent border-input shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] transition-[color,box-shadow] outline-none"
+                        value={isRestrictedDept ? (currentUserScope.departmentId ?? "") : newUserDeptId}
+                        onChange={(e) => {
+                          if (!isRestrictedDept) setNewUserDeptId(e.target.value)
+                        }}
+                        disabled={isRestrictedDept}
+                        className={`w-full px-3 py-1.5 h-9 text-sm border rounded-lg bg-transparent border-input shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] transition-[color,box-shadow] outline-none ${isRestrictedDept ? 'opacity-50 cursor-not-allowed bg-muted' : ''}`}
                       >
-                        <option value="">اختر القسم</option>
+                        {!isRestrictedDept && <option value="">اختر القسم</option>}
                         {departments
                           .filter((d: any) => {
-                            if (isStudent) return true;
+                            // If exact restricted department
+                            if (isRestrictedDept) return d.department_id === currentUserScope.departmentId;
+
+                            // If restricted to college
+                            if (isRestrictedCollege) return d.college_id === currentUserScope.collegeId;
+
+                            // If user selected a college in the form
                             if (newUserCollegeId) return d.college_id === parseInt(newUserCollegeId);
+
                             return true;
                           })
                           .map((dept: any) => (
@@ -435,7 +519,7 @@ export default function AdminUsersPage({ onBack }: AdminUserPageProps) {
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">الدور</p>
-                      <p className="font-medium">{user.roles?.role_name || "-"}</p>
+                      <p className="font-medium">{translateRole(user.roles?.role_name)}</p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">القسم</p>
@@ -487,7 +571,7 @@ export default function AdminUsersPage({ onBack }: AdminUserPageProps) {
                           className="w-full mt-1 px-3 py-2 border rounded-lg"
                         >
                           {roles.map((role: any) => (
-                            <option key={role.role_id} value={role.role_id}>{role.role_name}</option>
+                            <option key={role.role_id} value={role.role_id}>{translateRole(role.role_name)}</option>
                           ))}
                         </select>
                       </div>

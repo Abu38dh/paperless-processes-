@@ -257,6 +257,7 @@ export default function StudentDashboard({ onLogout, userData }: StudentDashboar
                             onEdit={() => setEditingRequestId(selectedRequest)}
                             onBack={() => setSelectedRequest("")}
                             userId={userData.university_id}
+                            showHistory={false}
                           />
                         ) : (
                           <div className="flex items-center justify-center p-12 text-muted-foreground w-full">

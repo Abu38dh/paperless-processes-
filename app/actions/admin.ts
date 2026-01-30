@@ -27,12 +27,123 @@ export async function getAdminStats() {
     }
 }
 
-export async function getUsers(page: number = 1, limit: number = 50) {
+export async function getCurrentUserScope(requesterId: string) {
+    if (!requesterId) return { success: false, error: "Missing requester ID" }
+
+    const requester = await db.users.findUnique({
+        where: { university_id: requesterId },
+        include: {
+            roles: true,
+            departments_users_department_idTodepartments: {
+                include: { colleges: true }
+            }
+        }
+    })
+
+    if (!requester) return { success: false, error: "User not found" }
+
+    const roleName = requester.roles.role_name.toLowerCase()
+
+    // Determine College ID
+    let collegeId: number | undefined = undefined
+    if (requester.departments_users_department_idTodepartments?.colleges?.college_id) {
+        collegeId = requester.departments_users_department_idTodepartments.colleges.college_id
+    } else {
+        // Try finding if they are dean of a college
+        const college = await db.colleges.findFirst({
+            where: { dean_id: requester.user_id }
+        })
+        if (college) collegeId = college.college_id
+    }
+
+    return {
+        success: true,
+        data: {
+            role: roleName,
+            collegeId: collegeId,
+            departmentId: requester.department_id
+        }
+    }
+}
+
+export async function getUsers(page: number = 1, limit: number = 50, requesterId?: string) {
     try {
         const skip = (page - 1) * limit
 
+        // Build where clause based on requester role/scope
+        // Default to Fail Closed (Show nothing) if no valid scope found
+        let whereClause: any = { user_id: -1 }
+
+        if (requesterId) {
+            console.log("[getUsers] Checking scope for:", requesterId)
+            const requester = await db.users.findUnique({
+                where: { university_id: requesterId },
+                include: {
+                    roles: true,
+                    departments_users_department_idTodepartments: {
+                        include: { colleges: true }
+                    }
+                }
+            })
+
+            if (requester) {
+                const roleName = requester.roles.role_name.toLowerCase()
+                console.log("[getUsers] Requester role:", roleName)
+
+                if (roleName === 'admin') {
+                    // Admin sees all
+                    whereClause = {}
+                }
+                // Dean Scope: Only users in their college
+                else if (roleName === 'dean') {
+                    // 1. Try to find college via department
+                    let collegeId = requester.departments_users_department_idTodepartments?.colleges?.college_id
+
+                    // 2. If not found, try to find college where this user is the dean
+                    if (!collegeId) {
+                        const college = await db.colleges.findFirst({
+                            where: { dean_id: requester.user_id }
+                        })
+                        if (college) {
+                            collegeId = college.college_id
+                        }
+                    }
+
+                    if (collegeId) {
+                        console.log("[getUsers] Scoping to College ID:", collegeId)
+                        whereClause = {
+                            departments_users_department_idTodepartments: {
+                                college_id: collegeId
+                            }
+                        }
+                    } else {
+                        console.log("[getUsers] Dean has no college assigned. Restricted.")
+                    }
+                }
+                // Head Scope: Only users in their department
+                else if (roleName === 'manager' || roleName === 'head') {
+                    const deptId = requester.department_id
+                    if (deptId) {
+                        console.log("[getUsers] Scoping to Dept ID:", deptId)
+                        whereClause = {
+                            department_id: deptId
+                        }
+                    } else {
+                        console.log("[getUsers] Head has no dept assigned. Restricted.")
+                    }
+                } else {
+                    console.log("[getUsers] Role authorized to view users? No specific rule found. Restricted.")
+                }
+            } else {
+                console.log("[getUsers] Requester not found for ID:", requesterId)
+            }
+        } else {
+            console.log("[getUsers] No requesterId provided. Defaulting to restricted view.")
+        }
+
         const [users, total] = await Promise.all([
             db.users.findMany({
+                where: whereClause,
                 include: {
                     roles: true,
                     departments_users_department_idTodepartments: {
@@ -45,7 +156,7 @@ export async function getUsers(page: number = 1, limit: number = 50) {
                 skip: skip,
                 take: limit
             }),
-            db.users.count()
+            db.users.count({ where: whereClause })
         ])
 
         // Parse custom_permissions JSON for each user
@@ -202,9 +313,9 @@ export async function getAllRoles() {
 /**
  * Get reports data for admin dashboard
  */
-export async function getReportsData(startDate?: Date, endDate?: Date) {
+export async function getReportsData(startDate?: Date, endDate?: Date, requesterId?: string) {
     try {
-        const whereClause: any = {}
+        let whereClause: any = {}
 
         if (startDate || endDate) {
             whereClause.submitted_at = {}
@@ -212,14 +323,68 @@ export async function getReportsData(startDate?: Date, endDate?: Date) {
             if (endDate) whereClause.submitted_at.lte = endDate
         }
 
-        // Requests by status
+        // Apply Scope Restrictions
+        if (requesterId) {
+            const scope = await getCurrentUserScope(requesterId)
+            if (scope.success && scope.data) {
+                const { role, collegeId, departmentId } = scope.data
+
+                if (role === 'admin') {
+                    // No restrictions
+                } else if (role === 'dean' && collegeId) {
+                    whereClause.users = {
+                        departments_users_department_idTodepartments: {
+                            college_id: collegeId
+                        }
+                    }
+                } else if ((role === 'head' || role === 'manager') && departmentId) {
+                    whereClause.users = {
+                        department_id: departmentId
+                    }
+                } else {
+                    // Fail closed for others
+                    return { success: true, data: { stats: { total: 0, pending: 0, approved: 0, rejected: 0 }, byStatus: [], byType: [], recentRequests: [] } }
+                }
+            } else {
+                return { success: true, data: { stats: { total: 0, pending: 0, approved: 0, rejected: 0 }, byStatus: [], byType: [], recentRequests: [] } }
+            }
+        } else {
+            // If no requesterId provided, we might fail closed or assume admin? 
+            // Ideally fail closed to be safe, but existing calls might break.
+            // Given the strict requirement, let's fail closed if not admin context explicitly known or handled.
+            // But for now, let's allow it to behave as before if param missing (or maybe fail closed is safer).
+            // Let's decided to fail closed to be secure.
+            console.warn("getReportsData called without requesterId - returning empty")
+            return { success: true, data: { stats: { total: 0, pending: 0, approved: 0, rejected: 0 }, byStatus: [], byType: [], recentRequests: [] } }
+        }
+
+        // 1. Calculate Stats (Total, Pending, Approved, Rejected)
+        const total = await db.requests.count({ where: whereClause })
+        const pending = await db.requests.count({
+            where: { ...whereClause, status: 'pending' }
+        })
+        const approved = await db.requests.count({
+            where: { ...whereClause, status: 'approved' }
+        })
+        const rejected = await db.requests.count({
+            where: { ...whereClause, status: 'rejected' }
+        })
+
+        // 2. Requests by Status (for Chart)
         const requestsByStatus = await db.requests.groupBy({
             by: ['status'],
             where: whereClause,
             _count: true
         })
 
-        // Requests by form type
+        // Format for frontend: [{ status: 'pending', count: 10 }, ...]
+        const byStatus = requestsByStatus.map(item => ({
+            status: item.status,
+            count: item._count
+        }))
+
+
+        // 3. Requests by Form Type (for Chart)
         const requestsByType = await db.requests.groupBy({
             by: ['form_id'],
             where: whereClause,
@@ -233,26 +398,52 @@ export async function getReportsData(startDate?: Date, endDate?: Date) {
             select: { form_id: true, name: true }
         })
 
-        const requestsByTypeWithNames = requestsByType.map(r => ({
-            formId: r.form_id,
-            formName: forms.find(f => f.form_id === r.form_id)?.name || "غير محدد",
+        // Format for frontend: [{ type_name: 'Form A', count: 5 }, ...]
+        const byType = requestsByType.map(r => ({
+            type_name: forms.find(f => f.form_id === r.form_id)?.name || "غير محدد",
             count: r._count
         }))
 
-        // Monthly trends (last 12 months)
-        const monthlyData = await db.requests.findMany({
+        // 4. Recent Requests
+        const recentRequests = await db.requests.findMany({
             where: whereClause,
-            select: {
-                submitted_at: true
+            take: 5,
+            orderBy: { submitted_at: 'desc' },
+            include: {
+                users: {
+                    select: { full_name: true }
+                },
+                form_templates: {
+                    select: { name: true }
+                }
             }
         })
+
+        // Format recent requests to match frontend expectation
+        const formattedRecent = recentRequests.map(req => ({
+            request_id: req.request_id,
+            status: req.status,
+            submitted_at: req.submitted_at,
+            requester: {
+                full_name: req.users?.full_name
+            },
+            form_templates: {
+                name: req.form_templates?.name
+            }
+        }))
 
         return {
             success: true,
             data: {
-                requestsByStatus,
-                requestsByType: requestsByTypeWithNames,
-                monthlyData
+                stats: {
+                    total,
+                    pending,
+                    approved,
+                    rejected
+                },
+                byStatus,
+                byType,
+                recentRequests: formattedRecent
             }
         }
     } catch (error) {
@@ -264,15 +455,19 @@ export async function getReportsData(startDate?: Date, endDate?: Date) {
 /**
  * Get audit log (request actions)
  */
+/**
+ * Get audit log (request actions)
+ */
 export async function getAuditLog(filters?: {
     userId?: number
     requestId?: number
     startDate?: Date
     endDate?: Date
     limit?: number
+    requesterId?: string
 }) {
     try {
-        const whereClause: any = {}
+        let whereClause: any = {}
 
         if (filters?.userId) whereClause.actor_id = filters.userId
         if (filters?.requestId) whereClause.request_id = filters.requestId
@@ -280,6 +475,37 @@ export async function getAuditLog(filters?: {
             whereClause.created_at = {}
             if (filters.startDate) whereClause.created_at.gte = filters.startDate
             if (filters.endDate) whereClause.created_at.lte = filters.endDate
+        }
+
+        // Apply Scope Restrictions
+        if (filters?.requesterId) {
+            const scope = await getCurrentUserScope(filters.requesterId)
+            if (scope.success && scope.data) {
+                const { role, collegeId, departmentId } = scope.data
+
+                if (role === 'admin') {
+                    // No restrictions
+                } else if (role === 'dean' && collegeId) {
+                    // Show actions where the actor (user) is in the college
+                    whereClause.users = {
+                        departments_users_department_idTodepartments: {
+                            college_id: collegeId
+                        }
+                    }
+                } else if ((role === 'head' || role === 'manager') && departmentId) {
+                    // Show actions where the actor is in the department
+                    whereClause.users = {
+                        department_id: departmentId
+                    }
+                } else {
+                    return { success: true, data: [] }
+                }
+            } else {
+                return { success: true, data: [] }
+            }
+        } else {
+            console.warn("getAuditLog called without requesterId - returning empty")
+            return { success: true, data: [] }
         }
 
         const actions = await db.request_actions.findMany({
@@ -310,14 +536,68 @@ export async function getAuditLog(filters?: {
 /**
  * Get all possible approvers (Roles + Users)
  */
-export async function getApproversList() {
+export async function getApproversList(requesterId?: string) {
     try {
+        let userWhereClause: any = { is_active: true }
+
+        if (requesterId) {
+            const requester = await db.users.findUnique({
+                where: { university_id: requesterId },
+                include: {
+                    roles: true,
+                    departments_users_department_idTodepartments: {
+                        include: { colleges: true }
+                    }
+                }
+            })
+
+            if (requester) {
+                const roleName = requester.roles.role_name.toLowerCase()
+
+                if (roleName === 'dean') {
+                    let collegeId = requester.departments_users_department_idTodepartments?.colleges?.college_id
+
+                    if (!collegeId) {
+                        const college = await db.colleges.findFirst({
+                            where: { dean_id: requester.user_id }
+                        })
+                        if (college) {
+                            collegeId = college.college_id
+                        }
+                    }
+
+                    if (collegeId) {
+                        userWhereClause = {
+                            is_active: true,
+                            departments_users_department_idTodepartments: {
+                                college_id: collegeId
+                            }
+                        }
+                    } else {
+                        // Fail Closed
+                        userWhereClause = { user_id: -1 }
+                    }
+                } else if (roleName === 'manager' || roleName === 'head') {
+                    const deptId = requester.department_id
+                    if (deptId) {
+                        userWhereClause = {
+                            is_active: true,
+                            department_id: deptId
+                        }
+                    } else {
+                        // Fail Closed
+                        userWhereClause = { user_id: -1 }
+                    }
+                }
+            }
+        }
+
         const roles = await db.roles.findMany({
             orderBy: { role_name: 'asc' }
         })
 
         const users = await db.users.findMany({
-            where: { is_active: true },
+            where: userWhereClause,
             select: {
                 user_id: true,
                 full_name: true,

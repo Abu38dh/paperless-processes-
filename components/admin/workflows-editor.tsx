@@ -43,9 +43,10 @@ import { CSS } from '@dnd-kit/utilities';
 
 interface WorkflowsEditorProps {
   onBack: () => void
+  currentUserId?: string
 }
 
-export default function WorkflowsEditor({ onBack }: WorkflowsEditorProps) {
+export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEditorProps) {
   const [workflows, setWorkflows] = useState<any[]>([])
   const [roles, setRoles] = useState<any[]>([])
   const [users, setUsers] = useState<any[]>([])
@@ -82,7 +83,7 @@ export default function WorkflowsEditor({ onBack }: WorkflowsEditorProps) {
     try {
       const [workflowsResult, approversResult] = await Promise.all([
         getAllWorkflows(),
-        getApproversList()
+        getApproversList(currentUserId)
       ])
 
       if (workflowsResult.success && workflowsResult.data) {
@@ -130,7 +131,8 @@ export default function WorkflowsEditor({ onBack }: WorkflowsEditorProps) {
         // Update existing workflow
         const result = await updateWorkflow(editingWorkflow.workflow_id, {
           name: workflowName,
-          steps: stepsData
+          steps: stepsData,
+          requesterId: currentUserId
         })
 
         if (result.success) {
@@ -143,7 +145,8 @@ export default function WorkflowsEditor({ onBack }: WorkflowsEditorProps) {
         // Create new workflow
         const result = await createWorkflow({
           name: workflowName,
-          steps: stepsData
+          steps: stepsData,
+          requesterId: currentUserId
         })
 
         if (result.success) {

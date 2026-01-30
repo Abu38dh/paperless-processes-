@@ -33,9 +33,10 @@ interface FormTemplatesListProps {
   onEditForm: (id: string) => void
   onCreateNewForm: () => void
   onBack: () => void
+  currentUserId?: string
 }
 
-export default function FormTemplatesList({ onEditForm, onCreateNewForm, onBack }: FormTemplatesListProps) {
+export default function FormTemplatesList({ onEditForm, onCreateNewForm, onBack, currentUserId }: FormTemplatesListProps) {
   const [forms, setForms] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -74,7 +75,7 @@ export default function FormTemplatesList({ onEditForm, onCreateNewForm, onBack 
     setError(null)
 
     try {
-      const result = await getAllFormTemplates()
+      const result = await getAllFormTemplates(1, 100, currentUserId)
 
       if (result.success && result.data) {
         setForms(result.data)

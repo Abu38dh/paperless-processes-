@@ -26,9 +26,10 @@ import {
 
 interface AdminDepartmentsPageProps {
     onBack: () => void
+    currentUserId?: string
 }
 
-export default function AdminDepartmentsPage({ onBack }: AdminDepartmentsPageProps) {
+export default function AdminDepartmentsPage({ onBack, currentUserId }: AdminDepartmentsPageProps) {
     const [departments, setDepartments] = useState<any[]>([])
     const [colleges, setColleges] = useState<any[]>([])
     const [managers, setManagers] = useState<any[]>([])
@@ -49,7 +50,7 @@ export default function AdminDepartmentsPage({ onBack }: AdminDepartmentsPagePro
 
     useEffect(() => {
         fetchData()
-    }, [])
+    }, [currentUserId])
 
     const fetchData = async () => {
         setError(null)
@@ -58,7 +59,7 @@ export default function AdminDepartmentsPage({ onBack }: AdminDepartmentsPagePro
             const [deptsResult, collegesResult, usersResult] = await Promise.all([
                 getAllDepartments(),
                 getAllColleges(),
-                getUsers()
+                getUsers(1, 1000, currentUserId) // Get more users to find managers
             ])
 
             if (deptsResult.success && deptsResult.data) {
@@ -72,13 +73,11 @@ export default function AdminDepartmentsPage({ onBack }: AdminDepartmentsPagePro
             }
 
             if (usersResult.success && usersResult.data) {
-                // Filter eligible users (employees and admins can be managers)
-                const eligibleUsers = usersResult.data.filter((u: any) =>
-                    u.roles?.role_name === 'manager' ||
-                    u.roles?.role_name === 'dean' ||
-                    u.roles?.role_name === 'employee' ||
-                    u.roles?.role_name === 'admin'
-                )
+                // Filter eligible users (anyone except students can be a manager)
+                const eligibleUsers = usersResult.data.filter((u: any) => {
+                    const r = u.roles?.role_name?.toLowerCase();
+                    return r !== 'student';
+                })
                 setManagers(eligibleUsers)
             }
         } catch (err) {

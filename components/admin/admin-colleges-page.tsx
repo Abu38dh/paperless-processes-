@@ -25,9 +25,10 @@ import {
 
 interface AdminCollegesPageProps {
     onBack: () => void
+    currentUserId?: string
 }
 
-export default function AdminCollegesPage({ onBack }: AdminCollegesPageProps) {
+export default function AdminCollegesPage({ onBack, currentUserId }: AdminCollegesPageProps) {
     const [colleges, setColleges] = useState<any[]>([])
     const [deans, setDeans] = useState<any[]>([])
     const [loading, setLoading] = useState(true)

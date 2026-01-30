@@ -60,6 +60,7 @@ interface FormField {
 interface FormBuilderEditorProps {
   formId: string
   onBack: () => void
+  currentUserId?: string
 }
 
 const fieldTypes = [
@@ -74,7 +75,7 @@ const fieldTypes = [
   { id: "section", label: "عنوان قسم", icon: Heading3, color: "bg-gray-50 text-gray-700" },
 ]
 
-export default function FormBuilderEditor({ formId, onBack }: FormBuilderEditorProps) {
+export default function FormBuilderEditor({ formId, onBack, currentUserId }: FormBuilderEditorProps) {
   const isNewForm = formId === "new"
   const [formName, setFormName] = useState("")
   const [fields, setFields] = useState<FormField[]>([])
@@ -313,6 +314,7 @@ export default function FormBuilderEditor({ formId, onBack }: FormBuilderEditorP
         form_id: savedFormId || undefined,
         name: formName,
         schema: fields,
+        requesterId: currentUserId
       })
 
       if (result.success && result.data) {
@@ -464,6 +466,7 @@ export default function FormBuilderEditor({ formId, onBack }: FormBuilderEditorP
           form_id: savedFormId || undefined,
           name: formName,
           schema: fields,
+          requesterId: currentUserId
         })
 
         if (!saveResult.success || !saveResult.data) {
@@ -503,7 +506,12 @@ export default function FormBuilderEditor({ formId, onBack }: FormBuilderEditorP
         audienceConfig.employee = true
       }
 
-      const publishResult = await publishFormTemplate(formIdToPublish, audienceConfig, workflowData)
+      const publishResult = await publishFormTemplate(
+        formIdToPublish,
+        audienceConfig,
+        workflowData,
+        currentUserId
+      )
 
       if (publishResult.success) {
         const audienceLabel = targetAudience === 'student' ? 'للطلاب' : targetAudience === 'employee' ? 'للموظفين' : 'للجميع'

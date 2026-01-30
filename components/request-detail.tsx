@@ -28,10 +28,8 @@ interface RequestDetailProps {
   onEdit?: () => void
   onBack?: () => void
   userId?: string
+  showHistory?: boolean
 }
-
-
-
 
 import { useEffect, useState } from "react"
 import { getRequestActions } from "@/app/actions/student"
@@ -45,16 +43,18 @@ export interface RequestAction {
   comment?: string
 }
 
-export default function RequestDetail({ request, onEdit, onBack }: RequestDetailProps) {
+export default function RequestDetail({ request, onEdit, onBack, showHistory = true }: RequestDetailProps) {
   const [history, setHistory] = useState<RequestAction[]>([])
 
   useEffect(() => {
-    async function fetchHistory() {
-      const actions = await getRequestActions(request.id)
-      setHistory(actions)
+    if (showHistory) {
+      async function fetchHistory() {
+        const actions = await getRequestActions(request.id)
+        setHistory(actions)
+      }
+      fetchHistory()
     }
-    fetchHistory()
-  }, [request.id])
+  }, [request.id, showHistory])
 
   const statusConfig = {
     pending: { color: "bg-secondary/10 text-secondary", icon: Clock, label: "قيد الانتظار" },
@@ -154,7 +154,7 @@ export default function RequestDetail({ request, onEdit, onBack }: RequestDetail
       {request.workflow && request.workflow.length > 0 && <RequestTracking workflow={request.workflow} />
       }
 
-      < div className="space-y-3" >
+      <div className="space-y-3">
         <h3 className="font-semibold text-foreground">الإجراءات</h3>
         <div className="flex gap-3">
           {request.status === "approved" && (
@@ -176,36 +176,39 @@ export default function RequestDetail({ request, onEdit, onBack }: RequestDetail
         </div>
       </div >
 
-      <div className="bg-card border border-slate-200 rounded-lg p-4 space-y-3">
-        <h3 className="font-semibold text-foreground mb-4">سجل النشاطات</h3>
-        <div className="relative space-y-8 pr-4 border-r border-slate-200">
-          {history.length > 0 ? (
-            history.map((action, index) => (
-              <div key={action.id} className="relative">
-                <span className="absolute -right-[21px] top-1 h-3 w-3 rounded-full bg-primary ring-4 ring-background" />
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-sm text-foreground">{action.action}</span>
-                    <span className="text-xs text-muted-foreground">
-                      - {new Date(action.timestamp).toLocaleDateString('ar-SA')} {new Date(action.timestamp).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </div>
-                  <p className="text-sm text-foreground/80">
-                    <span className="font-medium text-primary">{action.actorName}</span> ({action.actorRole})
-                  </p>
-                  {action.comment && (
-                    <div className="mt-1 p-2 bg-slate-50 rounded text-xs text-muted-foreground border border-slate-100">
-                      {action.comment}
+      {showHistory && (
+        <div className="bg-card border border-slate-200 rounded-lg p-4 space-y-3">
+          <h3 className="font-semibold text-foreground mb-4">سجل النشاطات</h3>
+          <div className="relative space-y-8 pr-4 border-r border-slate-200">
+            {history.length > 0 ? (
+              history.map((action, index) => (
+                <div key={action.id} className="relative">
+                  <span className="absolute -right-[21px] top-1 h-3 w-3 rounded-full bg-primary ring-4 ring-background" />
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-sm text-foreground">{action.action}</span>
+                      <span className="text-xs text-muted-foreground">
+                        - {new Date(action.timestamp).toLocaleDateString('ar-SA')} {new Date(action.timestamp).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
                     </div>
-                  )}
+                    <p className="text-sm text-foreground/80">
+                      <span className="font-medium text-primary">{action.actorName}</span> ({action.actorRole})
+                    </p>
+                    {action.comment && (
+                      <div className="mt-1 p-2 bg-slate-50 rounded text-xs text-muted-foreground border border-slate-100">
+                        {action.comment}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))
-          ) : (
-            <p className="text-sm text-muted-foreground">لا يوجد سجل نشاطات لهذا الطلب</p>
-          )}
+              ))
+            ) : (
+              <p className="text-sm text-muted-foreground">لا يوجد سجل نشاطات لهذا الطلب</p>
+            )}
+          </div>
         </div>
-      </div>
+      )
+      }
     </div >
   )
 }

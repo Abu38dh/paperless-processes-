@@ -78,8 +78,52 @@ export async function createWorkflow(data: {
         is_final?: boolean
         escalation_role_id?: number | null
     }>
+    requesterId?: string
 }) {
     try {
+        // Enforce Scoping
+        if (data.requesterId) {
+            const requester = await db.users.findUnique({
+                where: { university_id: data.requesterId },
+                include: {
+                    roles: true,
+                    departments_users_department_idTodepartments: {
+                        include: { colleges: true }
+                    }
+                }
+            })
+
+            if (requester) {
+                const roleName = requester.roles.role_name.toLowerCase()
+
+                // Validate steps
+                for (const step of data.steps) {
+                    if (step.approver_user_id) {
+                        const approver = await db.users.findUnique({
+                            where: { user_id: step.approver_user_id },
+                            include: { departments_users_department_idTodepartments: { include: { colleges: true } } }
+                        })
+
+                        if (approver) {
+                            if (roleName === 'dean') {
+                                // Dean can only pick users in their college
+                                const reqCollege = requester.departments_users_department_idTodepartments?.colleges?.college_id
+                                const appCollege = approver.departments_users_department_idTodepartments?.colleges?.college_id
+                                if (reqCollege && reqCollege !== appCollege) {
+                                    throw new Error(`لا يمكنك إضافة موظف من خارج كليتك لهذا المسار (${approver.full_name})`)
+                                }
+                            } else if (roleName === 'manager' || roleName === 'head') {
+                                // Head can only pick users in their department
+                                if (requester.department_id !== approver.department_id) {
+                                    throw new Error(`لا يمكنك إضافة موظف من خارج قسمك لهذا المسار (${approver.full_name})`)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         const workflow = await db.workflows.create({
             data: {
                 name: data.name,
@@ -103,9 +147,9 @@ export async function createWorkflow(data: {
 
         // revalidatePath('/admin')
         return { success: true, data: workflow }
-    } catch (error) {
+    } catch (error: any) {
         console.error("Create Workflow Error:", error)
-        return { success: false, error: "فشل في إنشاء مسار العمل" }
+        return { success: false, error: error.message || "فشل في إنشاء مسار العمل" }
     }
 }
 
@@ -127,9 +171,53 @@ export async function updateWorkflow(
             is_final?: boolean
             escalation_role_id?: number | null
         }>
+        requesterId?: string
     }
 ) {
     try {
+        // Enforce Scoping
+        if (data.requesterId && data.steps) {
+            const requester = await db.users.findUnique({
+                where: { university_id: data.requesterId },
+                include: {
+                    roles: true,
+                    departments_users_department_idTodepartments: {
+                        include: { colleges: true }
+                    }
+                }
+            })
+
+            if (requester) {
+                const roleName = requester.roles.role_name.toLowerCase()
+
+                // Validate steps
+                for (const step of data.steps) {
+                    if (step.approver_user_id) {
+                        const approver = await db.users.findUnique({
+                            where: { user_id: step.approver_user_id },
+                            include: { departments_users_department_idTodepartments: { include: { colleges: true } } }
+                        })
+
+                        if (approver) {
+                            if (roleName === 'dean') {
+                                // Dean can only pick users in their college
+                                const reqCollege = requester.departments_users_department_idTodepartments?.colleges?.college_id
+                                const appCollege = approver.departments_users_department_idTodepartments?.colleges?.college_id
+                                if (reqCollege && reqCollege !== appCollege) {
+                                    throw new Error(`لا يمكنك إضافة موظف من خارج كليتك لهذا المسار (${approver.full_name})`)
+                                }
+                            } else if (roleName === 'manager' || roleName === 'head') {
+                                // Head can only pick users in their department
+                                if (requester.department_id !== approver.department_id) {
+                                    throw new Error(`لا يمكنك إضافة موظف من خارج قسمك لهذا المسار (${approver.full_name})`)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // Update workflow basic info
         const updateData: any = {}
         if (data.name !== undefined) updateData.name = data.name
@@ -164,9 +252,9 @@ export async function updateWorkflow(
 
         // revalidatePath('/admin')
         return { success: true }
-    } catch (error) {
+    } catch (error: any) {
         console.error("Update Workflow Error:", error)
-        return { success: false, error: "فشل في تحديث مسار العمل" }
+        return { success: false, error: error.message || "فشل في تحديث مسار العمل" }
     }
 }
 

@@ -10,9 +10,10 @@ import { getReportsData, getAuditLog } from "@/app/actions/admin"
 
 interface AdminReportsPageProps {
   onBack: () => void
+  currentUserId?: string
 }
 
-export default function AdminReportsPage({ onBack }: AdminReportsPageProps) {
+export default function AdminReportsPage({ onBack, currentUserId }: AdminReportsPageProps) {
   const [reports, setReports] = useState<any>(null)
   const [auditLog, setAuditLog] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -20,15 +21,15 @@ export default function AdminReportsPage({ onBack }: AdminReportsPageProps) {
 
   useEffect(() => {
     fetchData()
-  }, [])
+  }, [currentUserId])
 
   const fetchData = async () => {
     setError(null)
 
     try {
       const [reportsResult, auditResult] = await Promise.all([
-        getReportsData(),
-        getAuditLog({})
+        getReportsData(undefined, undefined, currentUserId),
+        getAuditLog({ requesterId: currentUserId })
       ])
 
       if (reportsResult.success && reportsResult.data) {
@@ -235,20 +236,48 @@ export default function AdminReportsPage({ onBack }: AdminReportsPageProps) {
           <CardDescription>آخر الإجراءات في النظام</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2 max-h-96 overflow-y-auto">
-            {auditLog.slice(0, 20).map((log: any) => (
-              <div key={log.log_id} className="flex items-start gap-3 p-3 border rounded-lg text-sm">
-                <div className="flex-shrink-0 w-2 h-2 rounded-full bg-primary mt-1" />
-                <div className="flex-1">
-                  <p className="font-medium">{log.action}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {log.user?.full_name || "النظام"} • {new Date(log.timestamp).toLocaleString('ar-SA')}
-                  </p>
+          <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
+            {auditLog.slice(0, 20).map((log: any) => {
+              const getActionDetails = (action: string) => {
+                switch (action) {
+                  case 'approve': return { text: 'تمت الموافقة', color: 'text-green-600', bg: 'bg-green-100' }
+                  case 'reject': return { text: 'تم الرفض', color: 'text-red-600', bg: 'bg-red-100' }
+                  case 'reject_with_changes': return { text: 'إعادة للمراجعة', color: 'text-orange-600', bg: 'bg-orange-100' }
+                  case 'approve_with_changes': return { text: 'موافقة مع ملاحظات', color: 'text-yellow-600', bg: 'bg-yellow-100' }
+                  case 'submit': return { text: 'تقديم طلب جديد', color: 'text-blue-600', bg: 'bg-blue-100' }
+                  default: return { text: action, color: 'text-gray-600', bg: 'bg-gray-100' }
+                }
+              }
+
+              const details = getActionDetails(log.action)
+              const formName = log.requests?.form_templates?.name || "طلب عام"
+
+              return (
+                <div key={log.action_id || log.log_id || Math.random()} className="flex items-start gap-4 p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                  <div className={`p-2 rounded-full ${details.bg} mt-1`}>
+                    <div className={`w-2 h-2 rounded-full ${details.color.replace('text', 'bg')}`} />
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <div className="flex justify-between items-start">
+                      <p className="font-semibold text-gray-900">{details.text} على {formName}</p>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap" dir="ltr">
+                        {new Date(log.created_at).toLocaleString('ar-SA')}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600">
+                      قام <span className="font-medium text-gray-900">{log.users?.full_name || "النظام"}</span> بهذا الإجراء
+                      {log.comment && (
+                        <span className="block mt-1 text-xs bg-gray-50 p-2 rounded text-gray-500 italic">
+                          "{log.comment}"
+                        </span>
+                      )}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
             {auditLog.length === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-4">لا توجد أحداث</p>
+              <p className="text-sm text-muted-foreground text-center py-8">لا توجد أحداث مسجلة</p>
             )}
           </div>
         </CardContent>

@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { LogOut, Bell, User } from "lucide-react"
+import { translateRole } from "@/lib/translations"
 
 interface HeaderProps {
   userType: string
@@ -41,7 +42,7 @@ export default function Header({ userType, onLogout, onMenuClick }: HeaderProps 
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-primary/10">
           <User className="w-4 h-4 text-primary" />
-          <span className="text-sm font-medium text-primary">{userType}</span>
+          <span className="text-sm font-medium text-primary">{translateRole(userType)}</span>
         </div>
         <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
           <Bell className="w-5 h-5" />

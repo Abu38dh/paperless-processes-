@@ -6,9 +6,10 @@ import FormBuilderEditor from "@/components/admin/form-builder-editor"
 
 interface AdminFormsPageProps {
   onBack: () => void
+  currentUserId?: string
 }
 
-export default function AdminFormsPage({ onBack }: AdminFormsPageProps) {
+export default function AdminFormsPage({ onBack, currentUserId }: AdminFormsPageProps) {
   const [view, setView] = useState<"list" | "editor">("list")
   const [editingFormId, setEditingFormId] = useState<string | null>(null)
 
@@ -28,8 +29,8 @@ export default function AdminFormsPage({ onBack }: AdminFormsPageProps) {
   }
 
   return view === "list" ? (
-    <FormTemplatesList onEditForm={handleEditForm} onCreateNewForm={handleCreateNewForm} onBack={onBack} />
+    <FormTemplatesList onEditForm={handleEditForm} onCreateNewForm={handleCreateNewForm} onBack={onBack} currentUserId={currentUserId} />
   ) : (
-    <FormBuilderEditor formId={editingFormId!} onBack={handleBackToList} />
+    <FormBuilderEditor formId={editingFormId!} onBack={handleBackToList} currentUserId={currentUserId} />
   )
 }

@@ -4,6 +4,8 @@ import { db } from "@/lib/db"
 import { revalidatePath } from "next/cache"
 import { notifyRequestStatusChange, notifyApproverNewRequest, notifyUserApproverNewRequest } from "./notifications"
 import { Prisma } from "@prisma/client"
+import fs from 'fs'
+import path from 'path'
 
 export async function getEmployeeInbox(employeeId: string) {
     try {
@@ -90,7 +92,6 @@ export async function getEmployeeRequests(employeeId: string) {
                         }
                     }
                 },
-                workflow_steps: true,
                 workflow_steps: true,
                 users: true, // requester info
                 attachments: {
@@ -206,8 +207,6 @@ export async function getEmployeeHistory(employeeId: string) {
     }
 }
 
-import fs from 'fs'
-import path from 'path'
 
 export async function processRequest(requestId: string, action: 'approve' | 'reject' | 'approve_with_changes' | 'reject_with_changes', comment: string, actorId: string, attachmentData?: string, attachmentName?: string) {
     try {

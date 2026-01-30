@@ -220,12 +220,12 @@ export default function AdminDashboard({ onLogout, userData }: AdminDashboardPro
             </div>
           )}
 
-          {currentView === "forms" && <AdminFormsPage onBack={() => setCurrentView("home")} />}
-          {currentView === "workflows" && <WorkflowsEditor onBack={() => setCurrentView("home")} />}
-          {currentView === "users" && <AdminUsersPage onBack={() => setCurrentView("home")} />}
-          {currentView === "reports" && <AdminReportsPage onBack={() => setCurrentView("home")} />}
-          {currentView === "departments" && <AdminDepartmentsPage onBack={() => setCurrentView("home")} />}
-          {currentView === "colleges" && <AdminCollegesPage onBack={() => setCurrentView("home")} />}
+          {currentView === "forms" && <AdminFormsPage onBack={() => setCurrentView("home")} currentUserId={userData?.university_id} />}
+          {currentView === "workflows" && <WorkflowsEditor onBack={() => setCurrentView("home")} currentUserId={userData?.university_id} />}
+          {currentView === "users" && <AdminUsersPage onBack={() => setCurrentView("home")} currentUserId={userData?.university_id} />}
+          {currentView === "reports" && <AdminReportsPage onBack={() => setCurrentView("home")} currentUserId={userData?.university_id} />}
+          {currentView === "departments" && <AdminDepartmentsPage onBack={() => setCurrentView("home")} currentUserId={userData?.university_id} />}
+          {currentView === "colleges" && <AdminCollegesPage onBack={() => setCurrentView("home")} currentUserId={userData?.university_id} />}
         </main>
       </div>
     </div>
