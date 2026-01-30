@@ -47,15 +47,15 @@ export async function getEmployeeInbox(employeeId: string) {
 
         return {
             success: true,
-            requests: pendingRequests.map((r: any) => ({
+            requests: pendingRequests.map((r) => ({
                 id: r.request_id.toString(),
                 applicant: r.users.full_name,
                 type: r.form_templates?.name || "General",
                 date: r.submitted_at?.toISOString().split('T')[0] || "",
                 status: "pending",
                 priority: "normal",
-                description: (r.submission_data as any)?.reason || "",
-                submissionData: r.submission_data,
+                description: (r.submission_data as Record<string, any>)?.reason || "",
+                submissionData: r.submission_data as Record<string, any>,
                 formSchema: r.form_templates?.schema
             }))
         }
@@ -103,15 +103,15 @@ export async function getEmployeeRequests(employeeId: string) {
 
         return {
             success: true,
-            requests: requests.map((r: any) => ({
+            requests: requests.map((r) => ({
                 id: r.request_id.toString(),
                 title: r.form_templates?.name || "General",
                 type: r.form_templates?.name || "General",
                 formId: r.form_templates?.form_id?.toString() || r.form_id?.toString(),
                 date: r.submitted_at?.toISOString().split('T')[0] || "",
                 status: r.status,
-                description: (r.submission_data as any)?.reason || "لا يوجد وصف",
-                submissionData: r.submission_data,
+                description: (r.submission_data as Record<string, any>)?.reason || "لا يوجد وصف",
+                submissionData: r.submission_data as Record<string, any>,
                 reference_no: r.reference_no,
                 // Include raw data for client mapping if needed, or map workflow here
                 // Mapping workflow here to be safe and consistent
@@ -119,9 +119,9 @@ export async function getEmployeeRequests(employeeId: string) {
                     const steps = r.form_templates?.request_types?.workflows?.workflow_steps || [];
                     const currentStepId = r.current_step_id;
                     const requestStatus = r.status;
-                    const currentStepIndex = steps.findIndex((s: any) => s.step_id === currentStepId);
+                    const currentStepIndex = steps.findIndex((s) => s.step_id === currentStepId);
 
-                    return steps.map((step: any, index: number) => {
+                    return steps.map((step, index) => {
                         let status = "pending";
                         if (requestStatus === "approved") {
                             status = "approved";
@@ -137,11 +137,6 @@ export async function getEmployeeRequests(employeeId: string) {
                             if (index < currentStepIndex) status = "approved";
                             else if (index === currentStepIndex) status = "processing";
                             else status = "pending";
-
-                            // Fallback for new requests
-                            if (currentStepIndex === -1 && index === 0 && requestStatus !== 'approved' && requestStatus !== 'rejected' && requestStatus !== 'returned') {
-                                status = "processing";
-                            }
                         }
 
                         return {
@@ -152,10 +147,10 @@ export async function getEmployeeRequests(employeeId: string) {
                         };
                     });
                 })(),
-                attachments: r.attachments?.map((a: any) => ({
+                attachments: r.attachments?.map((a) => ({
                     file_id: a.file_id,
                     storage_location: a.storage_location,
-                    uploaded_at: a.uploaded_at,
+                    uploaded_at: a.uploaded_at?.toISOString(),
                     uploader_name: a.users?.full_name
                 })) || []
             }))
@@ -206,7 +201,6 @@ export async function getEmployeeHistory(employeeId: string) {
         return { success: false, error: "Failed to fetch history" }
     }
 }
-
 
 export async function processRequest(requestId: string, action: 'approve' | 'reject' | 'approve_with_changes' | 'reject_with_changes', comment: string, actorId: string, attachmentData?: string, attachmentName?: string) {
     try {

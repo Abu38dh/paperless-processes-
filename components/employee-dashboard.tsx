@@ -3,6 +3,7 @@
 import type React from "react"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
+import NextImage from "next/image" // Aliased to avoid conflict with window.Image
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -36,6 +37,11 @@ import AdminUsersPage from "@/components/admin/admin-users-page"
 import AdminReportsPage from "@/components/admin/admin-reports-page"
 import AdminDepartmentsPage from "@/components/admin/admin-departments-page"
 
+import { RequestStats } from "@/components/dashboard/request-stats"
+import { InboxRequestList } from "@/components/dashboard/inbox-request-list"
+
+import { Request, RequestStats as RequestStatsType } from "@/types/schema"
+
 interface EmployeeDashboardProps {
   onLogout: () => void
   permissions?: string[]
@@ -59,12 +65,12 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
   }
 
   // Data states
-  const [inboxRequests, setInboxRequests] = useState<any[]>([])
-  const [myRequests, setMyRequests] = useState<any[]>([])
+  const [inboxRequests, setInboxRequests] = useState<Request[]>([])
+  const [myRequests, setMyRequests] = useState<Request[]>([])
   const [historyRequests, setHistoryRequests] = useState<any[]>([])
   const [availableForms, setAvailableForms] = useState<any[]>([])
-  const [stats, setStats] = useState({ totalActions: 0, approved: 0, rejected: 0, pending: 0 })
-  const [selectedRequest, setSelectedRequest] = useState<any | null>(null)
+  const [stats, setStats] = useState<RequestStatsType>({ totalActions: 0, approved: 0, rejected: 0, pending: 0 })
+  const [selectedRequest, setSelectedRequest] = useState<Request | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -91,7 +97,14 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
     try {
       const result = await getEmployeeRequests(userData.university_id)
       if (result.success && result.requests) {
-        setMyRequests(result.requests)
+        // Map the response to match Request interface
+        const mappedRequests: Request[] = result.requests.map((r: any) => ({
+          ...r,
+          applicant: r.users?.full_name || "N/A", // Ensure applicant exists
+          status: r.status as any, // Cast status
+          type: r.title || r.type // Handle title/type discrepancy
+        }))
+        setMyRequests(mappedRequests)
       }
     } catch (err) {
       console.error("Failed to fetch my requests:", err)
@@ -107,9 +120,13 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
       const result = await getEmployeeInbox(userData.university_id)
 
       if (result.success && result.requests) {
-        setInboxRequests(result.requests)
-        if (result.requests.length > 0 && currentView === 'inbox') {
-          setSelectedRequest(result.requests[0])
+        const mappedRequests: Request[] = result.requests.map((r: any) => ({
+          ...r,
+          status: r.status as any
+        }))
+        setInboxRequests(mappedRequests)
+        if (mappedRequests.length > 0 && currentView === 'inbox') {
+          setSelectedRequest(mappedRequests[0])
         }
       } else {
         setError(result.error || "فشل في تحميل صندوق الوارد")
@@ -359,32 +376,7 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                   {/* Stats Cards */}
                   <div className="p-6 border-b bg-muted/30">
                     <h2 className="text-2xl font-bold mb-4">الإحصائيات</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                      <Card>
-                        <CardHeader className="pb-2">
-                          <CardDescription>قيد الانتظار</CardDescription>
-                          <CardTitle className="text-3xl text-yellow-600">{stats.pending}</CardTitle>
-                        </CardHeader>
-                      </Card>
-                      <Card>
-                        <CardHeader className="pb-2">
-                          <CardDescription>تم الموافقة</CardDescription>
-                          <CardTitle className="text-3xl text-green-600">{stats.approved}</CardTitle>
-                        </CardHeader>
-                      </Card>
-                      <Card>
-                        <CardHeader className="pb-2">
-                          <CardDescription>تم الرفض</CardDescription>
-                          <CardTitle className="text-3xl text-red-600">{stats.rejected}</CardTitle>
-                        </CardHeader>
-                      </Card>
-                      <Card>
-                        <CardHeader className="pb-2">
-                          <CardDescription>إجمالي الإجراءات</CardDescription>
-                          <CardTitle className="text-3xl">{stats.totalActions}</CardTitle>
-                        </CardHeader>
-                      </Card>
-                    </div>
+                    <RequestStats stats={stats} />
                   </div>
 
                   {/* Inbox Content */}
@@ -399,28 +391,11 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                   ) : (
                     <div className="flex flex-col md:flex-row gap-6 items-start">
                       {/* Requests List */}
-                      <div className="w-full md:w-1/3 border border-border bg-card rounded-lg p-4 space-y-2">
-                        <h3 className="font-semibold mb-4">صندوق الوارد ({inboxRequests.length})</h3>
-                        {inboxRequests.map((req) => (
-                          <Card
-                            key={req.id}
-                            className={`cursor-pointer hover:bg-muted/50 transition-colors ${selectedRequest?.id === req.id ? "border-primary bg-primary/5" : ""
-                              }`}
-                            onClick={() => setSelectedRequest(req)}
-                          >
-                            <CardHeader className="p-4">
-                              <div className="flex justify-between items-start mb-2">
-                                <CardTitle className="text-base">{req.type}</CardTitle>
-                                {getStatusBadge(req.status)}
-                              </div>
-                              <CardDescription className="text-sm">
-                                مقدم من: {req.applicant}
-                              </CardDescription>
-                              <p className="text-xs text-muted-foreground mt-1">{req.date}</p>
-                            </CardHeader>
-                          </Card>
-                        ))}
-                      </div>
+                      <InboxRequestList
+                        requests={inboxRequests}
+                        selectedRequestId={selectedRequest?.id}
+                        onSelectRequest={setSelectedRequest}
+                      />
 
                       {/* Request Detail */}
                       <div className="w-full md:w-2/3 flex flex-col p-6 bg-slate-50/50 rounded-lg border border-border/50">
@@ -468,7 +443,7 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                                       )
                                     }
 
-                                    const value = selectedRequest.submissionData[field.key];
+                                    const value = selectedRequest.submissionData?.[field.key];
                                     if (value === undefined || value === null || value === '') return null;
 
                                     return (
@@ -481,10 +456,12 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                                               typeof value === 'string' && value.startsWith('data:') ? (
                                                 value.startsWith('data:image') ? (
                                                   <div className="mt-2 text-center">
-                                                    <img
+                                                    <NextImage
                                                       src={value}
                                                       alt="Attached file"
-                                                      className="max-w-full h-auto max-h-[300px] rounded-md border border-border mx-auto"
+                                                      width={400}
+                                                      height={300}
+                                                      className="max-w-full h-auto max-h-[300px] rounded-md border border-border mx-auto object-contain"
                                                     />
                                                   </div>
                                                 ) : (
@@ -970,10 +947,11 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                 title="PDF Preview"
               />
             ) : filePreview?.type === 'image' ? (
-              <img
+              <NextImage
                 src={filePreview.content}
                 alt="Preview"
-                className="max-w-full max-h-full object-contain rounded-md"
+                fill
+                className="object-contain rounded-md p-2"
               />
             ) : (
               <div className="text-center">

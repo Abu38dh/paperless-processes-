@@ -5,23 +5,7 @@ import { Card } from "@/components/ui/card"
 import { Clock, CheckCircle, Download, MessageSquare, Edit2 } from "lucide-react"
 import RequestTracking from "./student/request-tracking"
 
-interface WorkflowStep {
-  step: number
-  department: string
-  role: string
-  status: "pending" | "approved" | "rejected" | "processing"
-}
-
-interface Request {
-  id: string
-  title: string
-  type: string
-  date: string
-  status: "pending" | "approved" | "approved_with_changes" | "rejected_with_changes" | "rejected" | "processing" | "returned"
-  description: string
-  workflow?: WorkflowStep[]
-  attachments?: string[] | any[]
-}
+import { Request } from "@/types/schema"
 
 interface RequestDetailProps {
   request: Request
@@ -66,7 +50,7 @@ export default function RequestDetail({ request, onEdit, onBack, showHistory = t
     returned: { color: "bg-orange-100 text-orange-800", icon: Edit2, label: "معاد للتعديل" },
   }
 
-  const config = statusConfig[request.status] || statusConfig.pending
+  const config = statusConfig[request.status as keyof typeof statusConfig] || statusConfig.pending
   const StatusIcon = config.icon
 
   return (
@@ -85,13 +69,13 @@ export default function RequestDetail({ request, onEdit, onBack, showHistory = t
         )}
 
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold text-foreground">{request.title}</h2>
+          <h2 className="text-2xl font-bold text-foreground">{request.title || request.type}</h2>
           <span className={`px-3 py-1 rounded-full text-sm font-medium ${config.color}`}>
             <StatusIcon className="w-4 h-4 inline ml-1" />
             {config.label}
           </span>
         </div>
-        <p className="text-muted-foreground">{request.description}</p>
+        <p className="text-muted-foreground">{request.description || "لا يوجد وصف"}</p>
       </div>
 
       <Card className="p-4 bg-primary/5 border border-primary/20">
@@ -163,7 +147,7 @@ export default function RequestDetail({ request, onEdit, onBack, showHistory = t
               تحميل الموافقة (PDF)
             </Button>
           )}
-          {(request.status === "pending" || request.status === "rejected_with_changes") && onEdit && (
+          {(request.status === "pending" || request.status === "returned") && onEdit && (
             <Button onClick={onEdit} variant="outline" className="gap-2 bg-transparent">
               <Edit2 className="w-4 h-4" />
               تعديل

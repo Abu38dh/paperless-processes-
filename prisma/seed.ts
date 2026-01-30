@@ -13,7 +13,7 @@ async function main() {
         { role_name: 'employee', permissions: ['view_requests', 'edit_requests'] },
         { role_name: 'admin', permissions: ['all'] },
         { role_name: 'dean', permissions: ['approve_college_requests'] },
-        { role_name: 'manager', permissions: ['approve_department_requests'] },
+        { role_name: 'head_of_department', permissions: ['approve_department_requests'] },
     ]
 
     for (const role of rolesData) {

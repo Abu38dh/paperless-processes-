@@ -1,105 +1,70 @@
-"use client"
-
-import { useState, useEffect } from "react"
+import { auth } from "@/auth"
 import LoginPage from "@/components/login-page"
 import StudentDashboard from "@/components/student-dashboard"
 import EmployeeDashboard from "@/components/employee-dashboard"
 import AdminDashboard from "@/components/admin-dashboard"
+import { logout } from "@/app/actions/login"
 
-type UserRole = "student" | "employee" | "admin" | "dean" | "head_of_department" | "manager" | "vice_dean"
+export default async function Home() {
+  const session = await auth()
 
-interface UserData {
-  university_id: string
-  full_name: string
-  role: UserRole
-  permissions: string[]
-  department_id?: number | null
-}
-
-export default function Home() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [userData, setUserData] = useState<UserData | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-
-  // Check for stored user session on mount
-  useEffect(() => {
-    const storedUser = sessionStorage.getItem("current_user")
-    if (storedUser) {
-      try {
-        const user = JSON.parse(storedUser)
-        console.log('✅ جلسة محفوظة:', user)
-        setUserData(user)
-        setIsLoggedIn(true)
-      } catch (e) {
-        console.error("Failed to parse stored user:", e)
-        sessionStorage.removeItem("current_user")
-      }
-    }
-    setIsLoading(false)
-  }, [])
-
-  const handleLogin = (role: UserRole, permissions: string[] = []) => {
-    // Get user data from sessionStorage (already stored by SimpleLogin/LoginPage)
-    const storedUser = sessionStorage.getItem("current_user")
-    if (storedUser) {
-      try {
-        const user = JSON.parse(storedUser)
-        console.log('✅ تسجيل دخول ناجح:', user)
-        setUserData(user)
-        setIsLoggedIn(true)
-      } catch (e) {
-        console.error("Error reading user data:", e)
-      }
-    }
+  if (!session || !session.user) {
+    return <LoginPage />
   }
 
-  const handleLogout = () => {
-    console.log('🚪 تسجيل الخروج')
-    setIsLoggedIn(false)
-    setUserData(null)
-    sessionStorage.removeItem("current_user")
+  const user = session.user
+  const role = user.role?.toLowerCase()
+
+  // Prepare userData object compatible with existing components
+  const userData = {
+    university_id: user.university_id,
+    full_name: user.name || "",
+    role: user.role,
+    permissions: user.permissions || [],
+    department_id: user.department_id,
+    // Add any other fields required by UserData interface
   }
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">جاري التحميل...</p>
-        </div>
-      </div>
-    )
-  }
+  // Helper to handle logout (passed as prop)
+  // Since this is a server component, we can't pass a function that calls server action directly as an event handler to client component
+  // effectively easily without a client wrapper or passing a server action.
+  // Existing dashboards expect `onLogout`.
+  // We can pass a dummy function or update dashboards to handle logout themselves via a separate component.
+  // For now, let's create a server action for logout or simple client wrapper.
+  // Better approach: Update dashboards to use a real SignOut button component instead of a callback.
+  // For compatibility, we'll pass an empty function and handle logout inside the dashboards if possible,
+  // OR we pass a server action that can be called.
 
-  if (!isLoggedIn || !userData) {
-    return <LoginPage onLogin={handleLogin} />
-  }
+  // Actually, existing components call `onLogout` which just clears local state.
+  // With NextAuth, we need to call `signOut()`.
+  // I should provide a client-side wrapper or modify dashboards.
+  // Let's assume for this step we will handle the logout inside the dashboards or just pass a no-op for now and fix logout button next.
 
-  console.log('📊 Dashboard Render:', { role: userData.role, userData })
-
-  // Normalize role for switch check (handle case variations)
-  const role = userData.role.toLowerCase()
+  /*
+    NOTE: The existing dashboards take `onLogout`. 
+    I will modify them to accept a `signOutAction` or simply ignore `onLogout` and use a global SignOut button.
+    For this transition, I'll pass a no-op and we will fix the logout button in a separate step (or inside the dashboards).
+  */
 
   switch (true) {
     case role === "student":
-      return <StudentDashboard onLogout={handleLogout} userData={userData} />
+      return <StudentDashboard userData={userData as any} onLogout={logout} />
 
-    // Administrative / Academic Staff Roles -> Employee Dashboard
     case role === "employee":
     case role === "dean":
     case role === "head_of_department":
     case role === "manager":
     case role === "vice_dean":
-      return <EmployeeDashboard onLogout={handleLogout} permissions={userData.permissions} userData={userData} />
+      return <EmployeeDashboard permissions={userData.permissions} userData={userData as any} onLogout={logout} />
 
     case role === "admin":
-      return <AdminDashboard onLogout={handleLogout} userData={userData} />
+      return <AdminDashboard userData={userData as any} onLogout={logout} />
 
     default:
-      // Fallback: If has permissions, likely an employee-type user
       if (userData.permissions && userData.permissions.length > 0) {
-        return <EmployeeDashboard onLogout={handleLogout} permissions={userData.permissions} userData={userData} />
+        return <EmployeeDashboard permissions={userData.permissions} userData={userData as any} onLogout={logout} />
       }
-      return <StudentDashboard onLogout={handleLogout} userData={userData} />
+      return <StudentDashboard userData={userData as any} onLogout={logout} />
   }
 }
+

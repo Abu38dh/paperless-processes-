@@ -1,56 +1,18 @@
 "use client"
 
-import type React from "react"
-import { useState } from "react"
+import { useActionState, useState } from "react"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
+import { authenticate } from "@/app/actions/login"
 
-interface LoginPageProps {
-  onLogin: (userRole: "student" | "employee" | "admin", permissions?: string[]) => void
-}
-
-import { loginUser } from "@/app/actions/auth"
-
-export default function LoginPage({ onLogin }: LoginPageProps) {
-  const [username, setUsername] = useState("")
-  const [password, setPassword] = useState("")
-  const [error, setError] = useState("")
+export default function LoginPage() {
+  const [errorMessage, dispatch] = useActionState(authenticate, undefined)
   const [isLoading, setIsLoading] = useState(false)
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
-    setIsLoading(true)
-
-    try {
-      const result = await loginUser(username, password)
-
-      if (result.success && result.user) {
-        // Store user data in sessionStorage
-        const userData = {
-          university_id: result.user.university_id,
-          full_name: result.user.full_name,
-          role: result.user.role,
-          permissions: result.user.permissions || [],
-          department_id: result.user.department_id
-        }
-
-        sessionStorage.setItem("current_user", JSON.stringify(userData))
-
-        onLogin(result.user.role, result.user.permissions)
-      } else {
-        setError(result.error || "فشل تسجيل الدخول")
-      }
-    } catch {
-      setError("حدث خطأ غير متوقع")
-    } finally {
-      setIsLoading(false)
-    }
-  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5 p-4">
@@ -58,7 +20,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
         {/* Logo Section */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <img src="/university-logo.png" alt="جامعة العرب" className="h-32" />
+            <Image src="/university-logo.png" alt="جامعة العرب" width={128} height={128} className="h-32 w-auto" priority />
           </div>
           <h1 className="text-3xl font-bold text-foreground">نظام المراسلات</h1>
           <p className="text-muted-foreground text-sm mt-2">Correspondence System</p>
@@ -72,19 +34,18 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
           </CardHeader>
 
           <CardContent className="pt-6">
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form action={dispatch} className="space-y-4" onSubmit={() => setIsLoading(true)}>
               <div className="space-y-2">
                 <Label htmlFor="username" className="text-foreground">
                   اسم المستخدم أو رقم القيد
                 </Label>
                 <Input
                   id="username"
+                  name="username"
                   type="text"
                   placeholder="20123456 أو EMP001 أو admin"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
                   className="border-slate-200 text-right"
-                  disabled={isLoading}
+                  required
                   autoComplete="off"
                 />
               </div>
@@ -96,20 +57,19 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                 </Label>
                 <Input
                   id="password"
+                  name="password"
                   type="password"
                   placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
                   className="border-slate-200"
-                  disabled={isLoading}
+                  required
                   autoComplete="off"
                 />
               </div>
 
-              {error && (
+              {errorMessage && (
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{error}</AlertDescription>
+                  <AlertDescription>{errorMessage}</AlertDescription>
                 </Alert>
               )}
 
@@ -117,12 +77,10 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
               <Button
                 type="submit"
                 className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
-                disabled={isLoading}
+                aria-disabled={isLoading}
               >
                 {isLoading ? "جاري الدخول..." : "دخول"}
               </Button>
-
-
             </form>
           </CardContent>
         </Card>

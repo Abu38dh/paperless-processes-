@@ -4,7 +4,7 @@ export const roleTranslations: Record<string, string> = {
     dean: "عميد",
     head: "رئيس قسم",
     head_of_department: "رئيس قسم",
-    manager: "مدير",
+    manager: "رئيس قسم", // Legacy support
     employee: "موظف",
     student: "طالب",
     vice_dean: "وكيل كلية",

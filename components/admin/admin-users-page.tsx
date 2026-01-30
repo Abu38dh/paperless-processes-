@@ -1,7 +1,7 @@
 "use client"
 // Force rebuild
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
@@ -65,16 +65,57 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
   const [isDeptDisabled, setIsDeptDisabled] = useState(false)
   const [currentUserScope, setCurrentUserScope] = useState<{ role?: string, collegeId?: number | null, departmentId?: number | null }>({})
 
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+
+  /* Infinite Scroll & Persistence Logic */
+  const observerTarget = useRef(null)
+
   useEffect(() => {
-    fetchData()
-  }, [currentUserId])
+    // Initial load or filter change
+    if (page === 1) {
+      fetchData()
+    }
+  }, [page, searchTerm, selectedCollegeId, selectedDeptId, currentUserId])
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting && !loading && page < totalPages) {
+          setPage(prev => prev + 1)
+        }
+      },
+      { threshold: 1.0 }
+    )
+
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current)
+    }
+
+    return () => {
+      if (observerTarget.current) {
+        observer.unobserve(observerTarget.current)
+      }
+    }
+  }, [loading, totalPages, page])
+
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1)
+    setUsers([])
+  }, [searchTerm, selectedCollegeId, selectedDeptId])
+
 
   const fetchData = async () => {
     setError(null)
+    setLoading(true)
 
     try {
+      // NOTE: For Infinite Scroll, we only want to fetch permissions/colleges once (on mount or page 1)
+      // but keeping it simple for now is fine, just optimizing the users fetch is key.
+
       const [usersResult, rolesResult, collegesResult] = await Promise.all([
-        getUsers(1, 50, currentUserId),
+        getUsers(page, 50, currentUserId, searchTerm, selectedCollegeId, selectedDeptId),
         getAllRoles(),
         getAllColleges()
       ])
@@ -98,24 +139,21 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
           if (scopeResult.success && scopeResult.data) {
             setCurrentUserScope(scopeResult.data) // Store scope for UI logic
             const { role, collegeId, departmentId } = scopeResult.data
-            console.log("Scope Result:", scopeResult.data)
 
             if (role === 'dean' && collegeId) {
-              // Dean: See only their college, but all departments in it
               availableColleges = availableColleges.filter((c: any) => c.college_id === collegeId)
               allDepts = allDepts.filter((d: any) => d.college_id === collegeId)
 
-              setSelectedCollegeId(collegeId.toString())
+              if (!selectedCollegeId) setSelectedCollegeId(collegeId.toString())
               setIsCollegeDisabled(true)
             }
-            else if ((role === 'head' || role === 'manager') && departmentId && collegeId) {
-              // Head: See only their college and their department
+            else if ((role === 'head' || role === 'manager' || role === 'head_of_department') && departmentId && collegeId) {
               availableColleges = availableColleges.filter((c: any) => c.college_id === collegeId)
               allDepts = allDepts.filter((d: any) => d.department_id === departmentId)
 
-              setSelectedCollegeId(collegeId.toString())
+              if (!selectedCollegeId) setSelectedCollegeId(collegeId.toString())
               setIsCollegeDisabled(true)
-              setSelectedDeptId(departmentId.toString())
+              if (!selectedDeptId) setSelectedDeptId(departmentId.toString())
               setIsDeptDisabled(true)
             }
           }
@@ -125,7 +163,17 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
       }
 
       if (usersResult.success && usersResult.data) {
-        setUsers(usersResult.data)
+        if (page === 1) {
+          setUsers(usersResult.data)
+        } else {
+          setUsers(prev => [...prev, ...usersResult.data])
+        }
+
+        if (usersResult.pagination) {
+          setTotalPages(usersResult.pagination.totalPages)
+        }
+      } else {
+        setError(usersResult.error || "فشل في تحميل المستخدمين")
       }
 
       if (rolesResult.success && rolesResult.data) {
@@ -148,12 +196,8 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
     ? departments.filter((d: any) => d.college_id === parseInt(selectedCollegeId))
     : departments
 
-  const filteredUsers = users.filter((user: any) => {
-    const matchesSearch = user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || user.university_id?.includes(searchTerm)
-    const matchesCollege = selectedCollegeId ? user.departments_users_department_idTodepartments?.college_id === parseInt(selectedCollegeId) : true
-    const matchesDept = selectedDeptId ? user.department_id === parseInt(selectedDeptId) : true
-    return matchesSearch && matchesCollege && matchesDept
-  })
+  // Server side filtering is now active, so filteredUsers is just users
+  const filteredUsers = users
 
   const addNewUser = async () => {
     if (!newUserName || !newUserUniversityId || !newUserRoleId) {
@@ -191,7 +235,14 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
         setNewUserDeptId("")
         setNewUserCollegeId("") // إعادة تعيين الكلية
         setShowAddUser(false)
-        await fetchData()
+
+        // PERSISTENCE: Prepend new user instead of full reload
+        // We might not have the full user object with joined tables perfectly, calls for a reload mostly
+        // BUT to keep scroll, we could just reload page 1 or insert a mock.
+        // For "Add", it's usually acceptable to reload or just prepend.
+        // Let's reset to Page 1 to show the new user at top.
+        setPage(1)
+        fetchData()
       } else {
         toast({ title: "❌ فشل الإضافة", description: result.error, variant: "destructive" })
       }
@@ -213,7 +264,10 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
 
       if (result.success) {
         toast({ title: "✅ تم الحذف بنجاح" })
-        await fetchData()
+
+        // PERSISTENCE: Remove from local state
+        setUsers(prev => prev.filter(u => u.user_id !== itemToDelete))
+
         if (expandedUserId === itemToDelete) {
           setExpandedUserId(null)
         }
@@ -242,9 +296,16 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
 
       if (result.success) {
         toast({ title: "✅ تم التحديث بنجاح" })
+
+        // PERSISTENCE: Update local state without fetching
+        setUsers(prev => prev.map(u =>
+          u.user_id === expandedUserId
+            ? { ...u, ...expandedUserData, roles: roles.find(r => r.role_id === expandedUserData.role_id), departments_users_department_idTodepartments: departments.find(d => d.department_id == expandedUserData.department_id) }
+            : u
+        ))
+
         setExpandedUserId(null)
         setExpandedUserData({})
-        await fetchData()
       } else {
         toast({ title: "❌ فشل التحديث", description: result.error, variant: "destructive" })
       }
@@ -259,7 +320,12 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
       const result = await updateUser(userId, { is_active: !currentStatus })
       if (result.success) {
         toast({ title: !currentStatus ? "✅ تم تفعيل المستخدم" : "⛔ تم تعطيل المستخدم" })
-        await fetchData()
+
+        // PERSISTENCE: Update local state
+        setUsers(prev => prev.map(u =>
+          u.user_id === userId ? { ...u, is_active: !currentStatus } : u
+        ))
+
       } else {
         toast({ title: "❌ فشل التحديث", description: result.error, variant: "destructive" })
       }
@@ -399,7 +465,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                         // Dean can create: Head, Manager, Employee, Student (Not Admin or another Dean)
                         return ['head', 'manager', 'head_of_department', 'employee', 'student'].includes(rName);
                       }
-                      if (currentUserScope.role === 'head' || currentUserScope.role === 'manager') {
+                      if (currentUserScope.role === 'head' || currentUserScope.role === 'manager' || currentUserScope.role === 'head_of_department') {
                         // Head can create: Only Student
                         return rName === 'student';
                       }
@@ -912,6 +978,11 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                 )}
               </div>
             ))}
+          </div>
+
+          {/* Infinite Scroll Sentinel */}
+          <div ref={observerTarget} className="h-10 flex items-center justify-center mt-4">
+            {loading && page > 1 && <span className="custom-loader"></span>}
           </div>
         </CardContent>
       </Card>

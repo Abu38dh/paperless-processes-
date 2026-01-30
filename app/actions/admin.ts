@@ -2,6 +2,7 @@
 
 import { db } from "@/lib/db"
 import { revalidatePath } from "next/cache"
+import { Prisma } from "@prisma/client"
 import * as bcrypt from "bcryptjs"
 
 export async function getAdminStats() {
@@ -66,13 +67,20 @@ export async function getCurrentUserScope(requesterId: string) {
     }
 }
 
-export async function getUsers(page: number = 1, limit: number = 50, requesterId?: string) {
+export async function getUsers(
+    page: number = 1,
+    limit: number = 50,
+    requesterId?: string,
+    search?: string,
+    filterCollegeId?: string, // user selected
+    filterDeptId?: string    // user selected
+) {
     try {
         const skip = (page - 1) * limit
 
-        // Build where clause based on requester role/scope
+        // Build base where clause based on requester role/scope
         // Default to Fail Closed (Show nothing) if no valid scope found
-        let whereClause: any = { user_id: -1 }
+        let baseWhere: Prisma.usersWhereInput = { user_id: -1 }
 
         if (requesterId) {
             console.log("[getUsers] Checking scope for:", requesterId)
@@ -88,11 +96,10 @@ export async function getUsers(page: number = 1, limit: number = 50, requesterId
 
             if (requester) {
                 const roleName = requester.roles.role_name.toLowerCase()
-                console.log("[getUsers] Requester role:", roleName)
 
                 if (roleName === 'admin') {
-                    // Admin sees all
-                    whereClause = {}
+                    // Admin sees all (base is empty)
+                    baseWhere = {}
                 }
                 // Dean Scope: Only users in their college
                 else if (roleName === 'dean') {
@@ -110,35 +117,44 @@ export async function getUsers(page: number = 1, limit: number = 50, requesterId
                     }
 
                     if (collegeId) {
-                        console.log("[getUsers] Scoping to College ID:", collegeId)
-                        whereClause = {
+                        baseWhere = {
                             departments_users_department_idTodepartments: {
                                 college_id: collegeId
                             }
                         }
-                    } else {
-                        console.log("[getUsers] Dean has no college assigned. Restricted.")
                     }
                 }
                 // Head Scope: Only users in their department
-                else if (roleName === 'manager' || roleName === 'head') {
+                else if (roleName === 'head_of_department' || roleName === 'manager' || roleName === 'head') {
                     const deptId = requester.department_id
                     if (deptId) {
-                        console.log("[getUsers] Scoping to Dept ID:", deptId)
-                        whereClause = {
+                        baseWhere = {
                             department_id: deptId
                         }
-                    } else {
-                        console.log("[getUsers] Head has no dept assigned. Restricted.")
                     }
-                } else {
-                    console.log("[getUsers] Role authorized to view users? No specific rule found. Restricted.")
                 }
-            } else {
-                console.log("[getUsers] Requester not found for ID:", requesterId)
             }
-        } else {
-            console.log("[getUsers] No requesterId provided. Defaulting to restricted view.")
+        }
+
+        // Apply filters on top of base scope
+        const whereClause: Prisma.usersWhereInput = {
+            AND: [
+                baseWhere,
+                search ? {
+                    OR: [
+                        { full_name: { contains: search } },
+                        { university_id: { contains: search } }
+                    ]
+                } : {},
+                filterCollegeId ? {
+                    departments_users_department_idTodepartments: {
+                        college_id: parseInt(filterCollegeId)
+                    }
+                } : {},
+                filterDeptId ? {
+                    department_id: parseInt(filterDeptId)
+                } : {}
+            ]
         }
 
         const [users, total] = await Promise.all([
@@ -199,7 +215,7 @@ export async function createUser(data: any) {
             const newPermissions = new Set(currentPermissions)
 
             // Add automatic permissions based on role
-            if (role.role_name === 'manager' || role.role_name === 'dean') {
+            if (role.role_name === 'head_of_department' || role.role_name === 'manager' || role.role_name === 'dean') {
                 newPermissions.add('review_requests')
                 newPermissions.add('manage_forms')
                 // Managers also need to see reports usually
@@ -337,7 +353,7 @@ export async function getReportsData(startDate?: Date, endDate?: Date, requester
                             college_id: collegeId
                         }
                     }
-                } else if ((role === 'head' || role === 'manager') && departmentId) {
+                } else if ((role === 'head' || role === 'manager' || role === 'head_of_department') && departmentId) {
                     whereClause.users = {
                         department_id: departmentId
                     }
@@ -492,7 +508,7 @@ export async function getAuditLog(filters?: {
                             college_id: collegeId
                         }
                     }
-                } else if ((role === 'head' || role === 'manager') && departmentId) {
+                } else if ((role === 'head' || role === 'manager' || role === 'head_of_department') && departmentId) {
                     // Show actions where the actor is in the department
                     whereClause.users = {
                         department_id: departmentId
@@ -577,7 +593,7 @@ export async function getApproversList(requesterId?: string) {
                         // Fail Closed
                         userWhereClause = { user_id: -1 }
                     }
-                } else if (roleName === 'manager' || roleName === 'head') {
+                } else if (roleName === 'head_of_department' || roleName === 'manager' || roleName === 'head') {
                     const deptId = requester.department_id
                     if (deptId) {
                         userWhereClause = {

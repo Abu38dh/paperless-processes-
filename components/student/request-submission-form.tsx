@@ -284,19 +284,42 @@ export default function RequestSubmissionForm({
                       )}
 
                       {field.type === "file" && (
-                        <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:bg-muted/30 hover:border-primary/50 transition-all cursor-pointer">
+                        <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:bg-muted/30 hover:border-primary/50 transition-all cursor-pointer relative">
                           <Input
                             type="file"
                             className="hidden"
                             id={`file-${field.id}`}
-                            onChange={(e) => {
+                            onChange={async (e) => {
                               if (e.target.files?.[0]) {
                                 const file = e.target.files[0]
-                                const reader = new FileReader()
-                                reader.onloadend = () => {
-                                  handleInputChange(field.key, reader.result)
+                                const formData = new FormData()
+                                formData.append('file', file)
+
+                                try {
+                                  // Show uploading state (could aid with a local state if needed for UI feedback)
+                                  const loadingToast = document.createElement('div')
+                                  loadingToast.className = "fixed bottom-4 right-4 bg-primary text-white px-4 py-2 rounded shadow-lg z-50"
+                                  loadingToast.innerText = "جاري رفع الملف..."
+                                  document.body.appendChild(loadingToast)
+
+                                  const response = await fetch('/api/upload', {
+                                    method: 'POST',
+                                    body: formData
+                                  })
+
+                                  document.body.removeChild(loadingToast)
+
+                                  const data = await response.json()
+
+                                  if (data.success) {
+                                    handleInputChange(field.key, data.url)
+                                  } else {
+                                    alert("فشل رفع الملف: " + data.error)
+                                  }
+                                } catch (err) {
+                                  console.error("Upload failed", err)
+                                  alert("حدث خطأ أثناء رفع الملف")
                                 }
-                                reader.readAsDataURL(file)
                               }
                             }}
                           />
@@ -305,11 +328,17 @@ export default function RequestSubmissionForm({
                             <div className="space-y-1">
                               <p className="text-base font-medium text-foreground">
                                 {formData[field.key] ? (
-                                  String(formData[field.key]).startsWith('data:') ? 'تم اختيار ملف' : formData[field.key]
+                                  <span className="text-primary font-bold">تم رفع الملف بنجاح ✅</span>
                                 ) : "اضغط لرفع ملف"}
                               </p>
                               {!formData[field.key] && (
                                 <p className="text-sm text-muted-foreground">أو اسحب الملف وأفلته هنا</p>
+                              )}
+                              {formData[field.key] && (
+                                <p className="text-xs text-muted-foreground break-all max-w-xs mx-auto mt-2">
+                                  {/* Show filename or view link if possible */}
+                                  <a href={formData[field.key]} target="_blank" rel="noopener noreferrer" className="hover:underline">عرض الملف المرفق</a>
+                                </p>
                               )}
                             </div>
                           </Label>

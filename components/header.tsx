@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button"
 import { LogOut, Bell, User } from "lucide-react"
 import { translateRole } from "@/lib/translations"
 
+import Image from "next/image"
+
 interface HeaderProps {
   userType: string
   onLogout: () => void
@@ -32,7 +34,7 @@ export default function Header({ userType, onLogout, onMenuClick }: HeaderProps 
             </svg>
           </Button>
         )}
-        <img src="/university-logo.png" alt="جامعة العرب" className="h-10" />
+        <Image src="/university-logo.png" alt="جامعة العرب" width={40} height={40} className="h-10 w-auto" priority />
         <div>
           <h1 className="text-lg font-bold text-foreground hidden sm:block">نظام المراسلات</h1>
           <p className="text-sm text-muted-foreground hidden sm:block">Al-Arab University</p>

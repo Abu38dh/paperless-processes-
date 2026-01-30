@@ -7,15 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { ListSkeleton } from "@/components/ui/loading-skeleton"
 import { useState } from "react"
 
-interface Request {
-  id: string
-  title: string
-  type: string
-  date: string
-  status: string
-  description?: string
-  reference_no?: string
-}
+import { Request } from "@/types/schema"
 
 interface RequestListProps {
   requests: Request[]
@@ -28,7 +20,7 @@ export default function RequestList({ requests, selectedId, onSelect, loading }:
   const [searchTerm, setSearchTerm] = useState("")
 
   const filteredRequests = requests.filter(req =>
-    req.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (req.title || req.type).toLowerCase().includes(searchTerm.toLowerCase()) ||
     req.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
     req.id.includes(searchTerm)
   )
@@ -73,7 +65,7 @@ export default function RequestList({ requests, selectedId, onSelect, loading }:
             }`}
         >
           <div className="flex items-center justify-between mb-1">
-            <h4 className="font-bold text-foreground group-hover:text-primary transition-colors text-sm">{request.title}</h4>
+            <h4 className="font-bold text-foreground group-hover:text-primary transition-colors text-sm">{request.title || request.type}</h4>
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${statusColors[request.status]}`}>
               {statusLabels[request.status]}
             </span>
