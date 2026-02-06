@@ -190,16 +190,31 @@ export async function getRequestDetail(requestId: number, userId: string) {
         }
 
         // Check authorization - user must be requester or have appropriate role
+        // Check authorization - user must be requester, have acted on it, or have appropriate role
         if (request.requester_id !== user.user_id) {
-            // Check if user is admin or employee who can view this
-            const userRole = await db.users.findUnique({
-                where: { user_id: user.user_id },
-                include: { roles: true }
-            })
+            // Check if user has acted on this request (is in history)
+            const hasActed = request.request_actions.some(action => action.actor_id === user.user_id)
 
-            const allowedRoles = ['admin', 'employee']
-            if (!userRole || !allowedRoles.includes(userRole.roles.role_name)) {
-                return { success: false, error: "غير مصرح لك بعرض هذا الطلب" }
+            if (!hasActed) {
+                // Check if user is admin or employee who can view this (fallback)
+                const userRole = await db.users.findUnique({
+                    where: { user_id: user.user_id },
+                    include: { roles: true }
+                })
+
+                const allowedRoles = ['admin', 'employee', 'manager', 'head_of_department'] // Expanded roles just in case
+                if (!userRole || !allowedRoles.includes(userRole.roles.role_name)) {
+                    // One last check: is the user a current approver?
+                    const currentStep = request.workflow_steps
+                    const isCurrentApprover = currentStep && (
+                        currentStep.approver_user_id === user.user_id ||
+                        (currentStep.approver_role_id && userRole?.role_id === currentStep.approver_role_id)
+                    )
+
+                    if (!isCurrentApprover) {
+                        return { success: false, error: "غير مصرح لك بعرض هذا الطلب" }
+                    }
+                }
             }
         }
 

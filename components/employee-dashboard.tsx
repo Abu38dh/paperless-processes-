@@ -29,7 +29,7 @@ import { ErrorMessage } from "@/components/ui/error-message"
 import { EmptyState } from "@/components/ui/empty-state"
 import { getEmployeeInbox, getEmployeeStats, processRequest, getEmployeeRequests } from "@/app/actions/employee"
 import { getAvailableFormTemplates } from "@/app/actions/forms"
-import { CheckCircle, XCircle, Clock, FileText, RotateCcw, Redo2, Upload } from "lucide-react"
+import { CheckCircle, XCircle, Clock, FileText, RotateCcw, Redo2, Upload, ExternalLink } from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import AdminFormsPage from "@/components/admin/admin-forms-page"
 import WorkflowsEditor from "@/components/admin/workflows-editor"
@@ -203,6 +203,30 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
       setSelectedHistoryItem(null)
     } finally {
       setHistoryLoading(false)
+    }
+  }
+
+  // Requester Interaction History
+  const [requesterHistoryDialog, setRequesterHistoryDialog] = useState<{
+    open: boolean
+    loading: boolean
+    data: any[]
+    applicantName: string
+  }>({ open: false, loading: false, data: [], applicantName: "" })
+
+  const handleViewRequesterHistory = async (applicantName: string) => {
+    setRequesterHistoryDialog({ open: true, loading: true, data: [], applicantName })
+    try {
+      const { getRequesterInteractionHistory } = await import("@/app/actions/employee")
+      const result = await getRequesterInteractionHistory(userData.university_id, applicantName)
+      if (result.success && result.interactions) {
+        setRequesterHistoryDialog(prev => ({ ...prev, loading: false, data: result.interactions }))
+      } else {
+        setRequesterHistoryDialog(prev => ({ ...prev, loading: false }))
+      }
+    } catch (error) {
+      console.error("Failed to fetch history", error)
+      setRequesterHistoryDialog(prev => ({ ...prev, loading: false }))
     }
   }
 
@@ -395,6 +419,7 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                         requests={inboxRequests}
                         selectedRequestId={selectedRequest?.id}
                         onSelectRequest={setSelectedRequest}
+                        onViewHistory={handleViewRequesterHistory}
                       />
 
                       {/* Request Detail */}
@@ -410,7 +435,15 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                               <div className="grid grid-cols-2 gap-4">
                                 <div>
                                   <p className="text-sm text-muted-foreground">مقدم الطلب</p>
-                                  <p className="font-semibold">{selectedRequest.applicant}</p>
+                                  <p
+                                    className="font-semibold text-primary hover:underline cursor-pointer"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleViewRequesterHistory(selectedRequest.applicant)
+                                    }}
+                                  >
+                                    {selectedRequest.applicant}
+                                  </p>
                                 </div>
                                 <div>
                                   <p className="text-sm text-muted-foreground">تاريخ التقديم</p>
@@ -452,39 +485,59 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                                         <span className="text-sm font-semibold text-foreground md:col-span-2 break-words whitespace-pre-wrap">
                                           {typeof value === 'boolean' ? (value ? 'نعم' : 'لا') :
                                             field.type === 'file' ? (
-                                              /* Render file preview */
-                                              typeof value === 'string' && value.startsWith('data:') ? (
-                                                value.startsWith('data:image') ? (
-                                                  <div className="mt-2 text-center">
-                                                    <NextImage
-                                                      src={value}
-                                                      alt="Attached file"
-                                                      width={400}
-                                                      height={300}
-                                                      className="max-w-full h-auto max-h-[300px] rounded-md border border-border mx-auto object-contain"
-                                                    />
-                                                  </div>
-                                                ) : (
-                                                  <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => {
-                                                      const isPdf = value.startsWith('data:application/pdf');
-                                                      setFilePreview({
-                                                        open: true,
-                                                        type: isPdf ? 'pdf' : 'other',
-                                                        content: value,
-                                                        name: field.label
-                                                      })
-                                                    }}
-                                                    className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 border-blue-200"
-                                                  >
-                                                    <FileText className="w-4 h-4" />
-                                                    عرض الملف
-                                                  </Button>
-                                                )
+                                              typeof value === 'string' ? (
+                                                /* Render file preview */
+                                                (() => {
+                                                  const isDataUrl = value.startsWith('data:')
+                                                  const isImage = isDataUrl ? value.startsWith('data:image') : /\.(jpeg|jpg|gif|png|webp|svg)$/i.test(value)
+                                                  const isPdf = isDataUrl ? value.startsWith('data:application/pdf') : /\.pdf$/i.test(value)
+
+                                                  if (isImage) {
+                                                    return (
+                                                      <div
+                                                        className="mt-2 text-center cursor-pointer hover:opacity-95 transition-opacity"
+                                                        onClick={() => setFilePreview({
+                                                          open: true,
+                                                          type: 'image',
+                                                          content: value,
+                                                          name: field.label
+                                                        })}
+                                                      >
+                                                        <NextImage
+                                                          src={value}
+                                                          alt="Attached file"
+                                                          width={400}
+                                                          height={300}
+                                                          className="max-w-full h-auto max-h-[300px] rounded-md border border-border mx-auto object-contain"
+                                                          unoptimized={true}
+                                                        />
+                                                      </div>
+                                                    )
+                                                  }
+
+                                                  return (
+                                                    <Button
+                                                      variant="outline"
+                                                      size="sm"
+                                                      onClick={() => {
+                                                        setFilePreview({
+                                                          open: true,
+                                                          type: isPdf ? 'pdf' : 'other',
+                                                          content: value,
+                                                          name: field.label
+                                                        })
+                                                      }}
+                                                      className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 border-blue-200"
+                                                    >
+                                                      <FileText className="w-4 h-4" />
+                                                      {isPdf ? 'عرض ملف PDF' : 'عرض الملف'}
+                                                    </Button>
+                                                  )
+                                                })()
                                               ) : (
-                                                <span className="text-muted-foreground italic">تم إرفاق ملف (معاينة غير متاحة)</span>
+                                                <span className="text-muted-foreground italic">
+                                                  لا يوجد ملف (أو تنسيق غير مدعوم)
+                                                </span>
                                               )
                                             ) :
                                               field.type === 'date' ? new Date(value).toLocaleDateString('ar-EG') :
@@ -632,7 +685,7 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                             <th className="p-3 font-medium">رقم الطلب</th>
                             <th className="p-3 font-medium">نوع الطلب</th>
                             <th className="p-3 font-medium">مقدم الطلب</th>
-                            <th className="p-3 font-medium">الإجراء</th>
+
                             <th className="p-3 font-medium">التاريخ</th>
                             <th className="p-3 font-medium">ملاحظاتك</th>
                             <th className="p-3 font-medium">الحالة الحالية</th>
@@ -648,11 +701,7 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                               <td className="p-3 font-mono">{item.requestId}</td>
                               <td className="p-3">{item.requestType}</td>
                               <td className="p-3">{item.applicant}</td>
-                              <td className="p-3">
-                                <Badge variant={item.action === 'approve' ? 'default' : 'destructive'} className={item.action === 'approve' ? 'bg-green-600' : 'bg-red-600'}>
-                                  {item.action === 'approve' ? 'موافقة' : 'رفض'}
-                                </Badge>
-                              </td>
+
                               <td className="p-3">
                                 {new Date(item.timestamp).toLocaleDateString('ar-SA')}
                                 <span className="text-xs text-muted-foreground block text-right">
@@ -680,74 +729,7 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                 </CardContent>
               </Card>
 
-              {/* History Detail Sheet */}
-              <Sheet open={!!selectedHistoryItem} onOpenChange={(open) => !open && setSelectedHistoryItem(null)}>
-                <SheetContent side="left" className="w-[400px] sm:w-[540px] overflow-y-auto">
-                  {historyLoading ? (
-                    <div className="flex justify-center items-center h-full">
-                      <DashboardSkeleton />
-                    </div>
-                  ) : selectedHistoryItem ? (
-                    <div className="space-y-6 pt-6">
-                      <SheetHeader className="px-0 mb-4">
-                        <SheetTitle className="text-2xl font-bold text-start">{selectedHistoryItem.form_templates?.name}</SheetTitle>
-                        <div className="flex items-center gap-2 mt-2">
-                          {getStatusBadge(selectedHistoryItem.status)}
-                          <span className="text-sm text-muted-foreground">{new Date(selectedHistoryItem.submitted_at).toLocaleDateString('ar-SA')}</span>
-                        </div>
-                      </SheetHeader>
 
-                      <Card>
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-base">مقدم الطلب</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <p className="font-semibold">{selectedHistoryItem.users?.full_name}</p>
-                          <p className="text-sm text-muted-foreground">{selectedHistoryItem.users?.university_id}</p>
-                        </CardContent>
-                      </Card>
-
-                      <Card>
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-base">تفاصيل الطلب</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          {Array.isArray(selectedHistoryItem.form_templates?.schema) && selectedHistoryItem.submission_data && Object.keys(selectedHistoryItem.submission_data).length > 0 ? (
-                            selectedHistoryItem.form_templates.schema.map((field: any) => {
-                              if (field.type === 'section') {
-                                return (
-                                  <h5 key={field.id} className="font-bold text-base text-primary border-b pb-2 mt-4 mb-2">
-                                    {field.label}
-                                  </h5>
-                                )
-                              }
-
-                              const value = selectedHistoryItem.submission_data[field.key];
-                              if (value === undefined || value === null || value === '') return null;
-
-                              return (
-                                <div key={field.id} className="grid grid-cols-1 gap-1 border-b last:border-0 pb-2 last:pb-0">
-                                  <span className="text-sm font-medium text-muted-foreground">{field.label}:</span>
-                                  <span className="text-sm font-semibold text-foreground break-words whitespace-pre-wrap">
-                                    {typeof value === 'boolean' ? (value ? 'نعم' : 'لا') :
-                                      field.type === 'file' ? 'تم إرفاق ملف' :
-                                        field.type === 'date' ? new Date(value).toLocaleDateString('ar-EG') :
-                                          String(value)}
-                                  </span>
-                                </div>
-                              )
-                            })
-                          ) : (
-                            <p className="text-sm text-muted-foreground">لا توجد تفاصيل إضافية</p>
-                          )}
-                        </CardContent>
-                      </Card>
-
-                      {/* Workflow History Tracking can be added here if needed */}
-                    </div>
-                  ) : null}
-                </SheetContent>
-              </Sheet>
             </div>
           )}
 
@@ -854,6 +836,69 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
         </main>
       </div>
 
+      {/* Requester Interaction History Dialog */}
+      <Dialog open={requesterHistoryDialog.open} onOpenChange={(open) => setRequesterHistoryDialog({ ...requesterHistoryDialog, open })}>
+        <DialogContent dir="rtl" className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>سجل تعاملاتك السابقة</DialogTitle>
+            <DialogDescription>
+              الطلبات السابقة لـ {requesterHistoryDialog.applicantName} التي قمت بمعالجتها
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+            {requesterHistoryDialog.loading ? (
+              <div className="flex justify-center p-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : requesterHistoryDialog.data.length > 0 ? (
+              <div className="space-y-4">
+                {requesterHistoryDialog.data.map((item, index) => (
+                  <div
+                    key={index}
+                    className="border rounded-lg p-3 bg-slate-50 relative cursor-pointer hover:bg-slate-100 transition-colors group"
+                    onClick={() => handleViewHistory(item.requestId.toString())}
+                  >
+                    <div className="absolute top-3 left-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <ExternalLink className="w-4 h-4 text-primary" />
+                    </div>
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <span className="font-semibold text-sm block">{item.requestType}</span>
+                        <span className="text-xs text-muted-foreground">رقم الطلب: REQ-{item.requestId}</span>
+                      </div>
+                      {/* Action Badge Removed as per request
+                        <Badge className={
+                          item.action === "approve" ? "bg-green-100 text-green-800" :
+                            item.action === "reject" ? "bg-red-100 text-red-800" :
+                              "bg-blue-100 text-blue-800"
+                        }>
+                          {item.action === "approve" ? "تمت الموافقة" :
+                            item.action === "reject" ? "تم الرفض" :
+                              item.action === "approve_with_changes" ? "موافقة بتعديلات" :
+                                item.action === "reject_with_changes" ? "إعادة للتعديل" : item.action}
+                        </Badge>
+                        */}
+                    </div>
+                    <div className="text-sm text-foreground mb-2 whitespace-pre-wrap">
+                      <span className="font-medium ml-1">تعليقك:</span>
+                      {item.comment || "لا يوجد تعليق"}
+                    </div>
+                    <div className="text-xs text-muted-foreground text-left" dir="ltr">
+                      {item.date}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>لا يوجد سجل تعاملات سابق لك مع هذا المستخدم</p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog
         open={actionDialog.open}
         onOpenChange={(open) => !open && setActionDialog(prev => ({ ...prev, open }))}
@@ -952,6 +997,7 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                 alt="Preview"
                 fill
                 className="object-contain rounded-md p-2"
+                unoptimized={true}
               />
             ) : (
               <div className="text-center">
@@ -967,6 +1013,122 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* History Detail Sheet - Moved to top level */}
+      <Sheet open={!!selectedHistoryItem} onOpenChange={(open) => !open && setSelectedHistoryItem(null)}>
+        <SheetContent side="left" className="w-[400px] sm:w-[540px] overflow-y-auto">
+          {historyLoading ? (
+            <div className="flex justify-center items-center h-full">
+              <DashboardSkeleton />
+            </div>
+          ) : selectedHistoryItem ? (
+            <div className="space-y-6 pt-6">
+              <SheetHeader className="px-0 mb-4">
+                <SheetTitle className="text-2xl font-bold text-start">{selectedHistoryItem.form_templates?.name}</SheetTitle>
+                <div className="flex items-center gap-2 mt-2">
+                  {getStatusBadge(selectedHistoryItem.status)}
+                  <span className="text-sm text-muted-foreground">{new Date(selectedHistoryItem.submitted_at).toLocaleDateString('ar-SA')}</span>
+                </div>
+              </SheetHeader>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">مقدم الطلب</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="font-semibold">{selectedHistoryItem.users?.full_name}</p>
+                  <p className="text-sm text-muted-foreground">{selectedHistoryItem.users?.university_id}</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">تفاصيل الطلب</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {Array.isArray(selectedHistoryItem.form_templates?.schema) && selectedHistoryItem.submission_data && Object.keys(selectedHistoryItem.submission_data).length > 0 ? (
+                    selectedHistoryItem.form_templates.schema.map((field: any) => {
+                      if (field.type === 'section') {
+                        return (
+                          <h5 key={field.id} className="font-bold text-base text-primary border-b pb-2 mt-4 mb-2">
+                            {field.label}
+                          </h5>
+                        )
+                      }
+
+                      const value = selectedHistoryItem.submission_data[field.key];
+                      if (value === undefined || value === null || value === '') return null;
+
+                      return (
+                        <div key={field.id} className="grid grid-cols-1 gap-1 border-b last:border-0 pb-2 last:pb-0">
+                          <span className="text-sm font-medium text-muted-foreground">{field.label}:</span>
+                          <span className="text-sm font-semibold text-foreground break-words whitespace-pre-wrap">
+                            {typeof value === 'boolean' ? (value ? 'نعم' : 'لا') :
+                              field.type === 'file' && typeof value === 'string' ? (
+                                /* Render file preview */
+                                (() => {
+                                  const isDataUrl = value.startsWith('data:')
+                                  const isImage = isDataUrl ? value.startsWith('data:image') : /\.(jpeg|jpg|gif|png|webp|svg)$/i.test(value)
+                                  const isPdf = isDataUrl ? value.startsWith('data:application/pdf') : /\.pdf$/i.test(value)
+
+                                  if (isImage) {
+                                    return (
+                                      <div
+                                        className="mt-2 text-center cursor-pointer hover:opacity-95 transition-opacity"
+                                        onClick={() => setFilePreview({
+                                          open: true,
+                                          type: 'image',
+                                          content: value,
+                                          name: field.label
+                                        })}
+                                      >
+                                        <NextImage
+                                          src={value}
+                                          alt="Attached file"
+                                          width={300}
+                                          height={200}
+                                          className="max-w-full h-auto max-h-[200px] rounded-md border border-border mx-auto object-contain"
+                                          unoptimized={true}
+                                        />
+                                      </div>
+                                    )
+                                  }
+
+                                  return (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        setFilePreview({
+                                          open: true,
+                                          type: isPdf ? 'pdf' : 'other',
+                                          content: value,
+                                          name: field.label
+                                        })
+                                      }}
+                                      className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 border-blue-200"
+                                    >
+                                      <FileText className="w-4 h-4" />
+                                      {isPdf ? 'عرض ملف PDF' : 'عرض الملف'}
+                                    </Button>
+                                  )
+                                })()
+                              ) :
+                                field.type === 'date' ? new Date(value).toLocaleDateString('ar-EG') :
+                                  String(value)}
+                          </span>
+                        </div>
+                      )
+                    })
+                  ) : (
+                    <p className="text-sm text-muted-foreground">لا توجد تفاصيل إضافية</p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          ) : null}
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

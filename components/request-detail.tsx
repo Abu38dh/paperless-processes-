@@ -147,7 +147,7 @@ export default function RequestDetail({ request, onEdit, onBack, showHistory = t
               تحميل الموافقة (PDF)
             </Button>
           )}
-          {(request.status === "pending" || request.status === "returned") && onEdit && (
+          {(request.status === "pending" || request.status === "returned" || request.status === "rejected_with_changes") && onEdit && (
             <Button onClick={onEdit} variant="outline" className="gap-2 bg-transparent">
               <Edit2 className="w-4 h-4" />
               تعديل

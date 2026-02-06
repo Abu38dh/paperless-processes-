@@ -61,6 +61,13 @@ export default function ReviewerInbox({ onBack }: ReviewerInboxProps) {
     action: "approved" | "approved_with_changes" | "rejected_with_changes" | "rejected" | null
   }>({ open: false, action: null })
 
+  const [historyDialog, setHistoryDialog] = useState<{
+    open: boolean
+    loading: boolean
+    data: any[]
+    applicantName: string
+  }>({ open: false, loading: false, data: [], applicantName: "" })
+
   useEffect(() => {
     async function fetchData() {
       const employeeId = "EMP001"
@@ -131,6 +138,23 @@ export default function ReviewerInbox({ onBack }: ReviewerInboxProps) {
     setNotes("")
     setAttachment(null)
     setActionDialog({ open: false, action: null })
+  }
+
+  const handleViewHistory = async (applicantName: string, e: React.MouseEvent) => {
+    e.stopPropagation() // Prevent selecting the request row
+    setHistoryDialog({ open: true, loading: true, data: [], applicantName })
+    try {
+      const { getRequesterInteractionHistory } = await import("@/app/actions/employee")
+      const result = await getRequesterInteractionHistory("EMP001", applicantName)
+      if (result.success && result.interactions) {
+        setHistoryDialog(prev => ({ ...prev, loading: false, data: result.interactions }))
+      } else {
+        setHistoryDialog(prev => ({ ...prev, loading: false }))
+      }
+    } catch (error) {
+      console.error("Failed to fetch history", error)
+      setHistoryDialog(prev => ({ ...prev, loading: false }))
+    }
   }
 
   const handleResubmit = () => {
@@ -226,7 +250,15 @@ export default function ReviewerInbox({ onBack }: ReviewerInboxProps) {
                             "bg-gray-100 text-gray-800"
                     }>{request.status === "pending" ? request.waitingTime : getStatusLabel(request.status)}</Badge>
                   </div>
-                  <p className="text-xs text-foreground font-medium">{request.submittedBy}</p>
+                  <div className="flex items-center gap-1 mb-1">
+                    <p
+                      className="text-xs text-foreground font-medium hover:text-primary hover:underline cursor-pointer transition-colors"
+                      onClick={(e) => handleViewHistory(request.submittedBy, e)}
+                    >
+                      {request.submittedBy}
+                    </p>
+                    <span className="text-[10px] text-muted-foreground bg-slate-100 px-1 rounded">سجل سابق</span>
+                  </div>
                   <p className="text-xs text-muted-foreground">{request.requestType}</p>
                 </div>
               ))}
@@ -267,7 +299,12 @@ export default function ReviewerInbox({ onBack }: ReviewerInboxProps) {
                 <div className="grid grid-cols-2 gap-4 pb-4 border-b border-slate-200">
                   <div>
                     <h4 className="text-sm font-semibold text-muted-foreground">مقدم الطلب</h4>
-                    <p className="text-foreground">{selectedRequest.submittedBy}</p>
+                    <p
+                      className="text-foreground hover:text-primary hover:underline cursor-pointer"
+                      onClick={(e) => handleViewHistory(selectedRequest.submittedBy, e)}
+                    >
+                      {selectedRequest.submittedBy}
+                    </p>
                   </div>
                   <div>
                     <h4 className="text-sm font-semibold text-muted-foreground">الجهة السابقة</h4>
@@ -490,6 +527,60 @@ export default function ReviewerInbox({ onBack }: ReviewerInboxProps) {
               تأكيد
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* History Dialog */}
+      <Dialog open={historyDialog.open} onOpenChange={(open) => setHistoryDialog({ ...historyDialog, open })}>
+        <DialogContent dir="rtl" className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>سجل تعاملاتك السابقة</DialogTitle>
+            <DialogDescription>
+              الطلبات السابقة لـ {historyDialog.applicantName} التي قمت بمعالجتها
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+            {historyDialog.loading ? (
+              <div className="flex justify-center p-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : historyDialog.data.length > 0 ? (
+              <div className="space-y-4">
+                {historyDialog.data.map((item, index) => (
+                  <div key={index} className="border rounded-lg p-3 bg-slate-50 relative">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <span className="font-semibold text-sm block">{item.requestType}</span>
+                        <span className="text-xs text-muted-foreground">رقم الطلب: REQ-{item.requestId}</span>
+                      </div>
+                      <Badge className={
+                        item.action === "approve" ? "bg-green-100 text-green-800" :
+                          item.action === "reject" ? "bg-red-100 text-red-800" :
+                            "bg-blue-100 text-blue-800"
+                      }>
+                        {item.action === "approve" ? "تمت الموافقة" :
+                          item.action === "reject" ? "تم الرفض" :
+                            item.action === "approve_with_changes" ? "موافقة بتعديلات" :
+                              item.action === "reject_with_changes" ? "إعادة للتعديل" : item.action}
+                      </Badge>
+                    </div>
+                    <div className="text-sm text-foreground mb-2 whitespace-pre-wrap">
+                      <span className="font-medium ml-1">تعليقك:</span>
+                      {item.comment || "لا يوجد تعليق"}
+                    </div>
+                    <div className="text-xs text-muted-foreground text-left" dir="ltr">
+                      {item.date}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>لا يوجد سجل تعاملات سابق لك مع هذا المستخدم</p>
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div >

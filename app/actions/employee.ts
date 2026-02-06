@@ -182,9 +182,19 @@ export async function getEmployeeHistory(employeeId: string) {
             orderBy: { created_at: 'desc' }
         })
 
+        // Deduplicate requests - keep only the latest action for each request
+        const uniqueHistory = actions.reduce((acc, current) => {
+            const x = acc.find(item => item.request_id === current.request_id);
+            if (!x) {
+                return acc.concat([current]);
+            } else {
+                return acc;
+            }
+        }, [] as typeof actions);
+
         return {
             success: true,
-            history: actions.map((a: any) => ({
+            history: uniqueHistory.map((a: any) => ({
                 id: a.action_id.toString(),
                 requestId: a.request_id?.toString(),
                 requestType: a.requests?.form_templates?.name || "General",
@@ -610,3 +620,64 @@ export async function toggleDelegation(delegationId: number, isActive: boolean) 
     }
 }
 
+
+/**
+ * Get history of interactions between an employee and a specific requester
+ */
+export async function getRequesterInteractionHistory(employeeId: string, applicantName: string) {
+    try {
+        const user = await db.users.findUnique({
+            where: { university_id: employeeId },
+        })
+
+        if (!user) throw new Error("Employee not found")
+
+        // Find actions performed by this employee on requests from this specific applicant
+        // We filter requests by the applicant's name (since we might not have ID in the frontend list)
+        // Ideally we should use ID, but for now name is what we have consistent access to in the inbox list
+        const interactions = await db.request_actions.findMany({
+            where: {
+                actor_id: user.user_id,
+                requests: {
+                    users: {
+                        full_name: applicantName
+                    }
+                }
+            },
+            include: {
+                requests: {
+                    include: {
+                        form_templates: true
+                    }
+                }
+            },
+            orderBy: { created_at: 'desc' }
+        })
+
+        // Deduplicate requests - keep only the latest action for each request
+        const uniqueInteractions = interactions.reduce((acc, current) => {
+            const x = acc.find(item => item.request_id === current.request_id);
+            if (!x) {
+                return acc.concat([current]);
+            } else {
+                return acc;
+            }
+        }, [] as typeof interactions);
+
+        return {
+            success: true,
+            interactions: uniqueInteractions.map((a: any) => ({
+                id: a.action_id.toString(),
+                requestId: a.request_id?.toString(),
+                requestType: a.requests?.form_templates?.name || "General",
+                action: a.action,
+                date: a.created_at?.toISOString().split('T')[0],
+                comment: a.comment,
+                originalStatus: a.requests?.status
+            }))
+        }
+    } catch (error) {
+        console.error("Interaction History Error:", error)
+        return { success: false, error: "فشل في جلب سجل التعاملات" }
+    }
+}
