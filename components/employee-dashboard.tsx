@@ -24,12 +24,12 @@ import RequestTracking from "@/components/student/request-tracking"
 import RequestSubmissionForm from "@/components/student/request-submission-form"
 import RequestList from "@/components/request-list"
 import RequestDetail from "@/components/request-detail"
-import { DashboardSkeleton, TableSkeleton } from "@/components/ui/loading-skeleton"
+import { DashboardSkeleton, TableSkeleton, ListSkeleton } from "@/components/ui/loading-skeleton"
 import { ErrorMessage } from "@/components/ui/error-message"
 import { EmptyState } from "@/components/ui/empty-state"
 import { getEmployeeInbox, getEmployeeStats, processRequest, getEmployeeRequests } from "@/app/actions/employee"
 import { getAvailableFormTemplates } from "@/app/actions/forms"
-import { CheckCircle, XCircle, Clock, FileText, RotateCcw, Redo2, Upload, ExternalLink } from "lucide-react"
+import { CheckCircle, XCircle, Clock, FileText, RotateCcw, Redo2, Upload, ExternalLink, Search, Sparkles, ChevronRight } from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import AdminFormsPage from "@/components/admin/admin-forms-page"
 import WorkflowsEditor from "@/components/admin/workflows-editor"
@@ -38,7 +38,10 @@ import AdminReportsPage from "@/components/admin/admin-reports-page"
 import AdminDepartmentsPage from "@/components/admin/admin-departments-page"
 
 import { RequestStats } from "@/components/dashboard/request-stats"
+import DelegationRequest from "@/components/dashboard/delegation-request"
 import { InboxRequestList } from "@/components/dashboard/inbox-request-list"
+import { FilePreviewDialog } from "@/components/shared/file-preview-dialog"
+import { RequestActionDialog, ActionType } from "@/components/dashboard/request-action-dialog"
 
 import { Request, RequestStats as RequestStatsType } from "@/types/schema"
 
@@ -58,6 +61,8 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
   >("requests")
 
   const [selectedRequestType, setSelectedRequestType] = useState<string | null>(null)
+  const [editingRequestId, setEditingRequestId] = useState<string | null>(null)
+  const [formSearchQuery, setFormSearchQuery] = useState("")
 
   // Permission helper
   const hasPermission = (permission: string) => {
@@ -76,8 +81,8 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
 
   // Action states
   const [isProcessing, setIsProcessing] = useState(false)
-  const [actionComment, setActionComment] = useState("")
-  const [actionDialog, setActionDialog] = useState<{ open: boolean; type: 'approve' | 'reject' | 'approve_with_changes' | 'reject_with_changes' | null }>({
+  // actionComment state removed as it is now handled in RequestActionDialog
+  const [actionDialog, setActionDialog] = useState<{ open: boolean; type: ActionType }>({
     open: false,
     type: null
   })
@@ -85,13 +90,56 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
   const [internalNote, setInternalNote] = useState("")
   const [filePreview, setFilePreview] = useState<{ open: boolean; type: 'image' | 'pdf' | 'other'; content: string; name: string } | null>(null)
 
+  // History detail states
+  const [selectedHistoryItem, setSelectedHistoryItem] = useState<any | null>(null)
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [historySearchQuery, setHistorySearchQuery] = useState("")
+
+
   useEffect(() => {
+    // Initial fetch
     fetchInboxData()
     fetchMyRequests()
     fetchStats()
     fetchAvailableForms()
     fetchHistoryData()
+
+    // Auto-refresh interval (polling) for real-time updates
+    const intervalId = setInterval(() => {
+      // Only refresh sensitive data if tab is active (optional optimization)
+      if (document.visibilityState === 'visible') {
+        fetchInboxData()
+        fetchStats()
+      }
+    }, 5000) // Refresh every 5 seconds
+
+    return () => clearInterval(intervalId) // Cleanup on unmount
   }, [])
+// ... (rest of the component logic)
+
+// ... (render part)
+
+              {/* History Item Detail Sheet */}
+              <Sheet open={!!selectedHistoryItem} onOpenChange={(open) => !open && setSelectedHistoryItem(null)}>
+                <SheetContent side="left" className="sm:max-w-2xl w-full overflow-y-auto">
+                  <SheetHeader>
+                    <SheetTitle>تفاصيل الطلب (من السجل)</SheetTitle>
+                  </SheetHeader>
+                  {historyLoading ? (
+                    <div className="p-4 space-y-4">
+                      <div className="h-4 bg-muted animate-pulse rounded w-1/4"></div>
+                      <div className="h-32 bg-muted animate-pulse rounded"></div>
+                    </div>
+                  ) : selectedHistoryItem && selectedHistoryItem !== true ? (
+                    <div className="mt-6">
+                      <RequestDetail
+                        request={selectedHistoryItem}
+                        showHistory={true}
+                      />
+                    </div>
+                  ) : null}
+                </SheetContent>
+              </Sheet>
 
   const fetchMyRequests = async () => {
     try {
@@ -182,8 +230,6 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
 
 
   // History detail states
-  const [selectedHistoryItem, setSelectedHistoryItem] = useState<any | null>(null)
-  const [historyLoading, setHistoryLoading] = useState(false)
 
   const handleViewHistory = async (requestId: string) => {
     setHistoryLoading(true)
@@ -212,15 +258,21 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
     loading: boolean
     data: any[]
     applicantName: string
-  }>({ open: false, loading: false, data: [], applicantName: "" })
+    requesterBio?: { name: string; university_id: string; department?: string; college?: string; email?: string } | null
+  }>({ open: false, loading: false, data: [], applicantName: "", requesterBio: null })
 
   const handleViewRequesterHistory = async (applicantName: string) => {
-    setRequesterHistoryDialog({ open: true, loading: true, data: [], applicantName })
+    setRequesterHistoryDialog({ open: true, loading: true, data: [], applicantName, requesterBio: null })
     try {
       const { getRequesterInteractionHistory } = await import("@/app/actions/employee")
       const result = await getRequesterInteractionHistory(userData.university_id, applicantName)
       if (result.success && result.interactions) {
-        setRequesterHistoryDialog(prev => ({ ...prev, loading: false, data: result.interactions }))
+        setRequesterHistoryDialog(prev => ({
+          ...prev,
+          loading: false,
+          data: result.interactions,
+          requesterBio: result.requesterBio
+        }))
       } else {
         setRequesterHistoryDialog(prev => ({ ...prev, loading: false }))
       }
@@ -235,7 +287,7 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
     // Pre-fill comment with template if needed? No.
   }
 
-  const executeAction = async () => {
+  const executeAction = async (dialogComment: string) => {
     if (!selectedRequest || !actionDialog.type) return
 
     setIsProcessing(true)
@@ -243,8 +295,8 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
 
     try {
       const fullComment = internalNote
-        ? `[ملاحظة داخلية]: ${internalNote}\n\n${actionComment}`
-        : actionComment
+        ? `[ملاحظة داخلية]: ${internalNote}\n\n${dialogComment}`
+        : dialogComment
 
       const result = await processRequest(
         selectedRequest.id,
@@ -259,17 +311,13 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
         // Refresh inbox
         await fetchInboxData()
         await fetchStats()
-        setActionComment("")
+        // setActionComment("") // Removed
         setInternalNote("")
         setAttachment(null)
         setSelectedRequest(null)
         setActionDialog({ open: false, type: null })
       } else {
         setError(result.error || "فشل في تنفيذ الإجراء")
-        // Close dialog if error? Maybe keep open to retry?
-        // Let's keep open if error so they can fix.
-        // But we need to show error inside dialog or toast?
-        // For now, error shows in main view. Let's close dialog to show it.
         setActionDialog({ open: false, type: null })
       }
     } catch (err) {
@@ -287,6 +335,7 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
       processing: { label: "قيد المراجعة", className: "bg-blue-100 text-blue-800" },
       approved: { label: "موافق عليه", className: "bg-green-100 text-green-800" },
       rejected: { label: "مرفوض", className: "bg-red-100 text-red-800" },
+      returned: { label: "معاد للتعديل", className: "bg-orange-100 text-orange-800" },
     }
     const config = statusMap[status] || statusMap.pending
     return <Badge className={config.className}>{config.label}</Badge>
@@ -297,9 +346,11 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
   return (
     <div className="min-h-screen bg-background flex flex-col" dir="rtl">
       <Header
-        userType={`موظف - ${userData.full_name}`}
+        userType={userData.role}
+        userName={userData.full_name}
         onLogout={onLogout}
         onMenuClick={() => setIsMobileMenuOpen(true)}
+        userId={userData.university_id}
       />
 
       <div className="flex flex-1">
@@ -358,16 +409,12 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                     />
                   </div>
                   <div className="w-full md:w-2/3 flex flex-col bg-slate-50/50 p-6 rounded-lg border border-border/50">
-                    {selectedRequest && !selectedRequest.applicant ? (
-                      /* Since we reused selectedRequest for both Inbox and MyRequests, we need to handle the shape. 
-                         Here we are in My Requests view, selectedRequest should be from myRequests list. 
-                      */
+                    {selectedRequest ? (
                       <RequestDetail
                         request={selectedRequest}
-                        // Employee normally can't edit unless returned, similar to student
-                        onEdit={(selectedRequest.status === 'pending' || selectedRequest.status === 'returned') ? () => {
-                          // Handle edit logic if needed, or just show unavailable
-                          // For now passing null/undefined if not implemented
+                        onEdit={(selectedRequest.status === 'pending' || selectedRequest.status === 'returned' || (selectedRequest.status as string) === 'rejected_with_changes') ? () => {
+                          setEditingRequestId(selectedRequest.id)
+                          setCurrentView("submit")
                         } : undefined}
                       />
                     ) : (
@@ -670,7 +717,26 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
           {/* History View */}
           {currentView === "history" && (
             <div className="p-6">
-              <h2 className="text-2xl font-bold mb-4">سجل الإجراءات</h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-2xl font-bold">سجل الإجراءات</h2>
+                <div className="relative w-64">
+                  <Input
+                    placeholder="بحث في السجل..."
+                    value={historySearchQuery}
+                    onChange={(e) => setHistorySearchQuery(e.target.value)}
+                    className="pl-8"
+                  />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+              </div>
               <Card>
                 <CardHeader>
                   <CardTitle>الإجراءات السابقة</CardTitle>
@@ -692,7 +758,18 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                           </tr>
                         </thead>
                         <tbody>
-                          {historyRequests.map((item) => (
+                          {historyRequests
+                            .filter((item) => {
+                              if (!historySearchQuery) return true
+                              const query = historySearchQuery.toLowerCase()
+                              return (
+                                item.requestId?.toString().includes(query) ||
+                                item.requestType?.toLowerCase().includes(query) ||
+                                item.applicant?.toLowerCase().includes(query) ||
+                                item.comment?.toLowerCase().includes(query)
+                              )
+                            })
+                            .map((item) => (
                             <tr
                               key={item.id}
                               className="border-b transition-colors hover:bg-muted/50 cursor-pointer"
@@ -709,7 +786,7 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                                 </span>
                               </td>
                               <td className="p-3 max-w-[200px] truncate" title={item.comment}>
-                                {item.comment || "-"}
+                                <span className="text-primary hover:underline font-medium">عرض التفاصيل</span>
                               </td>
                               <td className="p-3">
                                 {getStatusBadge(item.status)}
@@ -729,6 +806,29 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                 </CardContent>
               </Card>
 
+              {/* History Item Detail Sheet */}
+              <Sheet open={!!selectedHistoryItem} onOpenChange={(open) => !open && setSelectedHistoryItem(null)}>
+                <SheetContent side="left" className="sm:max-w-2xl w-full overflow-y-auto">
+                  <SheetHeader>
+                    <SheetTitle>تفاصيل الطلب (من السجل)</SheetTitle>
+                  </SheetHeader>
+                  {historyLoading ? (
+                    <div className="p-4 space-y-4">
+                      <div className="h-4 bg-muted animate-pulse rounded w-1/4"></div>
+                      <div className="h-32 bg-muted animate-pulse rounded"></div>
+                    </div>
+                  ) : selectedHistoryItem && selectedHistoryItem !== true ? (
+                    <div className="mt-6">
+                      <RequestDetail
+                        request={selectedHistoryItem}
+                        showHistory={true}
+                      />
+                    </div>
+                  ) : null}
+                </SheetContent>
+              </Sheet>
+
+
 
             </div>
           )}
@@ -736,47 +836,87 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
           {/* Submit Request View */}
           {currentView === "submit" && (
             <div className="p-6 max-w-4xl">
-              {!selectedRequestType ? (
+              {!selectedRequestType && !editingRequestId ? (
                 <>
-                  <h2 className="text-2xl font-bold text-foreground mb-4">إنشاء طلب جديد</h2>
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>نوع الطلب</CardTitle>
-                      <CardDescription>اختر نوع الطلب الذي تريد تقديمه</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {availableForms.length > 0 ? (
-                          availableForms.map((form) => (
-                            <Button
-                              key={form.id}
-                              onClick={() => setSelectedRequestType(form.id)}
-                              variant="outline"
-                              className="h-auto py-4 justify-start text-right"
-                            >
-                              <span className="text-xl me-2">{form.icon || "📝"}</span>
-                              {form.label}
-                            </Button>
-                          ))
-                        ) : (
-                          <div className="col-span-full text-center py-8 text-muted-foreground border rounded-lg bg-slate-50">
-                            <p>لا توجد نماذج متاحة حالياً</p>
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                    <div>
+                      <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/60 inline-flex items-center gap-2">
+                        <Sparkles className="w-8 h-8 text-primary" />
+                        إنشاء طلب جديد
+                      </h2>
+                      <p className="text-muted-foreground mt-1">اختر نوع الطلب الذي تريد تقديمه من القائمة أدناه</p>
+                    </div>
+                    <div className="relative w-full md:w-72">
+                      <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                      <Input
+                        placeholder="ابحث عن نموذج..."
+                        value={formSearchQuery}
+                        onChange={(e) => setFormSearchQuery(e.target.value)}
+                        className="pr-9 bg-background/50 border-primary/20 focus:border-primary transition-all duration-300"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {availableForms.filter(f => f.label.toLowerCase().includes(formSearchQuery.toLowerCase())).length > 0 ? (
+                      availableForms
+                        .filter(f => f.label.toLowerCase().includes(formSearchQuery.toLowerCase()))
+                        .map((form, index) => (
+                          <div
+                            key={form.id}
+                            onClick={() => setSelectedRequestType(form.id)}
+                            className="group relative overflow-hidden bg-card hover:bg-gradient-to-br hover:from-primary/5 hover:to-transparent border border-border/50 hover:border-primary/50 rounded-xl p-6 cursor-pointer transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
+                          >
+                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary/0 via-primary/50 to-primary/0 scale-x-0 group-hover:scale-x-100 transition-transform duration-500" />
+                            
+                            <div className="flex items-center justify-between mb-4">
+                              <h3 className="font-bold text-lg text-foreground group-hover:text-primary transition-colors duration-300">
+                                {form.label}
+                              </h3>
+                              <ChevronRight className="w-5 h-5 text-muted-foreground/30 group-hover:text-primary transition-colors duration-300 rtl:rotate-180" />
+                            </div>
+                            
+                            <div className="flex items-center text-xs font-medium text-primary/70 group-hover:text-primary transition-colors mt-auto">
+                              <span>تقديم الطلب</span>
+                              <ChevronRight className="w-3 h-3 mr-1 rtl:rotate-180 transition-transform group-hover:translate-x-1 rtl:group-hover:-translate-x-1" />
+                            </div>
                           </div>
-                        )}
+                        ))
+                    ) : (
+                      <div className="col-span-full py-16 text-center text-muted-foreground border-2 border-dashed border-border/50 rounded-xl bg-slate-50/50">
+                        <Search className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                        <h3 className="text-lg font-semibold mb-1">لم يتم العثور على نتائج</h3>
+                        <p className="text-sm opacity-70">جرب البحث بكلمات مختلفة أو تصفح القائمة</p>
+                        <Button 
+                          variant="link" 
+                          onClick={() => setFormSearchQuery("")}
+                          className="mt-2 text-primary"
+                        >
+                          عرض جميع النماذج
+                        </Button>
                       </div>
-                    </CardContent>
-                  </Card>
+                    )}
+                  </div>
                 </>
               ) : (
                 <RequestSubmissionForm
-                  requestType={selectedRequestType}
+                  requestType={selectedRequestType || myRequests.find(r => r.id === editingRequestId)?.formId || ""}
                   requestTypes={availableForms}
                   userId={userData.university_id}
-                  onBack={() => setSelectedRequestType(null)}
+                  onBack={() => {
+                    setSelectedRequestType(null)
+                    setEditingRequestId(null)
+                    if (editingRequestId) setCurrentView("requests")
+                  }}
                   onSubmit={() => {
                     setSelectedRequestType(null)
+                    setEditingRequestId(null)
                     setCurrentView("requests")
+                    fetchMyRequests()
                   }}
+                  initialData={editingRequestId ? myRequests.find(r => r.id === editingRequestId)?.submissionData : undefined}
+                  requestId={editingRequestId || undefined}
+                  isEditing={!!editingRequestId}
                 />
               )}
             </div>
@@ -805,6 +945,13 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
           {/* Reports View */}
           {currentView === "reports" && hasPermission('view_reports') && (
             <AdminReportsPage onBack={() => setCurrentView("requests")} />
+          )}
+
+          {/* Delegation View */}
+          {currentView === "delegation" && (
+            <div className="p-6">
+              <DelegationRequest userData={userData} />
+            </div>
           )}
 
           {/* Settings View */}
@@ -842,51 +989,69 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
           <DialogHeader>
             <DialogTitle>سجل تعاملاتك السابقة</DialogTitle>
             <DialogDescription>
-              الطلبات السابقة لـ {requesterHistoryDialog.applicantName} التي قمت بمعالجتها
+              الطلبات السابقة التي قمت بمعالجتها
             </DialogDescription>
           </DialogHeader>
 
+          {/* Requester Bio Section */}
+          {!requesterHistoryDialog.loading && requesterHistoryDialog.requesterBio && (
+            <div className="bg-muted/50 p-4 rounded-lg mb-4 flex items-start gap-4 border">
+              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg">
+                {requesterHistoryDialog.requesterBio.name.charAt(0)}
+              </div>
+              <div>
+                <h4 className="font-bold text-foreground">{requesterHistoryDialog.requesterBio.name}</h4>
+                <div className="text-sm text-muted-foreground space-y-1">
+                  <p>الرقم الجامعي: {requesterHistoryDialog.requesterBio.university_id}</p>
+                  {(requesterHistoryDialog.requesterBio.college || requesterHistoryDialog.requesterBio.department) && (
+                    <p className="flex items-center gap-1">
+                      {requesterHistoryDialog.requesterBio.college}
+                      {requesterHistoryDialog.requesterBio.college && requesterHistoryDialog.requesterBio.department ? " - " : ""}
+                      {requesterHistoryDialog.requesterBio.department}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-4 max-h-[60vh] overflow-y-auto">
             {requesterHistoryDialog.loading ? (
-              <div className="flex justify-center p-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              </div>
+              <ListSkeleton />
             ) : requesterHistoryDialog.data.length > 0 ? (
-              <div className="space-y-4">
-                {requesterHistoryDialog.data.map((item, index) => (
+              <div className="space-y-3">
+                {requesterHistoryDialog.data.map((item) => (
                   <div
-                    key={index}
-                    className="border rounded-lg p-3 bg-slate-50 relative cursor-pointer hover:bg-slate-100 transition-colors group"
-                    onClick={() => handleViewHistory(item.requestId.toString())}
+                    key={item.id}
+                    className="p-3 border rounded-lg bg-card hover:bg-muted/50 transition-colors cursor-pointer group"
+                    onClick={() => {
+                      /* Use handleViewHistory with item.requestId */
+                      handleViewHistory(item.requestId)
+                    }}
                   >
-                    <div className="absolute top-3 left-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <ExternalLink className="w-4 h-4 text-primary" />
-                    </div>
                     <div className="flex justify-between items-start mb-2">
-                      <div>
+                      <div className="flex flex-col">
                         <span className="font-semibold text-sm block">{item.requestType}</span>
-                        <span className="text-xs text-muted-foreground">رقم الطلب: REQ-{item.requestId}</span>
+                        <span className="text-xs text-muted-foreground mr-1">#{item.requestId}</span>
                       </div>
-                      {/* Action Badge Removed as per request
-                        <Badge className={
-                          item.action === "approve" ? "bg-green-100 text-green-800" :
-                            item.action === "reject" ? "bg-red-100 text-red-800" :
-                              "bg-blue-100 text-blue-800"
-                        }>
-                          {item.action === "approve" ? "تمت الموافقة" :
-                            item.action === "reject" ? "تم الرفض" :
-                              item.action === "approve_with_changes" ? "موافقة بتعديلات" :
-                                item.action === "reject_with_changes" ? "إعادة للتعديل" : item.action}
-                        </Badge>
-                        */}
+                      <ExternalLink className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
-                    <div className="text-sm text-foreground mb-2 whitespace-pre-wrap">
-                      <span className="font-medium ml-1">تعليقك:</span>
-                      {item.comment || "لا يوجد تعليق"}
+
+                    <div className="flex justify-between items-center mt-2">
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full ${item.action === "approve" ? "bg-green-100 text-green-800" :
+                        item.action === "reject" ? "bg-red-100 text-red-800" :
+                          "bg-blue-100 text-blue-800"
+                        }`}>
+                        {item.action === "approve" ? "تمت الموافقة" :
+                          item.action === "reject" ? "تم الرفض" :
+                            item.action === "approve_with_changes" ? "موافقة بتعديلات" :
+                              item.action === "reject_with_changes" ? "إعادة للتعديل" : item.action}
+                      </span>
+                      <span className="text-xs text-muted-foreground dir-ltr">
+                        {item.date}
+                      </span>
                     </div>
-                    <div className="text-xs text-muted-foreground text-left" dir="ltr">
-                      {item.date}
-                    </div>
+
                   </div>
                 ))}
               </div>
@@ -899,124 +1064,23 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
         </DialogContent>
       </Dialog>
 
-      <Dialog
+      <RequestActionDialog
         open={actionDialog.open}
-        onOpenChange={(open) => !open && setActionDialog(prev => ({ ...prev, open }))}
-      >
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>
-              {actionDialog.type === 'approve' ? 'تأكيد الموافقة' :
-                actionDialog.type === 'reject' ? 'تأكيد الرفض' :
-                  actionDialog.type === 'approve_with_changes' ? 'موافقة مع طلب تعديلات' :
-                    'إعادة الطلب للتعديل'}
-            </DialogTitle>
-            <DialogDescription>
-              {actionDialog.type === 'approve' ? 'هل أنت متأكد من الموافقة على هذا الطلب؟' :
-                actionDialog.type === 'reject' ? 'الرجاء ذكر سبب الرفض (إلزامي)' :
-                  'الرجاء ذكر التعديلات المطلوبة من الطالب (إلزامي)'}
-            </DialogDescription>
-          </DialogHeader>
+        onOpenChange={(open) => setActionDialog(prev => ({ ...prev, open }))}
+        type={actionDialog.type as ActionType}
+        onConfirm={executeAction}
+        isProcessing={isProcessing}
+      />
 
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="dialog-comment">
-                {actionDialog.type === 'approve' ? 'ملاحظات (اختياري)' :
-                  actionDialog.type === 'reject' ? 'سبب الرفض' :
-                    'التعديلات المطلوبة'}
-              </Label>
-              <Textarea
-                id="dialog-comment"
-                value={actionComment}
-                onChange={(e) => setActionComment(e.target.value)}
-                placeholder={
-                  actionDialog.type === 'approve' ? "أضف ملاحظاتك..." :
-                    actionDialog.type === 'reject' ? "اكتب سبب الرفض..." :
-                      "اشرح للطالب ما هي التعديلات المطلوبة..."
-                }
-                rows={5}
-                className={
-                  (actionDialog.type !== 'approve' && !actionComment.trim())
-                    ? "border-red-200 focus-visible:ring-red-500"
-                    : ""
-                }
-              />
-              {actionDialog.type !== 'approve' && !actionComment.trim() && (
-                <p className="text-xs text-red-500">* هذا الحقل مطلوب</p>
-              )}
-            </div>
-
-          </div>
-
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setActionDialog({ open: false, type: null })}
-              disabled={isProcessing}
-            >
-              إلغاء
-            </Button>
-            <Button
-              onClick={executeAction}
-              disabled={
-                isProcessing ||
-                (actionDialog.type !== 'approve' && !actionComment.trim())
-              }
-              className={
-                actionDialog.type === 'approve' || actionDialog.type === 'approve_with_changes'
-                  ? "bg-green-600 hover:bg-green-700"
-                  : "bg-red-600 hover:bg-red-700"
-              }
-            >
-              تأكيد
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* File Preview Dialog */}
-      <Dialog open={!!filePreview?.open} onOpenChange={(open) => !open && setFilePreview(null)}>
-        <DialogContent className="max-w-4xl w-full h-[90vh] flex flex-col p-0">
-          <DialogHeader className="px-6 py-4 border-b">
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="w-5 h-6 text-primary" />
-              {filePreview?.name || "معاينة الملف"}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="flex-1 bg-slate-100 flex items-center justify-center p-4 overflow-hidden relative">
-            {filePreview?.type === 'pdf' ? (
-              <iframe
-                src={filePreview.content}
-                className="w-full h-full rounded-md bg-white shadow-sm"
-                title="PDF Preview"
-              />
-            ) : filePreview?.type === 'image' ? (
-              <NextImage
-                src={filePreview.content}
-                alt="Preview"
-                fill
-                className="object-contain rounded-md p-2"
-                unoptimized={true}
-              />
-            ) : (
-              <div className="text-center">
-                <p className="mb-4 text-muted-foreground">لا يمكن معاينة هذا النوع من الملفات مباشرة داخل النظام.</p>
-                <Button asChild>
-                  <a href={filePreview?.content} download="downloaded-file">
-                    <Upload className="w-4 h-4 me-2" />
-                    تحميل الملف
-                  </a>
-                </Button>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <FilePreviewDialog
+        open={!!filePreview?.open}
+        onOpenChange={(open) => !open && setFilePreview(null)}
+        file={filePreview}
+      />
 
       {/* History Detail Sheet - Moved to top level */}
       <Sheet open={!!selectedHistoryItem} onOpenChange={(open) => !open && setSelectedHistoryItem(null)}>
-        <SheetContent side="left" className="w-[400px] sm:w-[540px] overflow-y-auto">
+        <SheetContent side="left" className="w-[90%] sm:max-w-2xl overflow-y-auto">
           {historyLoading ? (
             <div className="flex justify-center items-center h-full">
               <DashboardSkeleton />

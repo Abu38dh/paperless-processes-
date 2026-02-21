@@ -81,6 +81,14 @@ export default function AdminDashboard({ onLogout, userData }: AdminDashboardPro
 
   useEffect(() => {
     fetchStats()
+
+    const intervalId = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchStats()
+      }
+    }, 5000)
+
+    return () => clearInterval(intervalId)
   }, [])
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -102,9 +110,11 @@ export default function AdminDashboard({ onLogout, userData }: AdminDashboardPro
   return (
     <div className="min-h-screen bg-background flex flex-col" dir="rtl">
       <Header
-        userType={`مدير النظام${userData ? ` - ${userData.full_name}` : ""}`}
+        userType={userData?.role || "admin"}
+        userName={userData?.full_name}
         onLogout={onLogout}
         onMenuClick={() => setIsMobileMenuOpen(true)}
+        userId={userData?.university_id || ''}
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -131,9 +141,14 @@ export default function AdminDashboard({ onLogout, userData }: AdminDashboardPro
         <main className="flex-1 overflow-auto">
           {currentView === "home" && (
             <div className="p-6 space-y-6">
-              <div>
-                <h2 className="text-3xl font-bold text-foreground">لوحة التحكم</h2>
-                <p className="text-muted-foreground">إدارة شاملة لنظام المراسلات الجامعية</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-3 mb-1">
+                    <h2 className="text-3xl font-bold text-foreground">لوحة التحكم</h2>
+
+                  </div>
+                  <p className="text-muted-foreground">إدارة شاملة لنظام المراسلات الجامعية</p>
+                </div>
               </div>
 
               {loading ? (

@@ -68,89 +68,68 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
 
-  /* Infinite Scroll & Persistence Logic */
+  // Cache static data
+  const [staticDataLoaded, setStaticDataLoaded] = useState(false)
+
+  // Infinite Scroll & Persistence Logic
   const observerTarget = useRef(null)
 
   useEffect(() => {
-    // Initial load or filter change
+    // Initial static data load
+    const loadStaticData = async () => {
+      try {
+        const [rolesResult, orgResult] = await Promise.all([
+          getAllRoles(),
+          import("@/app/actions/organizations").then(m => m.getOrganizationStructure())
+        ])
+
+        if (rolesResult.success) setRoles(rolesResult.data as any[])
+        if (orgResult.success) {
+          setColleges(orgResult.data || [])
+          // Flatten departments for easy lookup
+          const allDepts = (orgResult.data || []).flatMap((c: any) =>
+            (c.departments || []).map((d: any) => ({
+              ...d,
+              college_id: c.college_id
+            }))
+          )
+          setDepartments(allDepts)
+        }
+        setStaticDataLoaded(true)
+      } catch (e) {
+        console.error("Failed to load static data", e)
+      }
+    }
+    loadStaticData()
+  }, [])
+
+  useEffect(() => {
+    // Fetch users when filters or page change, but wait for static data to be ready (optional, but good for consistent UI)
     if (page === 1) {
-      fetchData()
+      fetchUsers()
     }
   }, [page, searchTerm, selectedCollegeId, selectedDeptId, currentUserId])
 
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      entries => {
-        if (entries[0].isIntersecting && !loading && page < totalPages) {
-          setPage(prev => prev + 1)
-        }
-      },
-      { threshold: 1.0 }
-    )
-
-    if (observerTarget.current) {
-      observer.observe(observerTarget.current)
-    }
-
-    return () => {
-      if (observerTarget.current) {
-        observer.unobserve(observerTarget.current)
-      }
-    }
-  }, [loading, totalPages, page])
-
-  // Reset page when filters change
-  useEffect(() => {
-    setPage(1)
-    setUsers([])
-  }, [searchTerm, selectedCollegeId, selectedDeptId])
-
-
-  const fetchData = async () => {
+  const fetchUsers = async () => {
     setError(null)
     setLoading(true)
 
     try {
-      // NOTE: For Infinite Scroll, we only want to fetch permissions/colleges once (on mount or page 1)
-      // but keeping it simple for now is fine, just optimizing the users fetch is key.
-
-      const [usersResult, rolesResult, collegesResult] = await Promise.all([
-        getUsers(page, 50, currentUserId, searchTerm, selectedCollegeId, selectedDeptId),
-        getAllRoles(),
-        getAllColleges()
-      ])
-
-      // Determine scope and filter data
-      let availableColleges = collegesResult.data || []
-
-      // Extract all departments initially
-      let allDepts = availableColleges.flatMap((c: any) =>
-        (c.departments || []).map((d: any) => ({
-          ...d,
-          college_id: c.college_id
-        }))
-      )
-
-      if (currentUserId) {
+      // Determine scope if needed (only on first load or if currentUserId changes)
+      if (currentUserId && !currentUserScope.role) {
         try {
           const { getCurrentUserScope } = await import("@/app/actions/admin")
           const scopeResult = await getCurrentUserScope(currentUserId)
 
           if (scopeResult.success && scopeResult.data) {
-            setCurrentUserScope(scopeResult.data) // Store scope for UI logic
+            setCurrentUserScope(scopeResult.data)
             const { role, collegeId, departmentId } = scopeResult.data
 
             if (role === 'dean' && collegeId) {
-              availableColleges = availableColleges.filter((c: any) => c.college_id === collegeId)
-              allDepts = allDepts.filter((d: any) => d.college_id === collegeId)
-
               if (!selectedCollegeId) setSelectedCollegeId(collegeId.toString())
               setIsCollegeDisabled(true)
             }
             else if ((role === 'head' || role === 'manager' || role === 'head_of_department') && departmentId && collegeId) {
-              availableColleges = availableColleges.filter((c: any) => c.college_id === collegeId)
-              allDepts = allDepts.filter((d: any) => d.department_id === departmentId)
-
               if (!selectedCollegeId) setSelectedCollegeId(collegeId.toString())
               setIsCollegeDisabled(true)
               if (!selectedDeptId) setSelectedDeptId(departmentId.toString())
@@ -161,6 +140,8 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
           console.error("Error fetching scope:", e)
         }
       }
+
+      const usersResult = await getUsers(page, 50, currentUserId, searchTerm, selectedCollegeId, selectedDeptId)
 
       if (usersResult.success && usersResult.data) {
         if (page === 1) {
@@ -176,16 +157,8 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
         setError(usersResult.error || "فشل في تحميل المستخدمين")
       }
 
-      if (rolesResult.success && rolesResult.data) {
-        setRoles(rolesResult.data)
-      }
-
-      // Set filtered colleges and departments
-      setColleges(availableColleges)
-      setDepartments(allDepts)
-
     } catch (err) {
-      console.error("Failed to fetch data:", err)
+      console.error("Failed to fetch users:", err)
       setError("فشل في تحميل البيانات")
     } finally {
       setLoading(false)
@@ -216,14 +189,15 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
         departmentId = parseInt(newUserDeptId)
       }
 
-      const result = await createUser({
+      const newUser = {
         university_id: newUserUniversityId,
         full_name: newUserName,
         password: newUserPassword,
         phone: newUserPhone,
         role_id: newUserRoleId,
         department_id: departmentId
-      })
+      }
+      const result = await createUser(newUser, currentUserId)
 
       if (result.success) {
         toast({ title: "✅ تم إضافة المستخدم بنجاح" })
@@ -242,7 +216,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
         // For "Add", it's usually acceptable to reload or just prepend.
         // Let's reset to Page 1 to show the new user at top.
         setPage(1)
-        fetchData()
+        fetchUsers()
       } else {
         toast({ title: "❌ فشل الإضافة", description: result.error, variant: "destructive" })
       }
@@ -260,7 +234,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
     if (!itemToDelete) return
 
     try {
-      const result = await deleteUser(itemToDelete)
+      const result = await deleteUser(itemToDelete, currentUserId)
 
       if (result.success) {
         toast({ title: "✅ تم الحذف بنجاح" })
@@ -292,7 +266,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
         is_active: expandedUserData.is_active,
         permissions: expandedUserData.permissions || [],
         password: expandedUserData.password
-      })
+      }, currentUserId)
 
       if (result.success) {
         toast({ title: "✅ تم التحديث بنجاح" })
@@ -317,9 +291,9 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
   const handleToggleUserStatus = async (userId: number, currentStatus: boolean, e: any) => {
     e.stopPropagation();
     try {
-      const result = await updateUser(userId, { is_active: !currentStatus })
+      const result = await updateUser(userId, { is_active: !currentStatus }, currentUserId)
       if (result.success) {
-        toast({ title: !currentStatus ? "✅ تم تفعيل المستخدم" : "⛔ تم تعطيل المستخدم" })
+        toast({ title: currentStatus ? "⛔ تم تعطيل المستخدم" : "✅ تم تفعيل المستخدم" })
 
         // PERSISTENCE: Update local state
         setUsers(prev => prev.map(u =>
@@ -353,7 +327,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
           <h1 className="text-3xl font-bold">إدارة المستخدمين</h1>
           <Button onClick={onBack} variant="ghost">رجوع</Button>
         </div>
-        <ErrorMessage error={error} onRetry={fetchData} />
+        <ErrorMessage error={error} onRetry={fetchUsers} />
       </div>
     )
   }

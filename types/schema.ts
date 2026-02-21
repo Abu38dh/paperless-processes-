@@ -42,7 +42,10 @@ export interface Request {
     submitted_at?: string
     workflow?: WorkflowStep[]
     attachments?: Attachment[] | any[]
+    pdfTemplate?: string
     reference_no?: string
+    users?: any
+    formId?: string
 }
 
 export interface RequestStats {

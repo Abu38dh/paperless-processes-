@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Clock, CheckCircle, Download, MessageSquare, Edit2 } from "lucide-react"
+import { Clock, CheckCircle, Download, MessageSquare, Edit2, FileText } from "lucide-react"
 import RequestTracking from "./student/request-tracking"
 
 import { Request } from "@/types/schema"
@@ -27,18 +27,113 @@ export interface RequestAction {
   comment?: string
 }
 
-export default function RequestDetail({ request, onEdit, onBack, showHistory = true }: RequestDetailProps) {
+import { FilePreviewDialog } from "@/components/shared/file-preview-dialog"
+import { generateOfficialPDF } from "@/lib/pdf-generator"
+
+import { toast } from "sonner" 
+
+import { translateRole } from "@/lib/translations"
+
+export default function RequestDetail({ request, onEdit, onBack, userId, showHistory = true }: RequestDetailProps) {
+// ... existing code ...
+
   const [history, setHistory] = useState<RequestAction[]>([])
+  const [filePreview, setFilePreview] = useState<{ open: boolean; type: 'image' | 'pdf' | 'other'; content: string; name: string } | null>(null)
 
   useEffect(() => {
     if (showHistory) {
-      async function fetchHistory() {
+      const fetchHistory = async () => {
         const actions = await getRequestActions(request.id)
         setHistory(actions)
       }
       fetchHistory()
     }
   }, [request.id, showHistory])
+
+  const handleDownloadOfficialPDF = async () => {
+    console.log("Download button clicked")
+    console.log("Request status:", request.status)
+    console.log("PDF Template present:", !!request.pdfTemplate)
+    
+    // Fallback template if none exists
+    const templateToUse = request.pdfTemplate || `
+      <div style="text-align: right; direction: rtl; font-family: 'Arial', sans-serif; padding: 20px;">
+        <h2 style="text-align: center; margin-bottom: 30px; font-size: 24px; font-weight: bold; color: #0f172a;">وثيقة طلب رسمي</h2>
+        
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; border: 1px solid #e2e8f0;">
+          <tr>
+            <td style="padding: 12px; border: 1px solid #e2e8f0; background-color: #f8fafc; font-weight: bold; width: 30%;">رقم المرجع</td>
+            <td style="padding: 12px; border: 1px solid #e2e8f0;">{RequestID}</td>
+            <td style="padding: 12px; border: 1px solid #e2e8f0; background-color: #f8fafc; font-weight: bold; width: 30%;">التاريخ</td>
+            <td style="padding: 12px; border: 1px solid #e2e8f0;">{RequestDate}</td>
+          </tr>
+          <tr>
+            <td style="padding: 12px; border: 1px solid #e2e8f0; background-color: #f8fafc; font-weight: bold;">نوع الطلب</td>
+            <td style="padding: 12px; border: 1px solid #e2e8f0;" colspan="3">{RequestType}</td>
+          </tr>
+          <tr>
+            <td style="padding: 12px; border: 1px solid #e2e8f0; background-color: #f8fafc; font-weight: bold;">مقدم الطلب</td>
+            <td style="padding: 12px; border: 1px solid #e2e8f0;">{StudentName}</td>
+            <td style="padding: 12px; border: 1px solid #e2e8f0; background-color: #f8fafc; font-weight: bold;">الرقم الجامعي</td>
+            <td style="padding: 12px; border: 1px solid #e2e8f0;">{UniversityID}</td>
+          </tr>
+          <tr>
+            <td style="padding: 12px; border: 1px solid #e2e8f0; background-color: #f8fafc; font-weight: bold;">الكلية</td>
+            <td style="padding: 12px; border: 1px solid #e2e8f0;">{College}</td>
+            <td style="padding: 12px; border: 1px solid #e2e8f0; background-color: #f8fafc; font-weight: bold;">القسم</td>
+            <td style="padding: 12px; border: 1px solid #e2e8f0;">{Department}</td>
+          </tr>
+        </table>
+
+        <div style="margin-top: 30px; line-height: 1.8;">
+          <p>تشهد جامعة العرب بأن الطالب/ة المذكور أعلاه قد تقدم بهذا الطلب الرسمي وتم تسجيله في النظام.</p>
+          <p>وهذه وثيقة رسمية مبدئية لحين اعتماد النموذج النهائي.</p>
+        </div>
+
+        <div style="margin-top: 60px; display: flex; justify-content: space-between;">
+           <div style="text-align: center;">
+              <p style="margin-bottom: 10px; font-weight: bold;">اعتماد الكلية/القسم</p>
+              <p>...........................</p>
+           </div>
+           <div style="text-align: center;">
+              <p style="margin-bottom: 10px; font-weight: bold;">التوقيع</p>
+              <p>...........................</p>
+           </div>
+        </div>
+      </div>
+    `
+
+    try {
+      console.log("Starting PDF generation...")
+      const blob = await generateOfficialPDF({
+        template: templateToUse,
+        data: {
+          ...request.submissionData,
+          StudentName: request.applicant || request.users?.full_name || "الطالب",
+          UniversityID: userId || request.users?.university_id || "---", 
+          RequestID: request.reference_no || request.id,
+          RequestDate: new Date(request.date).toLocaleDateString('ar-SA'),
+          RequestType: request.type || "طلب عام",
+          College: request.users?.departments_users_department_idTodepartments?.colleges?.name || "---",
+          Department: request.users?.departments_users_department_idTodepartments?.dept_name || "---",
+        }
+      })
+      console.log("PDF generated successfully, blob size:", blob.size)
+      
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `Document-${request.reference_no || request.id}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast.success("تم تحميل الملف بنجاح")
+    } catch (e) {
+      console.error("PDF Generation failed", e)
+      toast.error("فشل في إنشاء ملف PDF: " + (e as Error).message)
+    }
+  }
 
   const statusConfig = {
     pending: { color: "bg-secondary/10 text-secondary", icon: Clock, label: "قيد الانتظار" },
@@ -75,7 +170,17 @@ export default function RequestDetail({ request, onEdit, onBack, showHistory = t
             {config.label}
           </span>
         </div>
-        <p className="text-muted-foreground">{request.description || "لا يوجد وصف"}</p>
+
+        <div className="flex justify-between items-start">
+            <p className="text-muted-foreground">{request.description || "لا يوجد وصف"}</p>
+            {/* Download Official PDF Button */}
+            {request.status === 'approved' && request.pdfTemplate && (
+                <Button onClick={handleDownloadOfficialPDF} variant="outline" className="gap-2 border-primary text-primary hover:bg-primary/5">
+                    <FileText className="w-4 h-4" />
+                    تحميل الوثيقة الرسمية
+                </Button>
+            )}
+        </div>
       </div>
 
       <Card className="p-4 bg-primary/5 border border-primary/20">
@@ -110,8 +215,31 @@ export default function RequestDetail({ request, onEdit, onBack, showHistory = t
               // Handle different shapes of attachments if mapped or raw
               const fileName = file.storage_location ? file.storage_location.split('/').pop() : 'file';
               const fileUrl = file.storage_location || '#';
-              const uploader = file.uploader_name || 'مستخدم';
-              const date = file.uploaded_at ? new Date(file.uploaded_at).toLocaleDateString('ar-SA') : '';
+              const isImage = /\.(jpeg|jpg|gif|png|webp|svg)$/i.test(fileName)
+              const isPdf = /\.pdf$/i.test(fileName) || fileUrl.startsWith('data:application/pdf')
+
+              if (isImage || isPdf) {
+                return (
+                  <div
+                    key={idx}
+                    onClick={() => setFilePreview({
+                      open: true,
+                      type: isImage ? 'image' : 'pdf',
+                      content: fileUrl,
+                      name: fileName
+                    })}
+                    className="flex items-center justify-between p-2 bg-white rounded border hover:bg-slate-50 transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      <span className="bg-slate-100 p-1.5 rounded text-slate-500">
+                        {isPdf ? '📄' : '🖼️'}
+                      </span>
+                      <div className="truncate text-sm font-medium">{fileName}</div>
+                    </div>
+                    <span className="text-xs text-muted-foreground mr-2 shrink-0">عرض</span>
+                  </div>
+                )
+              }
 
               return (
                 <a
@@ -123,17 +251,23 @@ export default function RequestDetail({ request, onEdit, onBack, showHistory = t
                 >
                   <div className="flex items-center gap-2 overflow-hidden">
                     <span className="bg-slate-100 p-1.5 rounded text-slate-500">
-                      {fileName.endsWith('.pdf') ? '📄' : '📎'}
+                      📎
                     </span>
                     <div className="truncate text-sm font-medium">{fileName}</div>
                   </div>
-                  <span className="text-xs text-muted-foreground mr-2 shrink-0">{date}</span>
+                  <span className="text-xs text-muted-foreground mr-2 shrink-0">تحميل</span>
                 </a>
               )
             })}
           </div>
         </Card>
       )}
+
+      <FilePreviewDialog
+        open={!!filePreview?.open}
+        onOpenChange={(open) => !open && setFilePreview(null)}
+        file={filePreview}
+      />
 
       {request.workflow && request.workflow.length > 0 && <RequestTracking workflow={request.workflow} />
       }
@@ -142,12 +276,12 @@ export default function RequestDetail({ request, onEdit, onBack, showHistory = t
         <h3 className="font-semibold text-foreground">الإجراءات</h3>
         <div className="flex gap-3">
           {request.status === "approved" && (
-            <Button className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground">
+            <Button onClick={handleDownloadOfficialPDF} className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground">
               <Download className="w-4 h-4" />
               تحميل الموافقة (PDF)
             </Button>
           )}
-          {(request.status === "pending" || request.status === "returned" || request.status === "rejected_with_changes") && onEdit && (
+          {(request.status === "pending" || request.status === "returned" || (request.status as string) === "rejected_with_changes") && onEdit && (
             <Button onClick={onEdit} variant="outline" className="gap-2 bg-transparent">
               <Edit2 className="w-4 h-4" />
               تعديل
@@ -170,13 +304,21 @@ export default function RequestDetail({ request, onEdit, onBack, showHistory = t
                   <span className="absolute -right-[21px] top-1 h-3 w-3 rounded-full bg-primary ring-4 ring-background" />
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-sm text-foreground">{action.action}</span>
+                      <span className="font-semibold text-sm text-foreground">
+                        {action.action === 'created' && 'تم إنشاء الطلب'}
+                        {action.action === 'submitted' && 'تم تقديم الطلب'}
+                        {action.action === 'approved' && 'تمت الموافقة'}
+                        {action.action === 'rejected' && 'تم الرفض'}
+                        {action.action === 'rejected_with_changes' && 'إعادة للتعديل'}
+                        {action.action === 'returned' && 'إعادة للتعديل'}
+                        {!['created', 'submitted', 'approved', 'rejected', 'rejected_with_changes', 'returned'].includes(action.action) && action.action}
+                      </span>
                       <span className="text-xs text-muted-foreground">
                         - {new Date(action.timestamp).toLocaleDateString('ar-SA')} {new Date(action.timestamp).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
                     <p className="text-sm text-foreground/80">
-                      <span className="font-medium text-primary">{action.actorName}</span> ({action.actorRole})
+                      <span className="font-medium text-primary">{action.actorName}</span> ({translateRole(action.actorRole)})
                     </p>
                     {action.comment && (
                       <div className="mt-1 p-2 bg-slate-50 rounded text-xs text-muted-foreground border border-slate-100">

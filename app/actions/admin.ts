@@ -197,7 +197,11 @@ export async function getUsers(
     }
 }
 
-export async function createUser(data: any) {
+import { logAuditAction } from "./audit"
+
+// ... (existing imports)
+
+export async function createUser(data: any, requesterId?: string) {
     try {
         const password = data.password || "123" // Use provided password or default
         const hash = await bcrypt.hash(password, 10)
@@ -230,7 +234,7 @@ export async function createUser(data: any) {
             }
         }
 
-        await db.users.create({
+        const newUser = await db.users.create({
             data: {
                 university_id: data.university_id,
                 full_name: data.full_name,
@@ -241,6 +245,16 @@ export async function createUser(data: any) {
                 custom_permissions: customPermissions ? JSON.stringify(customPermissions) : null
             }
         })
+
+        // Audit Log
+        if (requesterId) {
+            const executor = await db.users.findUnique({ where: { university_id: requesterId } })
+            await logAuditAction(executor?.user_id, 'CREATE', 'USER', newUser.university_id, {
+                new_user_id: newUser.user_id,
+                role_id: data.role_id
+            })
+        }
+
         // revalidatePath('/admin')
         return { success: true }
     } catch (e) {
@@ -252,7 +266,7 @@ export async function createUser(data: any) {
 /**
  * Update user
  */
-export async function updateUser(userId: number, data: any) {
+export async function updateUser(userId: number, data: any, requesterId?: string) {
     try {
         const updateData: any = {}
         if (data.full_name) updateData.full_name = data.full_name
@@ -273,12 +287,23 @@ export async function updateUser(userId: number, data: any) {
 
         console.log("Update Data:", updateData)
 
+        // Get old data for audit diff (optional, but good practice)
+        // For simplicity, just logging the update action
+        
         const result = await db.users.update({
             where: { user_id: userId },
             data: updateData
         })
 
         console.log("Update Result:", result)
+
+        // Audit Log
+        if (requesterId) {
+            const executor = await db.users.findUnique({ where: { university_id: requesterId } })
+            await logAuditAction(executor?.user_id, 'UPDATE', 'USER', result.university_id, {
+                updated_fields: Object.keys(updateData)
+            })
+        }
 
         // revalidatePath('/admin')
         return { success: true }
@@ -292,12 +317,20 @@ export async function updateUser(userId: number, data: any) {
 /**
  * Deactivate user (soft delete)
  */
-export async function deleteUser(userId: number) {
+export async function deleteUser(userId: number, requesterId?: string) {
     try {
+        const targetUser = await db.users.findUnique({ where: { user_id: userId } })
+        
         await db.users.update({
             where: { user_id: userId },
             data: { is_active: false }
         })
+
+        // Audit Log
+        if (requesterId) {
+            const executor = await db.users.findUnique({ where: { university_id: requesterId } })
+            await logAuditAction(executor?.user_id, 'DEACTIVATE', 'USER', targetUser?.university_id || userId.toString(), null)
+        }
 
         // revalidatePath('/admin')
         return { success: true }

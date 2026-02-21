@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Plus, Edit2, Trash2, ArrowRight, ArrowUp, ArrowDown, Save, X } from "lucide-react"
+import { Plus, Edit2, Trash2, ArrowRight, ArrowUp, ArrowDown, Save, X, Search } from "lucide-react"
 import { TableSkeleton } from "@/components/ui/loading-skeleton"
 import { ErrorMessage } from "@/components/ui/error-message"
 import { EmptyState } from "@/components/ui/empty-state"
@@ -56,6 +56,7 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
   const [editingWorkflow, setEditingWorkflow] = useState<any>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [itemToDelete, setItemToDelete] = useState<number | null>(null)
+  const [searchTerm, setSearchTerm] = useState("")
   const { toast } = useToast()
 
   const [workflowName, setWorkflowName] = useState("")
@@ -197,7 +198,7 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
     if (!itemToDelete) return
 
     try {
-      const result = await deleteWorkflow(itemToDelete)
+      const result = await deleteWorkflow(itemToDelete, currentUserId)
 
       if (result.success) {
         toast({ title: "✅ تم الحذف بنجاح" })
@@ -727,12 +728,28 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
         </div>
       </div>
 
+
+      {/* Search Bar */}
+      <Card className="mb-6">
+        <CardContent className="p-4">
+          <div className="relative">
+            <Search className="w-4 h-4 absolute right-3 top-3 text-muted-foreground" />
+            <Input
+              placeholder="بحث عن مسار عمل..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pr-10"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Workflows List Grid */}
-      {workflows.length === 0 ? (
+      {workflows.filter(w => w.name.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 ? (
         <EmptyState
           icon="🔄"
-          title="لا توجد مسارات عمل"
-          description="لا توجد مسارات عمل في النظام. قم بإنشاء مسار عمل جديد."
+          title={searchTerm ? "لا توجد نتائج" : "لا توجد مسارات عمل"}
+          description={searchTerm ? "لا توجد مسارات عمل تطابق بحثك" : "لا توجد مسارات عمل في النظام. قم بإنشاء مسار عمل جديد."}
           action={{
             label: "إنشاء مسار عمل",
             onClick: () => setShowAddWorkflow(true)
@@ -740,7 +757,7 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {workflows.map((workflow: any) => (
+          {workflows.filter(w => w.name.toLowerCase().includes(searchTerm.toLowerCase())).map((workflow: any) => (
             <Card key={workflow.workflow_id} className="hover:shadow-lg transition-all border-t-4 border-t-primary cursor-pointer group">
               <CardHeader>
                 <div className="flex justify-between items-start">
@@ -788,11 +805,6 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
                       )}
                     </div>
                   ))}
-                  {/*
-                  {workflow.workflow_steps?.length > 3 && (
-                     <span className="text-xs text-muted-foreground mr-1">...</span>
-                  )}
-                  */}
                 </div>
               </CardContent>
             </Card>

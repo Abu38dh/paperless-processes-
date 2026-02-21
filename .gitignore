@@ -7,3 +7,20 @@ node_modules
 .vercel
 
 .next
+
+# Firebase service account key (sensitive - never commit!)
+serviceAccountKey.json
+
+# User uploaded files
+public/uploads/
+
+# Build info
+tsconfig.tsbuildinfo
+
+# Backup files
+*.backup.tsx
+*.backup.ts
+
+# WhatsApp bot session & cache (large browser data)
+whatsapp-bot/.wwebjs_auth/
+whatsapp-bot/.wwebjs_cache/

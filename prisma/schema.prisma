@@ -60,6 +60,9 @@ model form_templates {
   request_type_id Int?           @unique
   name            String         @db.VarChar
   audience_config Json?          @db.Json
+  pdf_template    String?        @db.Text
+  signature_url   String?        @db.VarChar
+  stamp_url       String?        @db.VarChar
   is_active       Boolean?       @default(true)
   schema          Json?          @db.Json
   created_at      DateTime?      @default(now()) @db.Timestamp(6)
@@ -73,6 +76,7 @@ model notifications {
   title           String?   @db.VarChar
   message         String?   @db.VarChar
   link            String?   @db.VarChar
+  is_read         Boolean   @default(false)
   created_at      DateTime? @default(now()) @db.Timestamp(6)
   users           users?    @relation(fields: [user_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
 }
@@ -88,6 +92,9 @@ model request_actions {
   users          users?          @relation(fields: [actor_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
   requests       requests?       @relation(fields: [request_id], references: [request_id], onDelete: NoAction, onUpdate: NoAction)
   workflow_steps workflow_steps? @relation(fields: [step_id], references: [step_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([request_id])
+  @@index([actor_id])
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
@@ -116,6 +123,24 @@ model requests {
   workflow_steps  workflow_steps?   @relation(fields: [current_step_id], references: [step_id], onDelete: NoAction, onUpdate: NoAction)
   form_templates  form_templates?   @relation(fields: [form_id], references: [form_id], onDelete: NoAction, onUpdate: NoAction)
   users           users             @relation(fields: [requester_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([requester_id])
+  @@index([status])
+  @@index([submitted_at])
+  @@index([current_step_id])
+  @@index([form_id])
+}
+
+model audit_logs {
+  log_id      Int      @id @default(autoincrement())
+  user_id     Int?
+  action      String   @db.VarChar(100)
+  entity_type String   @db.VarChar(50) // e.g., 'USER', 'DEPARTMENT', 'WORKFLOW'
+  entity_id   String?  @db.VarChar(50) // ID of the affected entity
+  details     Json?    @db.Json        // Old/New values or description
+  ip_address  String?  @db.VarChar(50)
+  created_at  DateTime @default(now()) @db.Timestamp(6)
+  users       users?   @relation(fields: [user_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
@@ -151,6 +176,7 @@ model users {
   departments_users_department_idTodepartments   departments?      @relation("users_department_idTodepartments", fields: [department_id], references: [department_id], onDelete: NoAction, onUpdate: NoAction)
   roles                                          roles             @relation(fields: [role_id], references: [role_id], onDelete: NoAction, onUpdate: NoAction)
   workflow_steps_approvals                       workflow_steps[]  @relation("WorkflowStepApprover")
+  audit_logs                                     audit_logs[]
 }
 
 model workflow_steps {

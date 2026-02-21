@@ -64,6 +64,11 @@ export async function getWorkflow(workflowId: number) {
     }
 }
 
+import { logAuditAction } from "./audit"
+// ... (existing imports)
+
+// ... (keep getAllWorkflows, getWorkflow)
+
 /**
  * Create new workflow with steps
  */
@@ -81,9 +86,9 @@ export async function createWorkflow(data: {
     requesterId?: string
 }) {
     try {
-        // Enforce Scoping
+        // Enforce Scoping (Keep existing logic)
         if (data.requesterId) {
-            const requester = await db.users.findUnique({
+             const requester = await db.users.findUnique({
                 where: { university_id: data.requesterId },
                 include: {
                     roles: true,
@@ -112,11 +117,9 @@ export async function createWorkflow(data: {
                                 if (reqCollege && reqCollege !== appCollege) {
                                     throw new Error(`لا يمكنك إضافة موظف من خارج كليتك لهذا المسار (${approver.full_name})`)
                                 }
-                            } else if (roleName === 'manager' || roleName === 'head') {
+                            } else if ((roleName === 'manager' || roleName === 'head') && requester.department_id !== approver.department_id) {
                                 // Head can only pick users in their department
-                                if (requester.department_id !== approver.department_id) {
-                                    throw new Error(`لا يمكنك إضافة موظف من خارج قسمك لهذا المسار (${approver.full_name})`)
-                                }
+                                throw new Error(`لا يمكنك إضافة موظف من خارج قسمك لهذا المسار (${approver.full_name})`)
                             }
                         }
                     }
@@ -144,6 +147,11 @@ export async function createWorkflow(data: {
                 workflow_steps: true
             }
         })
+
+        if (data.requesterId) {
+            const executor = await db.users.findUnique({ where: { university_id: data.requesterId } })
+            await logAuditAction(executor?.user_id, 'CREATE', 'WORKFLOW', workflow.name, { new_id: workflow.workflow_id })
+        }
 
         // revalidatePath('/admin')
         return { success: true, data: workflow }
@@ -175,9 +183,9 @@ export async function updateWorkflow(
     }
 ) {
     try {
-        // Enforce Scoping
+        // Enforce Scoping (Keep existing logic)
         if (data.requesterId && data.steps) {
-            const requester = await db.users.findUnique({
+             const requester = await db.users.findUnique({
                 where: { university_id: data.requesterId },
                 include: {
                     roles: true,
@@ -206,11 +214,9 @@ export async function updateWorkflow(
                                 if (reqCollege && reqCollege !== appCollege) {
                                     throw new Error(`لا يمكنك إضافة موظف من خارج كليتك لهذا المسار (${approver.full_name})`)
                                 }
-                            } else if (roleName === 'manager' || roleName === 'head') {
+                            } else if ((roleName === 'manager' || roleName === 'head') && requester.department_id !== approver.department_id) {
                                 // Head can only pick users in their department
-                                if (requester.department_id !== approver.department_id) {
-                                    throw new Error(`لا يمكنك إضافة موظف من خارج قسمك لهذا المسار (${approver.full_name})`)
-                                }
+                                throw new Error(`لا يمكنك إضافة موظف من خارج قسمك لهذا المسار (${approver.full_name})`)
                             }
                         }
                     }
@@ -222,6 +228,8 @@ export async function updateWorkflow(
         const updateData: any = {}
         if (data.name !== undefined) updateData.name = data.name
         if (data.is_active !== undefined) updateData.is_active = data.is_active
+
+        const currentWorkflow = await db.workflows.findUnique({ where: { workflow_id: workflowId } })
 
         await db.workflows.update({
             where: { workflow_id: workflowId },
@@ -250,6 +258,14 @@ export async function updateWorkflow(
             })
         }
 
+        if (data.requesterId) {
+            const executor = await db.users.findUnique({ where: { university_id: data.requesterId } })
+            await logAuditAction(executor?.user_id, 'UPDATE', 'WORKFLOW', currentWorkflow?.name || workflowId.toString(), {
+                 updated_fields: Object.keys(updateData),
+                 steps_updated: !!data.steps
+            })
+        }
+
         // revalidatePath('/admin')
         return { success: true }
     } catch (error: any) {
@@ -261,7 +277,7 @@ export async function updateWorkflow(
 /**
  * Delete workflow
  */
-export async function deleteWorkflow(workflowId: number) {
+export async function deleteWorkflow(workflowId: number, requesterId?: string) {
     try {
         // Check if workflow is in use
         const requestTypes = await db.request_types.findMany({
@@ -275,6 +291,8 @@ export async function deleteWorkflow(workflowId: number) {
             }
         }
 
+        const workflow = await db.workflows.findUnique({ where: { workflow_id: workflowId } })
+
         // Delete steps first
         await db.workflow_steps.deleteMany({
             where: { workflow_id: workflowId }
@@ -284,6 +302,11 @@ export async function deleteWorkflow(workflowId: number) {
         await db.workflows.delete({
             where: { workflow_id: workflowId }
         })
+
+        if (requesterId) {
+            const executor = await db.users.findUnique({ where: { university_id: requesterId } })
+            await logAuditAction(executor?.user_id, 'DELETE', 'WORKFLOW', workflow?.name || workflowId.toString(), null)
+        }
 
         // revalidatePath('/admin')
         return { success: true }

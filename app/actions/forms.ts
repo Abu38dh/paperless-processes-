@@ -154,6 +154,11 @@ export async function getFormTemplate(formId: number) {
     }
 }
 
+import { logAuditAction } from "./audit"
+// ... (existing imports)
+
+// ... (keep getAllFormTemplates, getFormTemplate)
+
 /**
  * Save form template (draft)
  */
@@ -163,12 +168,15 @@ export async function saveFormTemplate(data: {
     schema: any
     request_type_id?: number | null
     audience_config?: any
+    pdf_template?: string
+    signature_url?: string
+    stamp_url?: string
     requesterId?: string
 }) {
     try {
         let finalAudienceConfig = data.audience_config
 
-        // Enforce Scoping if requesterId is provided
+        // Enforce Scoping if requesterId is provided (Keep existing logic)
         if (data.requesterId) {
             const requester = await db.users.findUnique({
                 where: { university_id: data.requesterId },
@@ -193,7 +201,6 @@ export async function saveFormTemplate(data: {
                             colleges: [collegeId],
                             student: true // Assuming deans want students to see it, but restricted to their college
                         }
-                        // Can also validate here if they tried to pass something else, but overwriting is safer/easier
                     }
                 }
                 // Head: Must target their department
@@ -218,9 +225,17 @@ export async function saveFormTemplate(data: {
                     name: data.name,
                     schema: data.schema,
                     audience_config: finalAudienceConfig,
-                    request_type_id: data.request_type_id
+                    request_type_id: data.request_type_id,
+                    pdf_template: data.pdf_template,
+                    signature_url: data.signature_url,
+                    stamp_url: data.stamp_url
                 }
             })
+
+            if (data.requesterId) {
+                const executor = await db.users.findUnique({ where: { university_id: data.requesterId } })
+                await logAuditAction(executor?.user_id, 'UPDATE', 'FORM_TEMPLATE', updated.name, { updated_fields: ['name', 'schema', 'audience_config', 'pdf_template', 'signature_url', 'stamp_url'] })
+            }
 
             // revalidatePath('/admin')
             return { success: true, data: updated }
@@ -232,9 +247,17 @@ export async function saveFormTemplate(data: {
                     schema: data.schema,
                     is_active: false, // Draft
                     audience_config: finalAudienceConfig,
-                    request_type_id: data.request_type_id
+                    request_type_id: data.request_type_id,
+                    pdf_template: data.pdf_template,
+                    signature_url: data.signature_url,
+                    stamp_url: data.stamp_url
                 }
             })
+
+            if (data.requesterId) {
+                const executor = await db.users.findUnique({ where: { university_id: data.requesterId } })
+                await logAuditAction(executor?.user_id, 'CREATE', 'FORM_TEMPLATE', created.name, { new_id: created.form_id })
+            }
 
             // revalidatePath('/admin')
             return { success: true, data: created }
@@ -277,7 +300,7 @@ export async function publishFormTemplate(
     try {
         let finalAudienceConfig = audienceConfig
 
-        // Enforce Scoping if requesterId is provided
+        // Enforce Scoping if requesterId is provided (Keep existing logic)
         if (requesterId) {
             const requester = await db.users.findUnique({
                 where: { university_id: requesterId },
@@ -336,7 +359,7 @@ export async function publishFormTemplate(
                 requestTypeId = requestType.type_id
             }
 
-            // Handle workflow based on mode - ONLY if options provided or if we need to explicitly set/clear it
+            // Handle workflow based on mode
             if (workflowOptions) {
                 let workflowId: number | null = null
 
@@ -364,7 +387,6 @@ export async function publishFormTemplate(
                     })
                     workflowId = workflow.workflow_id
                 }
-                // mode === 'none': workflowId stays null
 
                 // Update request_type with workflow
                 await tx.request_types.update({
@@ -386,6 +408,13 @@ export async function publishFormTemplate(
             })
         })
 
+        if (requesterId) {
+            const executor = await db.users.findUnique({ where: { university_id: requesterId } })
+            // Needs to fetch form name again or use passed info? We can use formId.
+            const form = await db.form_templates.findUnique({ where: { form_id: formId } })
+            await logAuditAction(executor?.user_id, 'PUBLISH', 'FORM_TEMPLATE', form?.name || formId.toString(), { audience: finalAudienceConfig })
+        }
+
         // revalidatePath('/admin')
         return { success: true }
     } catch (error) {
@@ -397,12 +426,18 @@ export async function publishFormTemplate(
 /**
  * Toggle form active status
  */
-export async function toggleFormStatus(formId: number, isActive: boolean) {
+export async function toggleFormStatus(formId: number, isActive: boolean, requesterId?: string) {
     try {
         const updated = await db.form_templates.update({
             where: { form_id: formId },
             data: { is_active: isActive }
         })
+
+        if (requesterId) {
+             const executor = await db.users.findUnique({ where: { university_id: requesterId } })
+             const action = isActive ? 'ACTIVATE' : 'DEACTIVATE'
+             await logAuditAction(executor?.user_id, action, 'FORM_TEMPLATE', updated.name, null)
+        }
 
         // revalidatePath('/admin')
         return { success: true, data: updated }
@@ -414,11 +449,11 @@ export async function toggleFormStatus(formId: number, isActive: boolean) {
 
 /**
  * Delete form template
- * If the form has no requests, it will be hard deleted.
- * If it has requests, it will return an error (or soft delete if preferred, but user wants deletion).
  */
-export async function deleteFormTemplate(formId: number) {
+export async function deleteFormTemplate(formId: number, requesterId?: string) {
     try {
+        const form = await db.form_templates.findUnique({ where: { form_id: formId } })
+
         // Check if there are any requests associated with this form
         const requestsCount = await db.requests.count({
             where: { form_id: formId }
@@ -431,6 +466,11 @@ export async function deleteFormTemplate(formId: number) {
                 data: { is_active: false }
             })
 
+            if (requesterId) {
+                const executor = await db.users.findUnique({ where: { university_id: requesterId } })
+                await logAuditAction(executor?.user_id, 'DEACTIVATE', 'FORM_TEMPLATE', form?.name || formId.toString(), { reason: "Deletion attempted but has requests" })
+            }
+
             // revalidatePath('/admin')
             return {
                 success: true,
@@ -442,6 +482,11 @@ export async function deleteFormTemplate(formId: number) {
         await db.form_templates.delete({
             where: { form_id: formId }
         })
+
+        if (requesterId) {
+             const executor = await db.users.findUnique({ where: { university_id: requesterId } })
+             await logAuditAction(executor?.user_id, 'DELETE', 'FORM_TEMPLATE', form?.name || formId.toString(), null)
+        }
 
         // revalidatePath('/admin')
         return { success: true, message: "تم حذف النموذج نهائياً" }

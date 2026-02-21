@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { FileText, Plus, Settings, BarChart3, Users, Zap, CheckCircle, Inbox, Building2 } from "lucide-react"
+import { FileText, Plus, Settings, BarChart3, Users, Zap, CheckCircle, Inbox, Building2, Share2 } from "lucide-react"
 
 interface SidebarProps {
   currentView: string
@@ -54,6 +54,8 @@ export default function Sidebar({ currentView, onViewChange, userRole = "student
     // Show history only if can review
     if (hasPermission("review_requests")) {
       baseMenu.push({ id: "history", label: "سجل الإجراءات", icon: CheckCircle })
+      // Delegation
+      baseMenu.push({ id: "delegation", label: "تفويض الصلاحيات", icon: Share2 })
     }
 
     // Always show settings

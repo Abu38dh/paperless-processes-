@@ -3,10 +3,14 @@
 import { db } from "@/lib/db"
 import { revalidatePath } from "next/cache"
 
+import { logAuditAction } from "./audit"
+// ... (existing imports)
+
 /**
  * Get all colleges with their deans
  */
 export async function getAllColleges() {
+    // ... (keep existing)
     try {
         const colleges = await db.colleges.findMany({
             include: {
@@ -25,8 +29,38 @@ export async function getAllColleges() {
             data: colleges
         }
     } catch (error) {
-        console.error("Get Colleges Error:", error)
         return { success: false, error: "فشل في تحميل الكليات" }
+    }
+}
+
+/**
+ * Get organization structure (lightweight for dropdowns)
+ */
+export async function getOrganizationStructure() {
+    try {
+        const colleges = await db.colleges.findMany({
+            select: {
+                college_id: true,
+                name: true,
+                departments: {
+                    select: {
+                        department_id: true,
+                        dept_name: true
+                    },
+                    orderBy: { dept_name: 'asc' }
+                }
+            },
+            orderBy: { name: 'asc' }
+        })
+
+        return {
+            success: true,
+            data: colleges
+        }
+
+    } catch (error) {
+        console.error("Get Organization Structure Error:", error)
+        return { success: false, error: "فشل في تحميل هيكل الكليات" }
     }
 }
 
@@ -36,7 +70,7 @@ export async function getAllColleges() {
 export async function createCollege(data: {
     name: string
     dean_id?: number
-}) {
+}, requesterId?: string) {
     try {
         const college = await db.colleges.create({
             data: {
@@ -44,6 +78,11 @@ export async function createCollege(data: {
                 dean_id: data.dean_id || null
             }
         })
+
+        if (requesterId) {
+            const executor = await db.users.findUnique({ where: { university_id: requesterId } })
+            await logAuditAction(executor?.user_id, 'CREATE', 'COLLEGE', college.name, { new_id: college.college_id })
+        }
 
         // revalidatePath('/admin')
         return { success: true, data: college }
@@ -61,7 +100,8 @@ export async function updateCollege(
     data: {
         name?: string
         dean_id?: number | null
-    }
+    },
+    requesterId?: string
 ) {
     try {
         const updateData: any = {}
@@ -72,6 +112,11 @@ export async function updateCollege(
             where: { college_id: collegeId },
             data: updateData
         })
+
+        if (requesterId) {
+            const executor = await db.users.findUnique({ where: { university_id: requesterId } })
+            await logAuditAction(executor?.user_id, 'UPDATE', 'COLLEGE', college.name, { updated_fields: Object.keys(updateData) })
+        }
 
         // revalidatePath('/admin')
         return { success: true, data: college }
@@ -84,7 +129,7 @@ export async function updateCollege(
 /**
  * Delete college
  */
-export async function deleteCollege(collegeId: number) {
+export async function deleteCollege(collegeId: number, requesterId?: string) {
     try {
         // Check if college has departments
         const departments = await db.departments.findMany({
@@ -98,9 +143,16 @@ export async function deleteCollege(collegeId: number) {
             }
         }
 
+        const college = await db.colleges.findUnique({ where: { college_id: collegeId } })
+
         await db.colleges.delete({
             where: { college_id: collegeId }
         })
+
+        if (requesterId) {
+            const executor = await db.users.findUnique({ where: { university_id: requesterId } })
+            await logAuditAction(executor?.user_id, 'DELETE', 'COLLEGE', college?.name || collegeId.toString(), null)
+        }
 
         // revalidatePath('/admin')
         return { success: true }
@@ -111,20 +163,14 @@ export async function deleteCollege(collegeId: number) {
 }
 
 /**
- * Get all departments (optionally filtered by college)
+ * Get all departments
  */
-export async function getAllDepartments(collegeId?: number) {
+export async function getAllDepartments() {
     try {
-        const where = collegeId ? { college_id: collegeId } : {}
-
         const departments = await db.departments.findMany({
-            where,
             include: {
                 colleges: true,
-                users_departments_manager_idTousers: true, // manager
-                users_users_department_idTodepartments: { // users in department
-                    take: 5 // Limit for performance
-                }
+                users_departments_manager_idTousers: true
             },
             orderBy: { dept_name: 'asc' }
         })
@@ -134,10 +180,11 @@ export async function getAllDepartments(collegeId?: number) {
             data: departments
         }
     } catch (error) {
-        console.error("Get Departments Error:", error)
+        console.error("Get All Departments Error:", error)
         return { success: false, error: "فشل في تحميل الأقسام" }
     }
 }
+
 
 /**
  * Create new department
@@ -146,7 +193,7 @@ export async function createDepartment(data: {
     dept_name: string
     college_id?: number | null
     manager_id?: number | null
-}) {
+}, requesterId?: string) {
     try {
         const department = await db.departments.create({
             data: {
@@ -155,6 +202,11 @@ export async function createDepartment(data: {
                 manager_id: data.manager_id || null
             }
         })
+
+        if (requesterId) {
+            const executor = await db.users.findUnique({ where: { university_id: requesterId } })
+            await logAuditAction(executor?.user_id, 'CREATE', 'DEPARTMENT', department.dept_name, { new_id: department.department_id })
+        }
 
         // revalidatePath('/admin')
         return { success: true, data: department }
@@ -173,7 +225,8 @@ export async function updateDepartment(
         dept_name?: string
         college_id?: number
         manager_id?: number | null
-    }
+    },
+    requesterId?: string
 ) {
     try {
         const updateData: any = {}
@@ -186,6 +239,11 @@ export async function updateDepartment(
             data: updateData
         })
 
+        if (requesterId) {
+            const executor = await db.users.findUnique({ where: { university_id: requesterId } })
+            await logAuditAction(executor?.user_id, 'UPDATE', 'DEPARTMENT', department.dept_name, { updated_fields: Object.keys(updateData) })
+        }
+
         // revalidatePath('/admin')
         return { success: true, data: department }
     } catch (error) {
@@ -197,7 +255,7 @@ export async function updateDepartment(
 /**
  * Delete department
  */
-export async function deleteDepartment(departmentId: number) {
+export async function deleteDepartment(departmentId: number, requesterId?: string) {
     try {
         // Check if department has users
         const users = await db.users.findMany({
@@ -211,9 +269,16 @@ export async function deleteDepartment(departmentId: number) {
             }
         }
 
+        const dept = await db.departments.findUnique({ where: { department_id: departmentId } })
+
         await db.departments.delete({
             where: { department_id: departmentId }
         })
+
+        if (requesterId) {
+            const executor = await db.users.findUnique({ where: { university_id: requesterId } })
+            await logAuditAction(executor?.user_id, 'DELETE', 'DEPARTMENT', dept?.dept_name || departmentId.toString(), null)
+        }
 
         // revalidatePath('/admin')
         return { success: true }

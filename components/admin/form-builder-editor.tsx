@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -42,10 +42,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs"
+import { Textarea } from "@/components/ui/textarea"
 import { saveFormTemplate, publishFormTemplate, getFormTemplate } from "@/app/actions/forms"
 import { getAllColleges } from "@/app/actions/organizations"
-import { useEffect } from "react"
+
 import { WorkflowSelectionDialog } from "@/components/admin/workflow-selection-dialog"
+import PdfTemplateEditor from "@/components/admin/pdf-template-editor"
 
 interface FormField {
   id: string
@@ -79,6 +87,7 @@ export default function FormBuilderEditor({ formId, onBack, currentUserId }: For
   const isNewForm = formId === "new"
   const [formName, setFormName] = useState("")
   const [fields, setFields] = useState<FormField[]>([])
+  const [pdfTemplate, setPdfTemplate] = useState<string | undefined>(undefined)
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null)
   const [draggedFieldId, setDraggedFieldId] = useState<string | null>(null)
   const [showPreview, setShowPreview] = useState(false)
@@ -87,6 +96,8 @@ export default function FormBuilderEditor({ formId, onBack, currentUserId }: For
   const [savedFormId, setSavedFormId] = useState<number | null>(isNewForm ? null : parseInt(formId))
   const [isSaving, setIsSaving] = useState(false)
   const [isLoading, setIsLoading] = useState(!isNewForm)
+  const [signatureUrl, setSignatureUrl] = useState<string | null>(null)
+  const [stampUrl, setStampUrl] = useState<string | null>(null)
 
   // Workflow state
   const [workflowData, setWorkflowData] = useState<any>(null)
@@ -127,6 +138,19 @@ export default function FormBuilderEditor({ formId, onBack, currentUserId }: For
           if (formFields.length > 0 && formFields[0]) {
             setSelectedFieldId(formFields[0].id)
           }
+        }
+
+        // Load PDF Template
+        if ((result.data as any).pdf_template) {
+            setPdfTemplate((result.data as any).pdf_template)
+        }
+
+        // Load Signature and Stamp
+        if ((result.data as any).signature_url) {
+            setSignatureUrl((result.data as any).signature_url)
+        }
+        if ((result.data as any).stamp_url) {
+            setStampUrl((result.data as any).stamp_url)
         }
 
         // Load Audience Config
@@ -314,7 +338,10 @@ export default function FormBuilderEditor({ formId, onBack, currentUserId }: For
         form_id: savedFormId || undefined,
         name: formName,
         schema: fields,
-        requesterId: currentUserId
+        requesterId: currentUserId,
+        pdf_template: pdfTemplate,
+        signature_url: signatureUrl || undefined,
+        stamp_url: stampUrl || undefined
       })
 
       if (result.success && result.data) {
@@ -466,7 +493,8 @@ export default function FormBuilderEditor({ formId, onBack, currentUserId }: For
           form_id: savedFormId || undefined,
           name: formName,
           schema: fields,
-          requesterId: currentUserId
+          requesterId: currentUserId,
+        pdf_template: pdfTemplate
         })
 
         if (!saveResult.success || !saveResult.data) {
@@ -547,7 +575,7 @@ export default function FormBuilderEditor({ formId, onBack, currentUserId }: For
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] bg-background" dir="rtl">
+    <div className="flex flex-col h-full bg-background" dir="rtl">
       {isLoading ? (
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
@@ -569,10 +597,7 @@ export default function FormBuilderEditor({ formId, onBack, currentUserId }: For
                   <Save className="w-4 h-4" />
                   {isSaving ? "جارٍ الحفظ..." : "حفظ"}
                 </Button>
-                <Button onClick={() => setShowPreview(true)} variant="outline" className="gap-2 bg-transparent">
-                  <Eye className="w-4 h-4" />
-                  معاينة
-                </Button>
+
               </div>
 
               {/* Form Name - Center */}
@@ -594,229 +619,246 @@ export default function FormBuilderEditor({ formId, onBack, currentUserId }: For
             </div>
           </div>
 
-          {/* Main Content - Three Column Layout */}
-          <ResizablePanelGroup direction="horizontal" className="flex-1">
-            {/* LEFT COLUMN - Field Toolbox */}
-            <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
-              <div className="h-full overflow-y-auto border-l p-4">
-                <div className="space-y-3">
-                  <h3 className="font-semibold text-sm text-foreground mb-4">أنواع الحقول</h3>
-                  {fieldTypes.map((type) => {
-                    const Icon = type.icon
-                    return (
-                      <button
-                        key={type.id}
-                        onClick={() => addField(type.id)}
-                        className={`w-full p-3 rounded-lg border-2 border-transparent hover:border-primary transition-all ${type.color}`}
-                      >
+          {/* Main Content - Tabs Layout */}
+          <Tabs defaultValue="form" className="flex-1 flex flex-col overflow-hidden">
+            <div className="bg-card border-b px-4">
+              <TabsList>
+                <TabsTrigger value="form">تصميم النموذج</TabsTrigger>
+                <TabsTrigger value="template">قالب الوثيقة الرسمية</TabsTrigger>
+              </TabsList>
+            </div>
+
+            <TabsContent value="form" className="flex-1 flex flex-col p-0 m-0 data-[state=inactive]:hidden">
+              <div className="p-2 border-b bg-muted/20 flex justify-end">
+                  <Button onClick={() => setShowPreview(true)} variant="outline" size="sm" className="gap-2 bg-white hover:bg-slate-50 text-slate-700 border-slate-200">
+                    <Eye className="w-4 h-4" />
+                    معاينة النموذج
+                  </Button>
+              </div>
+              <ResizablePanelGroup direction="horizontal" className="flex-1">
+                {/* RIGHT COLUMN - Field Settings Panel (Now on Left/Start in LTR-rendered RTL) */}
+                <ResizablePanel defaultSize={30} minSize={20} maxSize={40}>
+                  <div className="h-full overflow-y-auto border-l p-4">
+                    {selectedField ? (
+                      <div className="space-y-4">
+                        <div>
+                          <Label className="text-sm font-semibold" required>تسمية الحقل</Label>
+                          <Input
+                            value={selectedField.label}
+                            onChange={(e) => updateField(selectedField.id, { label: e.target.value })}
+                            className="mt-1"
+                          />
+                        </div>
+
+                        <div>
+                          <Label className="text-sm font-semibold" required>مفتاح الحقل (الاسم الداخلي)</Label>
+                          <Input
+                            value={selectedField.key}
+                            onChange={(e) => updateField(selectedField.id, { key: e.target.value })}
+                            className="mt-1"
+                            placeholder="field_name"
+                          />
+                        </div>
+
+                        <div>
+                          <Label className="text-sm font-semibold" required>نوع الحقل</Label>
+                          <select
+                            value={selectedField.type}
+                            onChange={(e) =>
+                              updateField(selectedField.id, {
+                                type: e.target.value as FormField["type"],
+                              })
+                            }
+                            className="w-full p-2 border border-border rounded-lg mt-1 text-sm bg-background text-foreground"
+                          >
+                            {fieldTypes.map((type) => (
+                              <option key={type.id} value={type.id}>
+                                {type.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
                         <div className="flex items-center gap-2">
-                          <Icon className="w-4 h-4 flex-shrink-0" />
-                          <div className="text-right">
-                            <div className="text-sm font-medium">{type.label}</div>
-                          </div>
+                          <input
+                            type="checkbox"
+                            id="required"
+                            checked={selectedField.required}
+                            onChange={(e) => updateField(selectedField.id, { required: e.target.checked })}
+                            className="rounded"
+                          />
+                          <Label htmlFor="required" className="text-sm font-semibold cursor-pointer">
+                            حقل مطلوب
+                          </Label>
                         </div>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            </ResizablePanel>
 
-            <ResizableHandle withHandle />
-
-            {/* MIDDLE COLUMN - Form Canvas */}
-            <ResizablePanel defaultSize={40} minSize={25}>
-              <div className="h-full overflow-y-auto p-4">
-                <div className="space-y-3">
-                  <h3 className="font-semibold text-sm text-foreground mb-4">حقول النموذج ({fields.length})</h3>
-                  {fields.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-12 text-center">
-                      <FileText className="w-12 h-12 text-muted-foreground mb-2" />
-                      <p className="text-muted-foreground text-sm">اسحب أنواع الحقول من اليسار لإنشاء نموذجك</p>
-                    </div>
-                  ) : (
-                    fields.map((field) => {
-                      const fieldType = fieldTypes.find((t) => t.id === field.type)
-                      const Icon = fieldType?.icon
-                      return (
-                        <div
-                          key={field.id}
-                          draggable
-                          onDragStart={(e) => handleDragStart(e, field.id)}
-                          onDragOver={handleDragOver}
-                          onDrop={(e) => handleDrop(e, field.id)}
-                          onDragEnd={handleDragEnd}
-                          onClick={() => setSelectedFieldId(field.id)}
-                          className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${selectedFieldId === field.id
-                            ? "border-primary bg-primary/5 shadow-md"
-                            : "border-border hover:border-primary/50 bg-card"
-                            } ${draggedFieldId === field.id ? "opacity-50 dashed border-primary" : ""}`}
-                        >
-                          <div className="flex items-start gap-2">
-                            <GripVertical className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0 cursor-grab active:cursor-grabbing" />
-                            <div className="flex-1 min-w-0 text-right">
-                              <p className="font-medium text-sm text-foreground truncate">{field.label}</p>
-                              <div className="flex items-center gap-2 mt-1 justify-end">
-                                {field.required && <Badge className="bg-red-100 text-red-800 text-xs">مطلوب</Badge>}
-                                <Badge variant="outline" className="text-xs">
-                                  {fieldType?.label}
-                                </Badge>
-                              </div>
-                            </div>
+                        {selectedField.type !== "section" && (
+                          <div>
+                            <Label className="text-sm font-semibold">نص التلميح</Label>
+                            <Input
+                              value={selectedField.placeholder || ""}
+                              onChange={(e) => updateField(selectedField.id, { placeholder: e.target.value })}
+                              className="mt-1"
+                              placeholder="أدخل نص التلميح"
+                            />
                           </div>
-                        </div>
-                      )
-                    })
-                  )}
-                </div>
-              </div>
-            </ResizablePanel>
+                        )}
 
-            <ResizableHandle withHandle />
-
-            {/* RIGHT COLUMN - Field Settings Panel */}
-            <ResizablePanel defaultSize={30} minSize={20} maxSize={40}>
-              <div className="h-full overflow-y-auto border-r p-4">
-                {selectedField ? (
-                  <div className="space-y-4">
-                    <div>
-                      <Label className="text-sm font-semibold" required>تسمية الحقل</Label>
-                      <Input
-                        value={selectedField.label}
-                        onChange={(e) => updateField(selectedField.id, { label: e.target.value })}
-                        className="mt-1"
-                      />
-                    </div>
-
-                    <div>
-                      <Label className="text-sm font-semibold" required>مفتاح الحقل (الاسم الداخلي)</Label>
-                      <Input
-                        value={selectedField.key}
-                        onChange={(e) => updateField(selectedField.id, { key: e.target.value })}
-                        className="mt-1"
-                        placeholder="field_name"
-                      />
-                    </div>
-
-                    <div>
-                      <Label className="text-sm font-semibold" required>نوع الحقل</Label>
-                      <select
-                        value={selectedField.type}
-                        onChange={(e) =>
-                          updateField(selectedField.id, {
-                            type: e.target.value as FormField["type"],
-                          })
-                        }
-                        className="w-full p-2 border border-border rounded-lg mt-1 text-sm bg-background text-foreground"
-                      >
-                        {fieldTypes.map((type) => (
-                          <option key={type.id} value={type.id}>
-                            {type.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        id="required"
-                        checked={selectedField.required}
-                        onChange={(e) => updateField(selectedField.id, { required: e.target.checked })}
-                        className="rounded"
-                      />
-                      <Label htmlFor="required" className="text-sm font-semibold cursor-pointer">
-                        حقل مطلوب
-                      </Label>
-                    </div>
-
-                    {selectedField.type !== "section" && (
-                      <div>
-                        <Label className="text-sm font-semibold">نص التلميح</Label>
-                        <Input
-                          value={selectedField.placeholder || ""}
-                          onChange={(e) => updateField(selectedField.id, { placeholder: e.target.value })}
-                          className="mt-1"
-                          placeholder="أدخل نص التلميح"
-                        />
-                      </div>
-                    )}
-
-                    {["select", "radio", "checkbox"].includes(selectedField.type) && (
-                      <div className="space-y-2 pt-2 border-t">
-                        <Label className="text-sm font-semibold">الخيارات</Label>
-                        <div className="space-y-2">
-                          {selectedField.options?.map((option) => (
-                            <div key={option.id} className="flex gap-2 items-center">
-                              <Input
-                                value={option.label}
-                                onChange={(e) => updateOption(selectedField.id, option.id, e.target.value)}
-                                className="text-sm"
-                                placeholder="تسمية الخيار"
-                              />
+                        {["select", "radio", "checkbox"].includes(selectedField.type) && (
+                          <div className="space-y-2 pt-2 border-t">
+                            <Label className="text-sm font-semibold">الخيارات</Label>
+                            <div className="space-y-2">
+                              {selectedField.options?.map((option) => (
+                                <div key={option.id} className="flex gap-2 items-center">
+                                  <Input
+                                    value={option.label}
+                                    onChange={(e) => updateOption(selectedField.id, option.id, e.target.value)}
+                                    className="text-sm"
+                                    placeholder="تسمية الخيار"
+                                  />
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => deleteOption(selectedField.id, option.id)}
+                                    className="text-destructive hover:bg-destructive/10"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              ))}
                               <Button
-                                variant="ghost"
+                                variant="outline"
                                 size="sm"
-                                onClick={() => deleteOption(selectedField.id, option.id)}
-                                className="text-destructive hover:bg-destructive/10"
+                                onClick={() => addOption(selectedField.id)}
+                                className="w-full gap-1 text-sm"
                               >
-                                <X className="w-4 h-4" />
+                                <Plus className="w-3 h-3" />
+                                إضافة خيار
                               </Button>
                             </div>
-                          ))}
+                          </div>
+                        )}
+
+                        {/* Info Note */}
+                        <div className="mt-6 p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800 text-right">
+                          <p className="font-semibold mb-1">معلومة</p>
+                          <p>هذه الإعدادات تتحكم في كيفية ظهور هذا الحقل في نماذج الطلبات الخاصة بالطلاب والموظفين.</p>
+                        </div>
+
+                        {/* Field Actions */}
+                        <div className="space-y-2 pt-4 border-t">
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => addOption(selectedField.id)}
-                            className="w-full gap-1 text-sm"
+                            onClick={() => duplicateField(selectedField.id)}
+                            className="w-full gap-2 text-sm"
                           >
-                            <Plus className="w-3 h-3" />
-                            إضافة خيار
+                            <Copy className="w-4 h-4" />
+                            نسخ الحقل
+                          </Button>
+                          <div className="flex gap-2">
+                            {/* Drag and Drop enabled - Buttons removed */}
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => deleteField(selectedField.id)}
+                            className="w-full gap-2 text-destructive hover:bg-destructive/10 text-sm"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            حذف الحقل
                           </Button>
                         </div>
                       </div>
-                    )}
-
-                    {/* Info Note */}
-                    <div className="mt-6 p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800 text-right">
-                      <p className="font-semibold mb-1">معلومة</p>
-                      <p>هذه الإعدادات تتحكم في كيفية ظهور هذا الحقل في نماذج الطلبات الخاصة بالطلاب والموظفين.</p>
-                    </div>
-
-                    {/* Field Actions */}
-                    <div className="space-y-2 pt-4 border-t">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => duplicateField(selectedField.id)}
-                        className="w-full gap-2 text-sm"
-                      >
-                        <Copy className="w-4 h-4" />
-                        نسخ الحقل
-                      </Button>
-                      <div className="flex gap-2">
-                        {/* Drag and Drop enabled - Buttons removed */}
+                    ) : (
+                      <div className="flex flex-col items-center justify-center h-full text-center">
+                        <FileText className="w-12 h-12 text-muted-foreground mb-2" />
+                        <p className="text-sm text-muted-foreground">حدد حقلاً لتحرير خصائصه</p>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => deleteField(selectedField.id)}
-                        className="w-full gap-2 text-destructive hover:bg-destructive/10 text-sm"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        حذف الحقل
-                      </Button>
+                    )}
+                  </div>
+                </ResizablePanel>
+
+                <ResizableHandle withHandle />
+
+                {/* MIDDLE COLUMN - Form Canvas */}
+                <ResizablePanel defaultSize={40} minSize={25}>
+                  <div className="h-full overflow-y-auto p-4">
+                    <div className="space-y-3">
+                      <h3 className="font-semibold text-sm text-foreground mb-4">حقول النموذج ({fields.length})</h3>
+                      {fields.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-12 text-center">
+                          <FileText className="w-12 h-12 text-muted-foreground mb-2" />
+                          <p className="text-muted-foreground text-sm">اسحب أنواع الحقول من اليسار لإنشاء نموذجك</p>
+                        </div>
+                      ) : (
+                        fields.map((field) => {
+                          const fieldType = fieldTypes.find((t) => t.id === field.type)
+                          const Icon = fieldType?.icon
+                          return (
+                            <div
+                              key={field.id}
+                              draggable
+                              onDragStart={(e) => handleDragStart(e, field.id)}
+                              onDragOver={handleDragOver}
+                              onDrop={(e) => handleDrop(e, field.id)}
+                              onDragEnd={handleDragEnd}
+                              onClick={() => setSelectedFieldId(field.id)}
+                              className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${selectedFieldId === field.id
+                                ? "border-primary bg-primary/5 shadow-md"
+                                : "border-border hover:border-primary/50 bg-card"
+                                } ${draggedFieldId === field.id ? "opacity-50 dashed border-primary" : ""}`}
+                            >
+                              <div className="flex items-start gap-2">
+                                <GripVertical className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0 cursor-grab active:cursor-grabbing" />
+                                <div className="flex-1 min-w-0 text-right">
+                                  <p className="font-medium text-sm text-foreground truncate">{field.label}</p>
+                                  <div className="flex items-center gap-2 mt-1 justify-end">
+                                    {field.required && <Badge className="bg-red-100 text-red-800 text-xs">مطلوب</Badge>}
+                                    <Badge variant="outline" className="text-xs">
+                                      {fieldType?.label}
+                                    </Badge>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })
+                      )}
                     </div>
                   </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-center">
-                    <FileText className="w-12 h-12 text-muted-foreground mb-2" />
-                    <p className="text-sm text-muted-foreground">حدد حقلاً لتحرير خصائصه</p>
+                </ResizablePanel>
+
+                <ResizableHandle withHandle />
+
+                {/* LEFT COLUMN - Field Toolbox (Now on Right/End in LTR-rendered RTL) */}
+                <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
+                  <div className="h-full overflow-y-auto border-r p-4">
+                    <div className="space-y-3">
+                      <h3 className="font-semibold text-sm text-foreground mb-4">أنواع الحقول</h3>
+                      {fieldTypes.map((type) => {
+                        const Icon = type.icon
+                        return (
+                          <button
+                            key={type.id}
+                            onClick={() => addField(type.id)}
+                            className={`w-full p-3 rounded-lg border-2 border-transparent hover:border-primary transition-all ${type.color}`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Icon className="w-4 h-4 flex-shrink-0" />
+                              <div className="text-right">
+                                <div className="text-sm font-medium">{type.label}</div>
+                              </div>
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
                   </div>
-                )}
-              </div>
-            </ResizablePanel>
-          </ResizablePanelGroup>
+                </ResizablePanel>
+
+              </ResizablePanelGroup>
+          </TabsContent>
 
           {/* Preview Dialog */}
           <Dialog open={showPreview} onOpenChange={setShowPreview}>
@@ -1090,9 +1132,22 @@ export default function FormBuilderEditor({ formId, onBack, currentUserId }: For
             onOpenChange={setShowWorkflowDialog}
             onConfirm={handleWorkflowConfirm}
           />
+
+            <TabsContent value="template" className="flex-1 overflow-hidden p-0 data-[state=inactive]:hidden">
+              <div className="h-full p-6">
+                <PdfTemplateEditor 
+                  template={pdfTemplate || undefined}
+                  onTemplateChange={setPdfTemplate}
+                  signatureUrl={signatureUrl}
+                  stampUrl={stampUrl}
+                  onSignatureChange={setSignatureUrl}
+                  onStampChange={setStampUrl}
+                />
+              </div>
+            </TabsContent>
+          </Tabs>
         </>
-      )
-      }
-    </div >
+      )}
+    </div>
   )
 }

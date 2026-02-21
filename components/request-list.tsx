@@ -22,7 +22,8 @@ export default function RequestList({ requests, selectedId, onSelect, loading }:
   const filteredRequests = requests.filter(req =>
     (req.title || req.type).toLowerCase().includes(searchTerm.toLowerCase()) ||
     req.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    req.id.includes(searchTerm)
+    req.id.includes(searchTerm) ||
+    (req.applicant && req.applicant.toLowerCase().includes(searchTerm.toLowerCase()))
   )
 
   const statusColors: Record<string, string> = {

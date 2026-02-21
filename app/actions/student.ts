@@ -17,15 +17,26 @@ export async function getStudentDashboardData(studentId: string, page: number = 
         const [requests, totalRequests, pendingRequests, completedRequests] = await Promise.all([
             db.requests.findMany({
                 where: { requester_id: user.user_id },
-                include: {
+                select: {
+                    request_id: true,
+                    reference_no: true,
+                    status: true,
+                    submitted_at: true,
+                    current_step_id: true,
+                    form_id: true,
+                    submission_data: true,
                     form_templates: {
-                        include: {
+                        select: {
+                            name: true,
+                            form_id: true,
+                            // @ts-ignore
+                            pdf_template: true,
                             request_types: {
-                                include: {
+                                select: {
                                     workflows: {
-                                        include: {
+                                        select: {
                                             workflow_steps: {
-                                                include: { roles: true, users: true },
+                                                select: { step_id: true, name: true, order: true },
                                                 orderBy: { order: 'asc' }
                                             }
                                         }
@@ -34,7 +45,28 @@ export async function getStudentDashboardData(studentId: string, page: number = 
                             }
                         }
                     },
-                    workflow_steps: true,
+                    workflow_steps: {
+                        select: {
+                            step_id: true,
+                            name: true
+                        }
+                    },
+                    users: {
+                        select: {
+                            full_name: true,
+                            university_id: true,
+                            departments_users_department_idTodepartments: {
+                                select: {
+                                    dept_name: true,
+                                    colleges: {
+                                        select: {
+                                            name: true
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 },
                 orderBy: { submitted_at: 'desc' },
                 skip: skip,
@@ -69,7 +101,7 @@ export async function getStudentDashboardData(studentId: string, page: number = 
                     limit,
                     total: totalRequests,
                     totalPages: Math.ceil(totalRequests / limit)
-                }
+                } // Added missing parenthesis or brace logic fix if needed, but here just replacing the block
             }
         }
     } catch (error) {
@@ -81,7 +113,8 @@ export async function getStudentDashboardData(studentId: string, page: number = 
 export async function submitRequest(data: any) {
     try {
         // Get user ID from the data parameter (passed from form)
-        const userId = data.userId
+        // Get user ID from the data parameter (passed from form)
+        const { userId } = data
         if (!userId) throw new Error("User ID is required")
 
         const user = await db.users.findUnique({ where: { university_id: userId } })
@@ -156,7 +189,15 @@ export async function getRequestDetail(requestId: number, userId: string) {
         const request = await db.requests.findUnique({
             where: { request_id: requestId },
             include: {
-                users: true,
+                users: {
+                    include: {
+                        departments_users_department_idTodepartments: {
+                            include: {
+                                colleges: true
+                            }
+                        }
+                    }
+                },
                 form_templates: {
                     include: {
                         request_types: {
@@ -317,7 +358,7 @@ export async function updateRequest(requestId: number, data: any, userId: string
             return { success: false, error: "غير مصرح لك بتعديل هذا الطلب" }
         }
 
-        if (request.status !== 'returned') {
+        if (request.status !== 'returned' && request.status !== 'rejected_with_changes') {
             return { success: false, error: "يمكن تعديل الطلبات المعادة فقط" }
         }
 

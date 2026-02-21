@@ -1,17 +1,20 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { LogOut, Bell, User } from "lucide-react"
+import { LogOut, User } from "lucide-react"
 import { translateRole } from "@/lib/translations"
 
 import Image from "next/image"
 
 interface HeaderProps {
   userType: string
+  userName?: string
+  userId: string
   onLogout: () => void
+  onMenuClick?: () => void
 }
 
-export default function Header({ userType, onLogout, onMenuClick }: HeaderProps & { onMenuClick?: () => void }) {
+export default function Header({ userType, userName, userId, onLogout, onMenuClick }: HeaderProps) {
   return (
     <header className="bg-card border-b border-slate-200 px-6 py-4 flex items-center justify-between" dir="rtl">
       <div className="flex items-center gap-4">
@@ -44,11 +47,13 @@ export default function Header({ userType, onLogout, onMenuClick }: HeaderProps 
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-primary/10">
           <User className="w-4 h-4 text-primary" />
-          <span className="text-sm font-medium text-primary">{translateRole(userType)}</span>
+          <span className="text-sm font-medium text-primary">
+            {userName ? `${userName} - ` : ""}{translateRole(userType)}
+          </span>
         </div>
-        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-          <Bell className="w-5 h-5" />
-        </Button>
+        
+        {/* Notifications removed per user request */}
+
         <Button variant="ghost" size="icon" onClick={onLogout} className="text-muted-foreground hover:text-destructive">
           <LogOut className="w-5 h-5" />
         </Button>

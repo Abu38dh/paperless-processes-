@@ -99,7 +99,7 @@ export default function FormTemplatesList({ onEditForm, onCreateNewForm, onBack,
     if (!itemToDelete) return
 
     try {
-      const result = await deleteFormTemplate(itemToDelete)
+      const result = await deleteFormTemplate(itemToDelete, currentUserId)
 
       if (result.success) {
         toast({ title: result.message || "✅ تم الحذف بنجاح" })
@@ -174,7 +174,7 @@ export default function FormTemplatesList({ onEditForm, onCreateNewForm, onBack,
     if (!pendingUnpublishId) return
 
     try {
-      const result = await toggleFormStatus(pendingUnpublishId, false)
+      const result = await toggleFormStatus(pendingUnpublishId, false, currentUserId)
 
       if (result.success) {
         toast({

@@ -97,11 +97,11 @@ export default function AdminDepartmentsPage({ onBack, currentUserId }: AdminDep
         try {
             // If college_id is null, we can pass it as undefined or null depending on what the action expects.
             // Assuming the action handles optional numbers correctly.
-            const collegeIdValue = formData.college_id ? formData.college_id : undefined
+            const collegeIdValue = formData.college_id || undefined
 
             const result = editingId
-                ? await updateDepartment(editingId, { ...formData, college_id: collegeIdValue })
-                : await createDepartment({ ...formData, college_id: collegeIdValue || null, manager_id: formData.manager_id || null })
+                ? await updateDepartment(editingId, { ...formData, college_id: collegeIdValue }, currentUserId)
+                : await createDepartment({ ...formData, college_id: collegeIdValue || null, manager_id: formData.manager_id || null }, currentUserId)
 
             if (result.success) {
                 toast({ title: `✅ تم ${editingId ? 'التحديث' : 'الإضافة'} بنجاح` })
@@ -136,7 +136,7 @@ export default function AdminDepartmentsPage({ onBack, currentUserId }: AdminDep
         if (!itemToDelete) return
 
         try {
-            const result = await deleteDepartment(itemToDelete)
+            const result = await deleteDepartment(itemToDelete, currentUserId)
 
             if (result.success) {
                 toast({ title: "✅ تم الحذف بنجاح" })

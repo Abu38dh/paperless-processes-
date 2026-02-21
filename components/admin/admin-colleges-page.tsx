@@ -92,11 +92,11 @@ export default function AdminCollegesPage({ onBack, currentUserId }: AdminColleg
                 ? await updateCollege(editingId, {
                     name: formData.name,
                     dean_id: formData.dean_id === null ? undefined : formData.dean_id
-                })
+                }, currentUserId)
                 : await createCollege({
                     name: formData.name,
                     dean_id: formData.dean_id === null ? undefined : formData.dean_id
-                })
+                }, currentUserId)
 
             if (result.success) {
                 toast({ title: `✅ تم ${editingId ? 'التحديث' : 'الإضافة'} بنجاح` })
@@ -130,7 +130,7 @@ export default function AdminCollegesPage({ onBack, currentUserId }: AdminColleg
         if (!itemToDelete) return
 
         try {
-            const result = await deleteCollege(itemToDelete)
+            const result = await deleteCollege(itemToDelete, currentUserId)
 
             if (result.success) {
                 toast({ title: "✅ تم الحذف بنجاح" })
