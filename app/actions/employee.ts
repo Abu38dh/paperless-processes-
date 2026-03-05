@@ -219,6 +219,8 @@ export async function getEmployeeHistory(employeeId: string) {
                 requestId: a.request_id?.toString(),
                 requestType: a.requests?.form_templates?.name || "General",
                 applicant: a.requests?.users?.full_name,
+                applicantId: a.requests?.users?.university_id,
+                applicantPhone: a.requests?.users?.phone,
                 action: a.action,
                 date: a.created_at?.toISOString().split('T')[0],
                 timestamp: a.created_at,
@@ -600,22 +602,31 @@ export async function getEmployeeStats(userId: string) {
 
         if (!user) return { success: false, error: "المستخدم غير موجود" }
 
-        // Count actions by this employee
-        const totalActionsCount = await db.request_actions.count({
-            where: { actor_id: user.user_id }
-        })
-
-        const approvedCount = await db.request_actions.count({
+        // Count unique requests by this employee based on their CURRENT status
+        const returnedCount = await db.requests.count({
             where: {
-                actor_id: user.user_id,
-                action: 'approve'
+                status: 'returned',
+                request_actions: {
+                    some: { actor_id: user.user_id }
+                }
             }
         })
 
-        const rejectedCount = await db.request_actions.count({
+        const approvedCount = await db.requests.count({
             where: {
-                actor_id: user.user_id,
-                action: 'reject'
+                status: 'approved',
+                request_actions: {
+                    some: { actor_id: user.user_id }
+                }
+            }
+        })
+
+        const rejectedCount = await db.requests.count({
+            where: {
+                status: 'rejected',
+                request_actions: {
+                    some: { actor_id: user.user_id }
+                }
             }
         })
 
@@ -659,7 +670,7 @@ export async function getEmployeeStats(userId: string) {
         return {
             success: true,
             data: {
-                totalActions: totalActionsCount,
+                returned: returnedCount,
                 approved: approvedCount,
                 rejected: rejectedCount,
                 pending: pendingCount
@@ -858,7 +869,27 @@ export async function getRequesterInteractionHistory(employeeId: string, applica
         })
 
         if (interactions.length === 0) {
-            return { success: true, interactions: [], requesterBio: null }
+            // Fallback: try to find the user basic info even if no interactions
+            const applicantUser = await db.users.findFirst({
+                where: { full_name: applicantName },
+                include: {
+                    departments_users_department_idTodepartments: {
+                        include: { colleges: true }
+                    }
+                }
+            })
+            
+            let fallbackBio = null;
+            if (applicantUser) {
+                 fallbackBio = {
+                    name: applicantUser.full_name,
+                    university_id: applicantUser.university_id,
+                    department: applicantUser.departments_users_department_idTodepartments?.dept_name,
+                    college: applicantUser.departments_users_department_idTodepartments?.colleges?.name,
+                    phone: applicantUser.phone,
+                }
+            }
+            return { success: true, interactions: [], requesterBio: fallbackBio }
         }
 
         // Deduplicate requests - keep only the latest action for each request
@@ -880,6 +911,7 @@ export async function getRequesterInteractionHistory(employeeId: string, applica
             university_id: requester.university_id,
             department: departmentInfo?.dept_name,
             college: departmentInfo?.colleges?.name,
+            phone: requester.phone,
         } : null;
 
         return {

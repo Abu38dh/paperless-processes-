@@ -60,7 +60,7 @@
     "next-auth": "^5.0.0-beta.30",
     "next-themes": "latest",
     "pg": "^8.16.3",
-    "puppeteer": "^24.37.3",
+    "puppeteer": "^24.38.0",
     "react": "19.2.0",
     "react-day-picker": "latest",
     "react-dom": "19.2.0",

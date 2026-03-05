@@ -275,7 +275,7 @@ export async function notifyRequestStatusChange(
              await queueWhatsAppMessage(request.users.phone, wapMessage, pdfPath)
         }
 
-        // WhatsApp Integration (Queue) - Returned for Modification / Approved with Notes
+        // WhatsApp Integration (Queue) - Returned for Modification
         if (newStatus === 'returned' && request.users.phone) {
             // Fetch the last action to get the comment
             const lastAction = await db.request_actions.findFirst({
@@ -284,7 +284,21 @@ export async function notifyRequestStatusChange(
             });
             const comment = lastAction?.comment || "لا توجد ملاحظات إضافية";
 
-            const wapMessage = `*جامعة العرب - نظام المراسلات*\n\nعزيزي الطالب/ة ${request.users.full_name}،\n\nتم **إعادة** طلبك رقم *${request.reference_no}* للتعديل.\n\n📝 **الملاحظات:**\n${comment}\n\nيرجى الدخول للموقع لتعديل الطلب وإعادة إرساله.\n\nرابط الطلب: ${process.env.NEXTAUTH_URL}/requests/${request.request_id}`
+            const wapMessage = `*جامعة العرب - نظام المراسلات*\n\nعزيزي الطالب/ة ${request.users.full_name}،\n\nتم *إعادة* طلبك رقم *${request.reference_no}* للتعديل.\n\n📝 *الملاحظات:*\n${comment}\n\nيرجى الدخول للموقع لتعديل الطلب وإعادة إرساله.\n\nرابط الطلب: ${process.env.NEXTAUTH_URL}/requests/${request.request_id}`
+
+            await queueWhatsAppMessage(request.users.phone, wapMessage)
+        }
+
+        // WhatsApp Integration (Queue) - Rejected
+        if (newStatus === 'rejected' && request.users.phone) {
+            // Fetch the last action to get the rejection reason
+            const lastAction = await db.request_actions.findFirst({
+                where: { request_id: requestId },
+                orderBy: { created_at: 'desc' }
+            });
+            const reason = lastAction?.comment || "لا يوجد سبب محدد";
+
+            const wapMessage = `*جامعة العرب - نظام المراسلات*\n\nعزيزي الطالب/ة ${request.users.full_name}،\n\nنأسف لإبلاغك بأنه تم *رفض* طلبك رقم *${request.reference_no}* (${request.form_templates?.name}).\n\n❌ *سبب الرفض:*\n${reason}\n\nيمكنك التواصل مع الجهة المختصة للاستفسار.\n\nرابط الطلب: ${process.env.NEXTAUTH_URL}/requests/${request.request_id}`
 
             await queueWhatsAppMessage(request.users.phone, wapMessage)
         }

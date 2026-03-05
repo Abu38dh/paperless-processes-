@@ -49,7 +49,7 @@ export interface Request {
 }
 
 export interface RequestStats {
-    totalActions: number
+    returned: number
     approved: number
     rejected: number
     pending: number

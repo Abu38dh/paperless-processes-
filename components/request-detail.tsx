@@ -1,9 +1,10 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Clock, CheckCircle, Download, MessageSquare, Edit2, FileText } from "lucide-react"
 import RequestTracking from "./student/request-tracking"
+import NextImage from "next/image"
 
 import { Request } from "@/types/schema"
 
@@ -43,12 +44,14 @@ export default function RequestDetail({ request, onEdit, onBack, userId, showHis
   useEffect(() => {
     if (showHistory) {
       const fetchHistory = async () => {
-        const actions = await getRequestActions(request.id)
+        const requestId = (request as any).request_id || request.id;
+        if (!requestId) return;
+        const actions = await getRequestActions(requestId.toString())
         setHistory(actions)
       }
       fetchHistory()
     }
-  }, [request.id, showHistory])
+  }, [request.id, (request as any).request_id, showHistory])
 
   const handleDownloadOfficialPDF = async () => {
     console.log("Download button clicked")
@@ -164,7 +167,7 @@ export default function RequestDetail({ request, onEdit, onBack, userId, showHis
         )}
 
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold text-foreground">{request.title || request.type}</h2>
+          <h2 className="text-2xl font-bold text-foreground">{request.title || request.type || (request as any).form_templates?.name}</h2>
           <span className={`px-3 py-1 rounded-full text-sm font-medium ${config.color}`}>
             <StatusIcon className="w-4 h-4 inline ml-1" />
             {config.label}
@@ -187,15 +190,15 @@ export default function RequestDetail({ request, onEdit, onBack, userId, showHis
         <div className="grid grid-cols-2 gap-4">
           <div>
             <p className="text-sm text-muted-foreground">نوع الطلب</p>
-            <p className="font-semibold text-foreground">{request.type}</p>
+            <p className="font-semibold text-foreground">{request.type || (request as any).form_templates?.name}</p>
           </div>
           <div>
             <p className="text-sm text-muted-foreground">تاريخ التقديم</p>
-            <p className="font-semibold text-foreground">{request.date}</p>
+            <p className="font-semibold text-foreground">{request.date || new Date((request as any).submitted_at).toLocaleDateString('ar-SA')}</p>
           </div>
           <div>
             <p className="text-sm text-muted-foreground">رقم الطلب</p>
-            <p className="font-semibold text-foreground font-mono">{request.id}</p>
+            <p className="font-semibold text-foreground font-mono">{request.id || (request as any).request_id}</p>
           </div>
           <div>
             <p className="text-sm text-muted-foreground">الحالة</p>
@@ -203,6 +206,145 @@ export default function RequestDetail({ request, onEdit, onBack, userId, showHis
           </div>
         </div>
       </Card>
+
+      {/* Applicant Header if available from API */}
+      {(request.applicant || (request as any).users?.full_name) && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">مقدم الطلب</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <p className="font-semibold">{request.applicant || (request as any).users?.full_name}</p>
+                {((request as any).users?.university_id || userId) && (
+                   <p className="text-sm text-muted-foreground">{(request as any).users?.university_id || userId}</p>
+                )}
+                {((request as any).applicantPhone || (request as any).users?.phone) && (
+                   <p className="text-sm mt-1 text-muted-foreground" dir="ltr" style={{ textAlign: 'right' }}>{((request as any).applicantPhone || (request as any).users?.phone)}</p>
+                )}
+              </div>
+              <div className="sm:text-left">
+                {((request as any).users?.departments_users_department_idTodepartments?.colleges?.name || (request as any).college) && (
+                   <p className="text-sm font-medium">الكلية: {((request as any).users?.departments_users_department_idTodepartments?.colleges?.name || (request as any).college)}</p>
+                )}
+                {((request as any).users?.departments_users_department_idTodepartments?.dept_name || (request as any).department) && (
+                   <p className="text-sm text-muted-foreground">القسم: {((request as any).users?.departments_users_department_idTodepartments?.dept_name || (request as any).department)}</p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Dynamic Request Details (submission data) */}
+      {(() => {
+        // Handle both type structures
+        const submissionData = request.submissionData || (request as any).submission_data;
+        const schema = request.formSchema || (request as any).form_templates?.schema;
+
+        if (Array.isArray(schema) && submissionData && Object.keys(submissionData).length > 0) {
+          return (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">تفاصيل الطلب</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {schema.map((field: any) => {
+                  if (field.type === 'section') {
+                    return (
+                      <h5 key={field.id} className="font-bold text-base text-primary border-b pb-2 mt-4 mb-2">
+                        {field.label}
+                      </h5>
+                    )
+                  }
+
+                  const value = submissionData[field.key];
+                  if (value === undefined || value === null || value === '') return null;
+
+                  return (
+                    <div key={field.id} className="grid grid-cols-1 gap-1 border-b last:border-0 pb-2 last:pb-0">
+                      <span className="text-sm font-medium text-muted-foreground">{field.label}:</span>
+                      <span className="text-sm font-semibold text-foreground break-words whitespace-pre-wrap">
+                        {typeof value === 'boolean' ? (value ? 'نعم' : 'لا') :
+                          field.type === 'file' && typeof value === 'string' ? (
+                            /* Render file preview */
+                            (() => {
+                              const isDataUrl = value.startsWith('data:')
+                              const isImage = isDataUrl ? value.startsWith('data:image') : /\.(jpeg|jpg|gif|png|webp|svg)$/i.test(value)
+                              const isPdf = isDataUrl ? value.startsWith('data:application/pdf') : /\.pdf$/i.test(value)
+
+                              if (isImage) {
+                                return (
+                                  <div
+                                    className="mt-2 text-center cursor-pointer hover:opacity-95 transition-opacity"
+                                    onClick={() => setFilePreview({
+                                      open: true,
+                                      type: 'image',
+                                      content: value,
+                                      name: field.label
+                                    })}
+                                  >
+                                    <NextImage
+                                      src={value}
+                                      alt="Attached file"
+                                      width={300}
+                                      height={200}
+                                      className="max-w-full h-auto max-h-[200px] rounded-md border border-border mx-auto object-contain"
+                                      unoptimized={true}
+                                    />
+                                  </div>
+                                )
+                              }
+
+                              return (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setFilePreview({
+                                      open: true,
+                                      type: isPdf ? 'pdf' : 'other',
+                                      content: value,
+                                      name: field.label
+                                    })
+                                  }}
+                                  className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 border-blue-200 mt-1"
+                                >
+                                  <FileText className="w-4 h-4" />
+                                  {isPdf ? 'عرض ملف PDF' : 'عرض الملف'}
+                                </Button>
+                              )
+                            })()
+                          ) :
+                            field.type === 'date' ? new Date(value).toLocaleDateString('ar-EG') :
+                              String(value)}
+                      </span>
+                    </div>
+                  )
+                })}
+              </CardContent>
+            </Card>
+          )
+        }
+        return null;
+      })()}
+
+      {/* Prominently display the latest relevant comment if available */}
+      {showHistory && history.length > 0 && history.find(a => a.comment && (a.action === 'returned' || a.action === 'rejected_with_changes' || a.action === 'rejected')) && (
+        <Card className="p-4 bg-orange-50 border border-orange-200">
+           <h3 className="font-semibold text-orange-800 mb-2 flex items-center gap-2">
+             <MessageSquare className="w-4 h-4" />
+             سبب الإجراء (الملاحظات)
+           </h3>
+           <p className="text-orange-900 text-sm whitespace-pre-wrap">
+             {history.find(a => a.comment && (a.action === 'returned' || a.action === 'rejected_with_changes' || a.action === 'rejected'))?.comment}
+           </p>
+           <p className="text-orange-700/70 text-xs mt-2">
+             بواسطة: {history.find(a => a.comment && (a.action === 'returned' || a.action === 'rejected_with_changes' || a.action === 'rejected'))?.actorName}
+           </p>
+        </Card>
+      )}
 
       {request.attachments && request.attachments.length > 0 && (
         <Card className="p-4 bg-muted/20 border border-slate-200">
@@ -305,13 +447,13 @@ export default function RequestDetail({ request, onEdit, onBack, userId, showHis
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-sm text-foreground">
-                        {action.action === 'created' && 'تم إنشاء الطلب'}
-                        {action.action === 'submitted' && 'تم تقديم الطلب'}
-                        {action.action === 'approved' && 'تمت الموافقة'}
-                        {action.action === 'rejected' && 'تم الرفض'}
-                        {action.action === 'rejected_with_changes' && 'إعادة للتعديل'}
-                        {action.action === 'returned' && 'إعادة للتعديل'}
-                        {!['created', 'submitted', 'approved', 'rejected', 'rejected_with_changes', 'returned'].includes(action.action) && action.action}
+                        {action.action === 'created' ? 'تم إنشاء الطلب' :
+                         action.action === 'submitted' ? 'تم تقديم الطلب' :
+                         (action.action === 'approved' || action.action === 'approve') ? 'تمت الموافقة' :
+                         (action.action === 'rejected' || action.action === 'reject') ? 'تم الرفض' :
+                         (action.action === 'rejected_with_changes' || action.action === 'reject_with_changes') ? 'إعادة للتعديل' :
+                         action.action === 'returned' ? 'إعادة للتعديل' :
+                         action.action}
                       </span>
                       <span className="text-xs text-muted-foreground">
                         - {new Date(action.timestamp).toLocaleDateString('ar-SA')} {new Date(action.timestamp).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}

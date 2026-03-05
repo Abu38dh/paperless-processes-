@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowRight, TrendingUp, Users, FileText, CheckCircle, XCircle, Clock } from "lucide-react"
+import { ArrowRight, TrendingUp, Users, FileText, CheckCircle, XCircle, Clock, Download } from "lucide-react"
 import { TableSkeleton } from "@/components/ui/loading-skeleton"
 import { ErrorMessage } from "@/components/ui/error-message"
 import { getReportsData, getAuditLog } from "@/app/actions/admin"
@@ -12,6 +12,24 @@ interface AdminReportsPageProps {
   onBack: () => void
   currentUserId?: string
 }
+
+// ─── CSV Export Helper ──────────────────────────────────────────────────────
+function exportToCSV(filename: string, headers: string[], rows: (string | number)[][]) {
+  const BOM = "\uFEFF" // UTF-8 BOM for Excel Arabic support
+  const escape = (v: string | number) => {
+    const s = String(v ?? "").replace(/"/g, '""')
+    return `"${s}"`
+  }
+  const csv = BOM + [headers.map(escape), ...rows.map(r => r.map(escape))].map(r => r.join(",")).join("\n")
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement("a")
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+// ────────────────────────────────────────────────────────────────────────────
 
 export default function AdminReportsPage({ onBack, currentUserId }: AdminReportsPageProps) {
   const [reports, setReports] = useState<any>(null)
@@ -86,10 +104,63 @@ export default function AdminReportsPage({ onBack, currentUserId }: AdminReports
           <h1 className="text-3xl font-bold">التقارير والإحصائيات</h1>
           <p className="text-sm text-muted-foreground mt-1">تحليلات شاملة للنظام</p>
         </div>
-        <Button onClick={onBack} variant="ghost" className="gap-2">
-          <ArrowRight className="w-4 h-4" />
-          رجوع
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={() => {
+              const rows = recent.map((r: any) => [
+                r.reference_no || "",
+                r.requester?.full_name || "غير محدد",
+                r.form_templates?.name || "غير محدد",
+                r.status === 'approved' ? 'موافق عليه' :
+                  r.status === 'rejected' ? 'مرفوض' :
+                  r.status === 'pending' ? 'قيد المراجعة' :
+                  r.status === 'returned' ? 'معاد للتعديل' : r.status,
+                r.submitted_at ? new Date(r.submitted_at).toLocaleDateString('ar-SA') : ""
+              ])
+              exportToCSV(
+                `تقرير-الطلبات-${new Date().toLocaleDateString('ar-SA').replace(/\//g,'-')}.csv`,
+                ["رقم المرجع", "مقدم الطلب", "نوع الطلب", "الحالة", "تاريخ التقديم"],
+                rows
+              )
+            }}
+          >
+            <Download className="w-4 h-4" />
+            تصدير الطلبات
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={() => {
+              const rows = auditLog.map((log: any) => [
+                log.users?.full_name || "النظام",
+                log.action === 'approve' ? 'موافقة' :
+                  log.action === 'reject' ? 'رفض' :
+                  log.action === 'reject_with_changes' ? 'إعادة للمراجعة' :
+                  log.action === 'approve_with_changes' ? 'موافقة مع ملاحظات' :
+                  log.action === 'submit' ? 'تقديم طلب' : log.action,
+                log.requests?.form_templates?.name || "طلب عام",
+                log.comment || "",
+                log.created_at ? new Date(log.created_at).toLocaleString('ar-SA') : ""
+              ])
+              exportToCSV(
+                `سجل-الأحداث-${new Date().toLocaleDateString('ar-SA').replace(/\//g,'-')}.csv`,
+                ["المستخدم", "الإجراء", "نوع الطلب", "الملاحظات", "التاريخ والوقت"],
+                rows
+              )
+            }}
+          >
+            <Download className="w-4 h-4" />
+            تصدير السجل
+          </Button>
+          <Button onClick={onBack} variant="ghost" className="gap-2">
+            <ArrowRight className="w-4 h-4" />
+            رجوع
+          </Button>
+        </div>
       </div>
 
       {/* Stats Overview */}
