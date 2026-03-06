@@ -162,6 +162,7 @@ model users {
   university_id                                  String            @unique @db.VarChar
   password_hash                                  String            @db.VarChar
   full_name                                      String            @db.VarChar
+  email                                          String?           @db.VarChar
   phone                                          String?           @db.VarChar
   department_id                                  Int?
   role_id                                        Int

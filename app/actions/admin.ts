@@ -240,6 +240,7 @@ export async function createUser(data: any, requesterId?: string) {
                 full_name: data.full_name,
                 password_hash: hash,
                 phone: data.phone || null,
+                email: data.email || null,
                 role_id: parseInt(data.role_id),
                 department_id: data.department_id ? parseInt(data.department_id) : null,
                 custom_permissions: customPermissions ? JSON.stringify(customPermissions) : null
@@ -270,6 +271,7 @@ export async function updateUser(userId: number, data: any, requesterId?: string
     try {
         const updateData: any = {}
         if (data.full_name) updateData.full_name = data.full_name
+        if (data.email !== undefined) updateData.email = data.email
         if (data.phone !== undefined) updateData.phone = data.phone
         if (data.role_id) updateData.role_id = parseInt(data.role_id)
         if (data.department_id !== undefined) {

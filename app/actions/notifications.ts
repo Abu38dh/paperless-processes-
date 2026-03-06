@@ -3,6 +3,7 @@
 import { db } from "@/lib/db"
 import { revalidatePath } from "next/cache"
 import { queueWhatsAppMessage } from "@/lib/whatsapp-queue"
+import { sendEmail } from "@/lib/email-service"
 import fs from 'fs'
 import path from 'path'
 
@@ -273,6 +274,14 @@ export async function notifyRequestStatusChange(
              
              // Pass pdfPath to queue
              await queueWhatsAppMessage(request.users.phone, wapMessage, pdfPath)
+             
+             // Send Email
+             const userEmail = (request.users as any).email;
+             if (userEmail) {
+                const emailSubject = `تمت الموافقة على طلبك رقم ${request.reference_no}`;
+                const emailText = `عزيزي الطالب/ة ${request.users.full_name}،\n\nنود إبلاغك بأنه تمت الموافقة على طلبك رقم ${request.reference_no} (${request.form_templates?.name}).\n\nيمكنك متابعة وتنزيل القرار الرسمي وتفاصيل الطلب من خلال الرابط التالي:\n${process.env.NEXTAUTH_URL}/requests/${request.request_id}\n\nمع تحيات,\nنظام طلبات جامعة العرب`;
+                await sendEmail(userEmail, emailSubject, emailText);
+             }
         }
 
         // WhatsApp Integration (Queue) - Returned for Modification
@@ -287,6 +296,14 @@ export async function notifyRequestStatusChange(
             const wapMessage = `*جامعة العرب - نظام المراسلات*\n\nعزيزي الطالب/ة ${request.users.full_name}،\n\nتم *إعادة* طلبك رقم *${request.reference_no}* للتعديل.\n\n📝 *الملاحظات:*\n${comment}\n\nيرجى الدخول للموقع لتعديل الطلب وإعادة إرساله.\n\nرابط الطلب: ${process.env.NEXTAUTH_URL}/requests/${request.request_id}`
 
             await queueWhatsAppMessage(request.users.phone, wapMessage)
+            
+            // Send Email
+            const userEmail = (request.users as any).email;
+            if (userEmail) {
+                const emailSubject = `إعادة طلبك رقم ${request.reference_no} للتعديل`;
+                const emailText = `عزيزي الطالب/ة ${request.users.full_name}،\n\nتبين لنا أن طلبك رقم ${request.reference_no} (${request.form_templates?.name}) بحاجة لبعض التعديلات قبل القدرة على الموافقة عليه.\n\nالملاحظات من الموظف المختص:\n${comment}\n\nيرجى الدخول للنظام وإجراء التعديلات المطلوبة لإعادة التقديم.\nرابط الطلب: ${process.env.NEXTAUTH_URL}/requests/${request.request_id}\n\nمع تحيات,\nنظام طلبات جامعة العرب`;
+                await sendEmail(userEmail, emailSubject, emailText);
+            }
         }
 
         // WhatsApp Integration (Queue) - Rejected
@@ -301,6 +318,14 @@ export async function notifyRequestStatusChange(
             const wapMessage = `*جامعة العرب - نظام المراسلات*\n\nعزيزي الطالب/ة ${request.users.full_name}،\n\nنأسف لإبلاغك بأنه تم *رفض* طلبك رقم *${request.reference_no}* (${request.form_templates?.name}).\n\n❌ *سبب الرفض:*\n${reason}\n\nيمكنك التواصل مع الجهة المختصة للاستفسار.\n\nرابط الطلب: ${process.env.NEXTAUTH_URL}/requests/${request.request_id}`
 
             await queueWhatsAppMessage(request.users.phone, wapMessage)
+            
+            // Send Email
+            const userEmail = (request.users as any).email;
+            if (userEmail) {
+                const emailSubject = `تم رفض طلبك رقم ${request.reference_no}`;
+                const emailText = `عزيزي الطالب/ة ${request.users.full_name}،\n\nنأسف لإبلاغك بأنه تم رفض طلبك رقم ${request.reference_no} (${request.form_templates?.name}).\n\nسبب الرفض الموجه من الموظف المختص:\n${reason}\n\nللتفاصيل، يمكنك التواصل مع شؤون الطلاب أو زيارة الرابط أدناه:\n${process.env.NEXTAUTH_URL}/requests/${request.request_id}\n\nمع تحيات,\nنظام طلبات جامعة العرب`;
+                await sendEmail(userEmail, emailSubject, emailText);
+            }
         }
 
         return { success: true }

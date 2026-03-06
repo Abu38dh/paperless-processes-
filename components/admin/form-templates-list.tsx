@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Check, Building2 } from "lucide-react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -511,17 +512,26 @@ export default function FormTemplatesList({ onEditForm, onCreateNewForm, onBack,
               {/* حقول تحديد الكليات والأقسام */}
               {selectedAudience === 'specific' && (
                 <div className="space-y-3 pt-2">
-                  <p className="text-sm font-semibold mb-1">تخصيص الجمهور:</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold mb-1">تخصيص الكليات والأقسام:</p>
+                    <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-full">
+                      {selectedColleges.length} كليات • {selectedDepartments.length} أقسام
+                    </span>
+                  </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs text-muted-foreground">الكليات</Label>
-                      <div className="h-[120px] overflow-y-auto border rounded-md bg-white p-2">
+                  <div className="border rounded-lg bg-slate-50/50 flex flex-col h-[280px]">
+                    {/* Colleges List */}
+                    <div className="p-3 border-b bg-white">
+                      <Label className="text-xs text-muted-foreground mb-2 block">الكليات المستهدفة (اختر كلية لعرض أقسامها)</Label>
+                      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
                         {colleges.length === 0 ? (
-                          <p className="text-xs text-muted-foreground">لا توجد</p>
+                          <p className="text-xs text-muted-foreground p-2">لا توجد كليات</p>
                         ) : (
                           colleges.map((college: any) => (
-                            <label key={college.college_id} className="flex items-center gap-2 cursor-pointer hover:bg-slate-50 p-1 rounded">
+                            <label 
+                              key={college.college_id} 
+                              className={`flex items-center gap-2 whitespace-nowrap cursor-pointer px-3 py-1.5 rounded-full border text-xs transition-colors ${selectedColleges.includes(college.college_id) ? 'bg-primary text-white border-primary' : 'hover:bg-slate-100 bg-white'}`}
+                            >
                               <input
                                 type="checkbox"
                                 checked={selectedColleges.includes(college.college_id)}
@@ -529,43 +539,62 @@ export default function FormTemplatesList({ onEditForm, onCreateNewForm, onBack,
                                   if (e.target.checked) {
                                     setSelectedColleges([...selectedColleges, college.college_id])
                                   } else {
-                                    setSelectedColleges(selectedColleges.filter(id => id !== college.college_id))
+                                    setSelectedColleges(selectedColleges.filter((id: number) => id !== college.college_id))
                                   }
                                 }}
-                                className="w-3.5 h-3.5 accent-primary"
+                                className="sr-only" // Hidden visually, handles state
                               />
-                              <span className="text-xs">{college.name}</span>
+                              <span>{college.name}</span>
+                              {selectedColleges.includes(college.college_id) && <Check className="w-3 h-3" />}
                             </label>
                           ))
                         )}
                       </div>
                     </div>
 
-                    <div className="space-y-1.5">
-                      <Label className="text-xs text-muted-foreground">الأقسام</Label>
-                      <div className="h-[120px] overflow-y-auto border rounded-md bg-white p-2">
-                        {departments.length === 0 ? (
-                          <p className="text-xs text-muted-foreground">لا يوجد</p>
-                        ) : (
-                          departments.map((dept: any) => (
-                            <label key={dept.department_id} className="flex items-center gap-2 cursor-pointer hover:bg-slate-50 p-1 rounded">
-                              <input
-                                type="checkbox"
-                                checked={selectedDepartments.includes(dept.department_id)}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setSelectedDepartments([...selectedDepartments, dept.department_id])
-                                  } else {
-                                    setSelectedDepartments(selectedDepartments.filter(id => id !== dept.department_id))
-                                  }
-                                }}
-                                className="w-3.5 h-3.5 accent-primary"
-                              />
-                              <span className="text-xs">{dept.dept_name}</span>
-                            </label>
-                          ))
-                        )}
-                      </div>
+                    {/* Departments List */}
+                    <div className="p-3 flex-1 overflow-y-auto">
+                      <Label className="text-xs text-muted-foreground mb-3 block">الأقسام التابعة للكليات المحددة</Label>
+                      {selectedColleges.length === 0 ? (
+                        <div className="h-full flex flex-col items-center justify-center text-muted-foreground opacity-50">
+                          <Building2 className="w-8 h-8 mb-2" />
+                          <p className="text-sm">الرجاء اختيار كلية واحدة على الأقل من الأعلى</p>
+                        </div>
+                      ) : departments.filter((d: any) => selectedColleges.includes(d.college_id)).length === 0 ? (
+                        <p className="text-sm text-center text-muted-foreground mt-4">لا توجد أقسام مسجلة في الكليات المحددة</p>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {colleges.filter((c: any) => selectedColleges.includes(c.college_id)).map((college: any) => {
+                            const collegeDepts = departments.filter((dept: any) => dept.college_id === college.college_id);
+                            if (collegeDepts.length === 0) return null;
+                            
+                            return (
+                              <div key={college.college_id} className="mb-2">
+                                <p className="text-xs font-semibold text-primary/80 mb-2 truncate bg-primary/5 px-2 py-1 rounded w-fit">{college.name}</p>
+                                <div className="space-y-1.5 pr-2 border-r-2 border-slate-200">
+                                  {collegeDepts.map((dept: any) => (
+                                    <label key={dept.department_id} className="flex items-center gap-2 cursor-pointer hover:bg-white p-1.5 rounded border border-transparent hover:border-slate-200 hover:shadow-sm transition-all">
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedDepartments.includes(dept.department_id)}
+                                        onChange={(e) => {
+                                          if (e.target.checked) {
+                                            setSelectedDepartments([...selectedDepartments, dept.department_id])
+                                          } else {
+                                            setSelectedDepartments(selectedDepartments.filter((id: any) => id !== dept.department_id))
+                                          }
+                                        }}
+                                        className="w-4 h-4 accent-primary rounded text-primary"
+                                      />
+                                      <span className="text-sm truncate flex-1" title={dept.dept_name}>{dept.dept_name}</span>
+                                    </label>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

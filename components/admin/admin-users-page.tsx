@@ -54,6 +54,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
 
   // New user form
   const [newUserName, setNewUserName] = useState("")
+  const [newUserEmail, setNewUserEmail] = useState("")
   const [newUserUniversityId, setNewUserUniversityId] = useState("")
   const [newUserPhone, setNewUserPhone] = useState("")
   const [newUserPassword, setNewUserPassword] = useState("")
@@ -192,6 +193,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
       const newUser = {
         university_id: newUserUniversityId,
         full_name: newUserName,
+        email: newUserEmail || null,
         password: newUserPassword,
         phone: newUserPhone,
         role_id: newUserRoleId,
@@ -202,6 +204,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
       if (result.success) {
         toast({ title: "✅ تم إضافة المستخدم بنجاح" })
         setNewUserName("")
+        setNewUserEmail("")
         setNewUserUniversityId("")
         setNewUserPhone("")
         setNewUserPassword("")
@@ -261,6 +264,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
     try {
       const result = await updateUser(expandedUserId, {
         full_name: expandedUserData.full_name,
+        email: expandedUserData.email,
         role_id: expandedUserData.role_id,
         department_id: expandedUserData.department_id,
         is_active: expandedUserData.is_active,
@@ -409,6 +413,10 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
               <div>
                 <Label className="text-sm font-medium mb-2 block" required>رقم القيد / اسم المستخدم</Label>
                 <Input placeholder="أدخل رقم القيد أو اسم المستخدم" value={newUserUniversityId} onChange={(e) => setNewUserUniversityId(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-sm font-medium mb-2 block">البريد الإلكتروني</Label>
+                <Input type="email" placeholder="أدخل البريد الإلكتروني (اختياري)" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} />
               </div>
               <div>
                 <Label className="text-sm font-medium mb-2 block">رقم الجوال</Label>
@@ -565,7 +573,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                       <p className="text-sm text-muted-foreground">القسم</p>
                       <p className="font-medium">{user.departments_users_department_idTodepartments?.dept_name || "-"}</p>
                     </div>
-                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center gap-2 ml-2">
                         <span className={`text-xs ${user.is_active ? "text-primary" : "text-muted-foreground"}`}>
                           {user.is_active ? "نشط" : "معطّل"}
@@ -600,6 +608,15 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                         <Input
                           value={expandedUserData.full_name || ""}
                           onChange={(e) => setExpandedUserData({ ...expandedUserData, full_name: e.target.value })}
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium">البريد الإلكتروني</Label>
+                        <Input
+                          type="email"
+                          value={expandedUserData.email || ""}
+                          onChange={(e) => setExpandedUserData({ ...expandedUserData, email: e.target.value })}
                           className="mt-1"
                         />
                       </div>

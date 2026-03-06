@@ -25,6 +25,8 @@ import {
   Plus,
   ArrowRight,
   Users,
+  Check,
+  Building2,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import {
@@ -96,8 +98,8 @@ export default function FormBuilderEditor({ formId, onBack, currentUserId }: For
   const [savedFormId, setSavedFormId] = useState<number | null>(isNewForm ? null : parseInt(formId))
   const [isSaving, setIsSaving] = useState(false)
   const [isLoading, setIsLoading] = useState(!isNewForm)
-  const [signatureUrl, setSignatureUrl] = useState<string | null>(null)
-  const [stampUrl, setStampUrl] = useState<string | null>(null)
+  const [signatures, setSignatures] = useState<Array<{ id: string, url: string, name: string }>>([])
+  const [stamps, setStamps] = useState<Array<{ id: string, url: string, name: string }>>([])
 
   // Workflow state
   const [workflowData, setWorkflowData] = useState<any>(null)
@@ -147,10 +149,28 @@ export default function FormBuilderEditor({ formId, onBack, currentUserId }: For
 
         // Load Signature and Stamp
         if ((result.data as any).signature_url) {
-            setSignatureUrl((result.data as any).signature_url)
+            try {
+              const parsed = JSON.parse((result.data as any).signature_url)
+              if (Array.isArray(parsed)) {
+                setSignatures(parsed)
+              } else {
+                setSignatures([{ id: 'default', url: (result.data as any).signature_url, name: 'التوقيع 1' }])
+              }
+            } catch (e) {
+              setSignatures([{ id: 'default', url: (result.data as any).signature_url, name: 'التوقيع 1' }])
+            }
         }
         if ((result.data as any).stamp_url) {
-            setStampUrl((result.data as any).stamp_url)
+            try {
+              const parsed = JSON.parse((result.data as any).stamp_url)
+              if (Array.isArray(parsed)) {
+                setStamps(parsed)
+              } else {
+                setStamps([{ id: 'default', url: (result.data as any).stamp_url, name: 'الختم 1' }])
+              }
+            } catch (e) {
+              setStamps([{ id: 'default', url: (result.data as any).stamp_url, name: 'الختم 1' }])
+            }
         }
 
         // Load Audience Config
@@ -340,8 +360,8 @@ export default function FormBuilderEditor({ formId, onBack, currentUserId }: For
         schema: fields,
         requesterId: currentUserId,
         pdf_template: pdfTemplate,
-        signature_url: signatureUrl || undefined,
-        stamp_url: stampUrl || undefined
+        signature_url: signatures.length > 0 ? JSON.stringify(signatures) : undefined,
+        stamp_url: stamps.length > 0 ? JSON.stringify(stamps) : undefined
       })
 
       if (result.success && result.data) {
@@ -997,83 +1017,121 @@ export default function FormBuilderEditor({ formId, onBack, currentUserId }: For
 
 
                   {targetAudience === 'specific' && (
-                    <div className="space-y-3 pt-2 border-t mt-2">
+                    <div className="space-y-4 pt-4 border-t mt-4">
+                      {/* Role Selection */}
                       <div className="flex gap-4">
-                        <label className="flex items-center gap-2 cursor-pointer border rounded-md px-3 py-2 flex-1 hover:bg-slate-50 transition-colors">
+                        <label className={`flex items-center gap-3 cursor-pointer border rounded-lg px-4 py-3 flex-1 transition-all ${specificRoleConfig.student ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'hover:bg-slate-50'}`}>
                           <input
                             type="checkbox"
                             checked={specificRoleConfig.student}
                             onChange={(e) => setSpecificRoleConfig({ ...specificRoleConfig, student: e.target.checked })}
-                            className="w-4 h-4 rounded text-primary accent-primary"
+                            className="w-5 h-5 rounded text-primary accent-primary"
                           />
-                          <span className="text-sm">الطلاب</span>
+                          <div>
+                            <span className="text-sm font-semibold block">الطلاب</span>
+                            <span className="text-xs text-muted-foreground">تطبيق على جميع الطلاب</span>
+                          </div>
                         </label>
-                        <label className="flex items-center gap-2 cursor-pointer border rounded-md px-3 py-2 flex-1 hover:bg-slate-50 transition-colors">
+                        <label className={`flex items-center gap-3 cursor-pointer border rounded-lg px-4 py-3 flex-1 transition-all ${specificRoleConfig.employee ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'hover:bg-slate-50'}`}>
                           <input
                             type="checkbox"
                             checked={specificRoleConfig.employee}
                             onChange={(e) => setSpecificRoleConfig({ ...specificRoleConfig, employee: e.target.checked })}
-                            className="w-4 h-4 rounded text-primary accent-primary"
+                            className="w-5 h-5 rounded text-primary accent-primary"
                           />
-                          <span className="text-sm">الموظفين</span>
+                          <div>
+                            <span className="text-sm font-semibold block">الموظفين</span>
+                            <span className="text-xs text-muted-foreground">تطبيق على جميع الموظفين</span>
+                          </div>
                         </label>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1.5">
-                          <Label className="text-xs text-muted-foreground">الكليات</Label>
-                          <div className="h-[120px] overflow-y-auto border rounded-md bg-white p-2">
-                            {colleges.length === 0 ? (
-                              <p className="text-xs text-muted-foreground">لا توجد كليات</p>
-                            ) : (
-                              colleges.map((college: any) => (
-                                <label key={college.college_id} className="flex items-center gap-2 cursor-pointer hover:bg-slate-50 p-1 rounded">
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedColleges.includes(college.college_id)}
-                                    onChange={(e) => {
-                                      if (e.target.checked) {
-                                        setSelectedColleges([...selectedColleges, college.college_id])
-                                      } else {
-                                        setSelectedColleges(selectedColleges.filter((id: number) => id !== college.college_id))
-                                      }
-                                    }}
-                                    className="w-3.5 h-3.5 accent-primary rounded"
-                                  />
-                                  <span className="text-xs truncate" title={college.name}>{college.name}</span>
-                                </label>
-                              ))
-                            )}
-                          </div>
+                      {/* College & Department Selection - Redesigned */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm font-semibold">تخصيص الكليات والأقسام</Label>
+                          <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-full">
+                            {selectedColleges.length} كليات • {selectedDepartments.length} أقسام
+                          </span>
                         </div>
-
-                        <div className="space-y-1.5">
-                          <Label className="text-xs text-muted-foreground">الأقسام</Label>
-                          <div className="h-[120px] overflow-y-auto border rounded-md bg-white p-2">
-                            {selectedColleges.length === 0 ? (
-                              <p className="text-xs text-muted-foreground">اختر كلية</p>
-                            ) : departments.filter((d: any) => selectedColleges.includes(d.college_id)).length === 0 ? (
-                              <p className="text-xs text-muted-foreground">لا توجد أقسام</p>
-                            ) : (
-                              departments
-                                .filter((dept: any) => selectedColleges.includes(dept.college_id))
-                                .map((dept: any) => (
-                                  <label key={dept.department_id} className="flex items-center gap-2 cursor-pointer hover:bg-slate-50 p-1 rounded">
+                        
+                        <div className="border rounded-lg bg-slate-50/50 flex flex-col h-[280px]">
+                          {/* Colleges List */}
+                          <div className="p-3 border-b bg-white">
+                            <Label className="text-xs text-muted-foreground mb-2 block">الكليات المستهدفة (اختر كلية لعرض أقسامها)</Label>
+                            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+                              {colleges.length === 0 ? (
+                                <p className="text-xs text-muted-foreground p-2">لا توجد كليات</p>
+                              ) : (
+                                colleges.map((college: any) => (
+                                  <label 
+                                    key={college.college_id} 
+                                    className={`flex items-center gap-2 whitespace-nowrap cursor-pointer px-3 py-1.5 rounded-full border text-xs transition-colors ${selectedColleges.includes(college.college_id) ? 'bg-primary text-white border-primary' : 'hover:bg-slate-100 bg-white'}`}
+                                  >
                                     <input
                                       type="checkbox"
-                                      checked={selectedDepartments.includes(dept.department_id)}
+                                      checked={selectedColleges.includes(college.college_id)}
                                       onChange={(e) => {
                                         if (e.target.checked) {
-                                          setSelectedDepartments([...selectedDepartments, dept.department_id])
+                                          setSelectedColleges([...selectedColleges, college.college_id])
                                         } else {
-                                          setSelectedDepartments(selectedDepartments.filter((id: any) => id !== dept.department_id))
+                                          setSelectedColleges(selectedColleges.filter((id: number) => id !== college.college_id))
+                                          // Optional: auto-remove deps if college removed
+                                          // setSelectedDepartments(selectedDepartments.filter(depId => !departments.find(d => d.department_id === depId && d.college_id === college.college_id)))
                                         }
                                       }}
-                                      className="w-3.5 h-3.5 accent-primary rounded"
+                                      className="sr-only" // Hidden visually, handles state
                                     />
-                                    <span className="text-xs truncate" title={dept.dept_name}>{dept.dept_name}</span>
+                                    <span>{college.name}</span>
+                                    {selectedColleges.includes(college.college_id) && <Check className="w-3 h-3" />}
                                   </label>
                                 ))
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Departments List */}
+                          <div className="p-3 flex-1 overflow-y-auto">
+                            <Label className="text-xs text-muted-foreground mb-3 block">الأقسام التابعة للكليات المحددة</Label>
+                            {selectedColleges.length === 0 ? (
+                              <div className="h-full flex flex-col items-center justify-center text-muted-foreground opacity-50">
+                                <Building2 className="w-8 h-8 mb-2" />
+                                <p className="text-sm">الرجاء اختيار كلية واحدة على الأقل من الأعلى</p>
+                              </div>
+                            ) : departments.filter((d: any) => selectedColleges.includes(d.college_id)).length === 0 ? (
+                              <p className="text-sm text-center text-muted-foreground mt-4">لا توجد أقسام مسجلة في الكليات المحددة</p>
+                            ) : (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {colleges.filter((c: any) => selectedColleges.includes(c.college_id)).map((college: any) => {
+                                  const collegeDepts = departments.filter((dept: any) => dept.college_id === college.college_id);
+                                  if (collegeDepts.length === 0) return null;
+                                  
+                                  return (
+                                    <div key={college.college_id} className="mb-2">
+                                      <p className="text-xs font-semibold text-primary/80 mb-2 truncate bg-primary/5 px-2 py-1 rounded w-fit">{college.name}</p>
+                                      <div className="space-y-1.5 pr-2 border-r-2 border-slate-200">
+                                        {collegeDepts.map((dept: any) => (
+                                          <label key={dept.department_id} className="flex items-center gap-2 cursor-pointer hover:bg-white p-1.5 rounded border border-transparent hover:border-slate-200 hover:shadow-sm transition-all">
+                                            <input
+                                              type="checkbox"
+                                              checked={selectedDepartments.includes(dept.department_id)}
+                                              onChange={(e) => {
+                                                if (e.target.checked) {
+                                                  setSelectedDepartments([...selectedDepartments, dept.department_id])
+                                                } else {
+                                                  setSelectedDepartments(selectedDepartments.filter((id: any) => id !== dept.department_id))
+                                                }
+                                              }}
+                                              className="w-4 h-4 accent-primary rounded text-primary"
+                                            />
+                                            <span className="text-sm truncate flex-1" title={dept.dept_name}>{dept.dept_name}</span>
+                                          </label>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
                             )}
                           </div>
                         </div>
@@ -1138,10 +1196,10 @@ export default function FormBuilderEditor({ formId, onBack, currentUserId }: For
                 <PdfTemplateEditor 
                   template={pdfTemplate || undefined}
                   onTemplateChange={setPdfTemplate}
-                  signatureUrl={signatureUrl}
-                  stampUrl={stampUrl}
-                  onSignatureChange={setSignatureUrl}
-                  onStampChange={setStampUrl}
+                  signatures={signatures}
+                  stamps={stamps}
+                  onSignaturesChange={setSignatures}
+                  onStampsChange={setStamps}
                 />
               </div>
             </TabsContent>

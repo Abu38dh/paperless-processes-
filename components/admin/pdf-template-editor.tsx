@@ -11,24 +11,24 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
-import { Bold, Italic, AlignLeft, AlignCenter, AlignRight, List, ListOrdered, Undo, Redo, Image as ImageIcon, Upload } from "lucide-react"
+import { Bold, Italic, AlignLeft, AlignCenter, AlignRight, List, ListOrdered, Undo, Redo, Image as ImageIcon, Upload, Plus } from "lucide-react"
 
 interface PdfTemplateEditorProps {
   template?: string | null
   onTemplateChange: (template: string) => void
-  signatureUrl?: string | null
-  stampUrl?: string | null
-  onSignatureChange?: (url: string | null) => void
-  onStampChange?: (url: string | null) => void
+  signatures?: Array<{ id: string, url: string, name: string }>
+  stamps?: Array<{ id: string, url: string, name: string }>
+  onSignaturesChange?: (signatures: Array<{ id: string, url: string, name: string }>) => void
+  onStampsChange?: (stamps: Array<{ id: string, url: string, name: string }>) => void
 }
 
 export default function PdfTemplateEditor({ 
   template, 
   onTemplateChange,
-  signatureUrl,
-  stampUrl,
-  onSignatureChange,
-  onStampChange
+  signatures = [],
+  stamps = [],
+  onSignaturesChange,
+  onStampsChange
 }: PdfTemplateEditorProps) {
   const [showPreview, setShowPreview] = useState(false)
   const editorRef = useRef<HTMLDivElement>(null)
@@ -293,10 +293,10 @@ export default function PdfTemplateEditor({
           </div>
 
           <AssetsToolbar 
-            signatureUrl={signatureUrl}
-            stampUrl={stampUrl}
-            onSignatureChange={onSignatureChange}
-            onStampChange={onStampChange}
+            signatures={signatures}
+            stamps={stamps}
+            onSignaturesChange={onSignaturesChange}
+            onStampsChange={onStampsChange}
           />
         </div>
       </div>
@@ -565,21 +565,27 @@ export default function PdfTemplateEditor({
 
 
 function AssetsToolbar({ 
-  signatureUrl, 
-  stampUrl, 
-  onSignatureChange, 
-  onStampChange 
+  signatures, 
+  stamps, 
+  onSignaturesChange, 
+  onStampsChange 
 }: { 
-  signatureUrl?: string | null
-  stampUrl?: string | null
-  onSignatureChange?: (url: string | null) => void
-  onStampChange?: (url: string | null) => void
+  signatures: Array<{ id: string, url: string, name: string }>
+  stamps: Array<{ id: string, url: string, name: string }>
+  onSignaturesChange?: (signatures: Array<{ id: string, url: string, name: string }>) => void
+  onStampsChange?: (stamps: Array<{ id: string, url: string, name: string }>) => void
 }) {
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'signature' | 'stamp') => {
+  const [isUploadingSig, setIsUploadingSig] = useState(false);
+  const [isUploadingStamp, setIsUploadingStamp] = useState(false);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'stamp' | 'signature') => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0]
       const formData = new FormData()
       formData.append('file', file)
+
+      if (type === 'signature') setIsUploadingSig(true);
+      else setIsUploadingStamp(true);
 
       try {
         const response = await fetch('/api/upload', {
@@ -590,15 +596,49 @@ function AssetsToolbar({
         const data = await response.json()
 
         if (data.success) {
-          if (type === 'signature' && onSignatureChange) onSignatureChange(data.url)
-          if (type === 'stamp' && onStampChange) onStampChange(data.url)
+          if (type === 'stamp' && onStampsChange) {
+            const newStamps = [...stamps, { id: Date.now().toString(), url: data.url, name: `ختم ${stamps.length + 1}` }]
+            onStampsChange(newStamps)
+          }
+          if (type === 'signature' && onSignaturesChange) {
+            const newSignatures = [...signatures, { id: Date.now().toString(), url: data.url, name: `توقيع ${signatures.length + 1}` }]
+            onSignaturesChange(newSignatures)
+          }
         } else {
           alert("فشل رفع الملف: " + data.error)
         }
       } catch (err) {
         console.error("Upload failed", err)
         alert("حدث خطأ أثناء رفع الملف")
+      } finally {
+        e.target.value = ''
+        if (type === 'signature') setIsUploadingSig(false);
+        else setIsUploadingStamp(false);
       }
+    }
+  }
+
+  const handleUpdateSignatureName = (id: string, newName: string) => {
+    if (onSignaturesChange) {
+      onSignaturesChange(signatures.map(s => s.id === id ? { ...s, name: newName } : s))
+    }
+  }
+
+  const handleDeleteSignature = (id: string) => {
+    if (onSignaturesChange) {
+      onSignaturesChange(signatures.filter(s => s.id !== id))
+    }
+  }
+
+  const handleUpdateStampName = (id: string, newName: string) => {
+    if (onStampsChange) {
+      onStampsChange(stamps.map(s => s.id === id ? { ...s, name: newName } : s))
+    }
+  }
+
+  const handleDeleteStamp = (id: string) => {
+    if (onStampsChange) {
+      onStampsChange(stamps.filter(s => s.id !== id))
     }
   }
 
@@ -610,82 +650,100 @@ function AssetsToolbar({
       </h4>
       
       <div className="space-y-4">
-        {/* Signature */}
+        {/* Signatures */}
         <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-[0_2px_4px_rgba(0,0,0,0.02)]">
             <div className="flex justify-between items-center mb-3">
-                <span className="text-sm font-semibold text-slate-700">التوقيع</span>
-                {signatureUrl && (
-                     <button 
-                        onClick={() => onSignatureChange?.(null)}
-                        className="text-[10px] text-red-500 hover:text-white hover:bg-red-500 bg-red-50 px-2 py-1 rounded transition-colors"
-                    >
-                        حذف
-                    </button>
-                )}
+                <span className="text-sm font-semibold text-slate-700">التوقيعات</span>
             </div>
             
-            {signatureUrl ? (
-                <div className="space-y-3">
-                    <div className="h-24 bg-slate-50 rounded-md border border-slate-100 flex items-center justify-center overflow-hidden p-2">
-                        <img src={signatureUrl} alt="Signature" className="max-h-full max-w-full object-contain mix-blend-multiply" />
+            <div className="space-y-4">
+               {signatures.map((sig) => (
+                  <div key={sig.id} className="space-y-3 border border-slate-100 p-3 rounded-md bg-slate-50 relative group">
+                      <div className="flex items-center justify-between gap-2">
+                        <input 
+                           value={sig.name}
+                           onChange={(e) => handleUpdateSignatureName(sig.id, e.target.value)}
+                           className="text-xs font-semibold bg-transparent border-b border-transparent hover:border-slate-300 focus:border-[#1b9d91] focus:outline-none flex-1 px-1 py-0.5"
+                           placeholder="اسم التوقيع"
+                        />
+                        <button 
+                            onClick={() => handleDeleteSignature(sig.id)}
+                            className="text-[10px] text-red-500 hover:text-white hover:bg-red-500 bg-red-50 px-2 py-1 rounded transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0"
+                            title="حذف هذا التوقيع"
+                        >
+                            حذف
+                        </button>
+                      </div>
+                      <div className="h-20 bg-white rounded-md border border-slate-200 flex items-center justify-center overflow-hidden p-1">
+                          <img src={sig.url} alt={sig.name} className="max-h-full max-w-full object-contain mix-blend-multiply" />
+                      </div>
+                      <button
+                          onClick={() => document.execCommand('insertImage', false, sig.url)}
+                          className="w-full text-xs flex items-center justify-center gap-1.5 bg-[#1b9d91] text-white hover:bg-[#15877c] py-2 rounded-md transition-colors font-medium cursor-pointer shadow-sm active:scale-[0.98]"
+                          onMouseDown={(e) => e.preventDefault()}
+                      >
+                          <span>⬇️</span>
+                          إدراج في الخطاب
+                      </button>
+                  </div>
+               ))}
+
+               <label className={`cursor-pointer text-xs flex flex-col items-center justify-center gap-3 text-slate-500 hover:text-[#1b9d91] transition-all bg-white hover:bg-[#1b9d91]/5 border-2 border-dashed border-slate-200 hover:border-[#1b9d91]/50 rounded-lg p-3 h-24 group ${isUploadingSig ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <div className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
+                        {isUploadingSig ? <span className="animate-[spin_1s_linear_infinite]">⏳</span> : <Plus className="w-4 h-4 text-slate-400 group-hover:text-[#1b9d91]" />}
                     </div>
-                    <button
-                        onClick={() => document.execCommand('insertImage', false, signatureUrl)}
-                        className="w-full text-xs flex items-center justify-center gap-1.5 bg-[#1b9d91] text-white hover:bg-[#15877c] py-2 rounded-md transition-colors font-medium cursor-pointer shadow-sm active:scale-[0.98]"
-                        onMouseDown={(e) => e.preventDefault()}
-                    >
-                        <span>⬇️</span>
-                        إدراج في الخطاب
-                    </button>
-                </div>
-            ) : (
-                <label className="cursor-pointer text-xs flex flex-col items-center justify-center gap-3 text-slate-500 hover:text-[#1b9d91] transition-all bg-slate-50 hover:bg-[#1b9d91]/5 border-2 border-dashed border-slate-200 hover:border-[#1b9d91]/50 rounded-lg p-4 h-28 group">
-                    <div className="w-10 h-10 rounded-full bg-white border border-slate-100 flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
-                        <Upload className="w-5 h-5 text-slate-400 group-hover:text-[#1b9d91]" />
-                    </div>
-                    <span className="font-medium">رفع صورة التوقيع</span>
-                    <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'signature')} />
+                    <span className="font-medium">{isUploadingSig ? "جارٍ الرفع..." : "إضافة توقيع جديد"}</span>
+                    <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'signature')} disabled={isUploadingSig} />
                 </label>
-            )}
+            </div>
         </div>
 
-        {/* Stamp */}
+        {/* Stamps */}
         <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-[0_2px_4px_rgba(0,0,0,0.02)]">
             <div className="flex justify-between items-center mb-3">
-                <span className="text-sm font-semibold text-slate-700">الختم</span>
-                {stampUrl && (
-                     <button 
-                        onClick={() => onStampChange?.(null)}
-                        className="text-[10px] text-red-500 hover:text-white hover:bg-red-500 bg-red-50 px-2 py-1 rounded transition-colors"
-                    >
-                        حذف
-                    </button>
-                )}
+                <span className="text-sm font-semibold text-slate-700">الأختام</span>
             </div>
             
-            {stampUrl ? (
-                <div className="space-y-3">
-                    <div className="h-24 bg-slate-50 rounded-md border border-slate-100 flex items-center justify-center overflow-hidden p-2">
-                        <img src={stampUrl} alt="Stamp" className="max-h-full max-w-full object-contain mix-blend-multiply" />
+            <div className="space-y-4">
+               {stamps.map((stamp) => (
+                  <div key={stamp.id} className="space-y-3 border border-slate-100 p-3 rounded-md bg-slate-50 relative group">
+                      <div className="flex items-center justify-between gap-2">
+                        <input 
+                           value={stamp.name}
+                           onChange={(e) => handleUpdateStampName(stamp.id, e.target.value)}
+                           className="text-xs font-semibold bg-transparent border-b border-transparent hover:border-slate-300 focus:border-[#1b9d91] focus:outline-none flex-1 px-1 py-0.5"
+                           placeholder="اسم الختم"
+                        />
+                        <button 
+                            onClick={() => handleDeleteStamp(stamp.id)}
+                            className="text-[10px] text-red-500 hover:text-white hover:bg-red-500 bg-red-50 px-2 py-1 rounded transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0"
+                            title="حذف هذا الختم"
+                        >
+                            حذف
+                        </button>
+                      </div>
+                      <div className="h-24 bg-white rounded-md border border-slate-200 flex items-center justify-center overflow-hidden p-1">
+                          <img src={stamp.url} alt={stamp.name} className="max-h-full max-w-full object-contain mix-blend-multiply" />
+                      </div>
+                      <button
+                          onClick={() => document.execCommand('insertImage', false, stamp.url)}
+                          className="w-full text-xs flex items-center justify-center gap-1.5 bg-[#1b9d91] text-white hover:bg-[#15877c] py-2 rounded-md transition-colors font-medium cursor-pointer shadow-sm active:scale-[0.98]"
+                          onMouseDown={(e) => e.preventDefault()}
+                      >
+                          <span>⬇️</span>
+                          إدراج في الخطاب
+                      </button>
+                  </div>
+               ))}
+
+               <label htmlFor="stamp-upload" className={`cursor-pointer text-xs flex flex-col items-center justify-center gap-3 text-slate-500 hover:text-[#1b9d91] transition-all bg-slate-50 hover:bg-[#1b9d91]/5 border-2 border-dashed border-slate-200 hover:border-[#1b9d91]/50 rounded-lg p-4 h-28 group ${isUploadingStamp ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <div className="w-10 h-10 rounded-full bg-white border border-slate-100 flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
+                        {isUploadingStamp ? <span className="animate-[spin_1s_linear_infinite]">⏳</span> : <Upload className="w-5 h-5 text-slate-400 group-hover:text-[#1b9d91]" />}
                     </div>
-                    <button
-                        onClick={() => document.execCommand('insertImage', false, stampUrl)}
-                        className="w-full text-xs flex items-center justify-center gap-1.5 bg-[#1b9d91] text-white hover:bg-[#15877c] py-2 rounded-md transition-colors font-medium cursor-pointer shadow-sm active:scale-[0.98]"
-                        onMouseDown={(e) => e.preventDefault()}
-                    >
-                        <span>⬇️</span>
-                        إدراج في الخطاب
-                    </button>
-                </div>
-            ) : (
-                <label className="cursor-pointer text-xs flex flex-col items-center justify-center gap-3 text-slate-500 hover:text-[#1b9d91] transition-all bg-slate-50 hover:bg-[#1b9d91]/5 border-2 border-dashed border-slate-200 hover:border-[#1b9d91]/50 rounded-lg p-4 h-28 group">
-                     <div className="w-10 h-10 rounded-full bg-white border border-slate-100 flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
-                        <Upload className="w-5 h-5 text-slate-400 group-hover:text-[#1b9d91]" />
-                    </div>
-                    <span className="font-medium">رفع صورة الختم</span>
-                    <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'stamp')} />
+                    <span className="font-medium">{isUploadingStamp ? "جارٍ الرفع..." : "إضافة ختم جديد"}</span>
+                    <input id="stamp-upload" type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'stamp')} disabled={isUploadingStamp} />
                 </label>
-            )}
+            </div>
         </div>
       </div>
     </div>
