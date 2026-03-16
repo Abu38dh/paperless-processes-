@@ -167,10 +167,7 @@ export default function AdminDepartmentsPage({ onBack, currentUserId }: AdminDep
     if (loading) {
         return (
             <div className="space-y-6 p-6" dir="rtl">
-                <div className="flex justify-between items-center">
-                    <h1 className="text-3xl font-bold">إدارة الأقسام</h1>
-                    <Button onClick={onBack} variant="ghost">رجوع</Button>
-                </div>
+                <h1 className="text-3xl font-bold">إدارة الأقسام</h1>
                 <TableSkeleton />
             </div>
         )
@@ -179,10 +176,7 @@ export default function AdminDepartmentsPage({ onBack, currentUserId }: AdminDep
     if (error) {
         return (
             <div className="space-y-6 p-6" dir="rtl">
-                <div className="flex justify-between items-center">
-                    <h1 className="text-3xl font-bold">إدارة الأقسام</h1>
-                    <Button onClick={onBack} variant="ghost">رجوع</Button>
-                </div>
+                <h1 className="text-3xl font-bold">إدارة الأقسام</h1>
                 <ErrorMessage error={error} onRetry={fetchData} />
             </div>
         )
@@ -200,10 +194,6 @@ export default function AdminDepartmentsPage({ onBack, currentUserId }: AdminDep
                     <Button onClick={() => setShowAddForm(true)} className="bg-primary gap-2">
                         <Plus className="w-4 h-4" />
                         قسم جديد
-                    </Button>
-                    <Button onClick={onBack} variant="ghost" className="gap-2">
-                        <ArrowRight className="w-4 h-4" />
-                        رجوع
                     </Button>
                 </div>
             </div>

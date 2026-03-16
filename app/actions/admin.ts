@@ -673,3 +673,88 @@ export async function getApproversList(requesterId?: string) {
     }
 }
 
+/**
+ * Get delegations for a specific user (Grantor or Grantee)
+ */
+export async function getAdminDelegations(userId: number) {
+    try {
+        const delegations = await db.delegations.findMany({
+            where: {
+                OR: [
+                    { grantor_user_id: userId },
+                    { grantee_user_id: userId }
+                ]
+            },
+            include: {
+                users_delegations_grantor_user_idTousers: { select: { full_name: true, university_id: true } },
+                users_delegations_grantee_user_idTousers: { select: { full_name: true, university_id: true } }
+            },
+            orderBy: { delegation_id: 'desc' }
+        });
+
+        return { success: true, data: delegations };
+    } catch (error) {
+        console.error("Get Admin Delegations Error:", error);
+        return { success: false, error: "فشل في تحميل تفويضات المستخدم" };
+    }
+}
+
+/**
+ * Create a delegation on behalf of a user (Admin Override)
+ */
+export async function adminCreateDelegation(grantorId: number, granteeId: number, startsAt: Date, endsAt: Date, reason: string, delegatedTypes: number[] | null, adminUserId: string) {
+    try {
+        // Validate admin
+        const admin = await db.users.findUnique({
+            where: { university_id: adminUserId },
+            include: { roles: true }
+        });
+        
+        if (!admin || !['admin', 'dean', 'head'].includes(admin.roles?.role_name || '')) {
+             return { success: false, error: "غير مصرح بإنشاء تفويض" };
+        }
+
+        const newDelegation = await db.delegations.create({
+            data: {
+                grantor_user_id: grantorId,
+                grantee_user_id: granteeId,
+                starts_at: startsAt,
+                ends_at: endsAt,
+                is_active: true,
+                delegated_types: delegatedTypes || undefined
+            }
+        });
+
+        return { success: true, data: newDelegation };
+    } catch (error) {
+        console.error("Admin Create Delegation Error:", error);
+        return { success: false, error: "فشل إنشاء التفويض" };
+    }
+}
+
+/**
+ * Revoke a delegation (Admin Override)
+ */
+export async function adminRevokeDelegation(delegationId: number, adminUserId: string) {
+    try {
+        // Validate admin
+        const admin = await db.users.findUnique({
+            where: { university_id: adminUserId },
+            include: { roles: true }
+        });
+        
+        if (!admin || !['admin', 'dean', 'head'].includes(admin.roles?.role_name || '')) {
+             return { success: false, error: "غير مصرح بإلغاء التفويض" };
+        }
+
+        const updated = await db.delegations.update({
+            where: { delegation_id: delegationId },
+            data: { is_active: false }
+        });
+
+        return { success: true, data: updated };
+    } catch (error) {
+        console.error("Admin Revoke Delegation Error:", error);
+        return { success: false, error: "فشل إلغاء التفويض" };
+    }
+}

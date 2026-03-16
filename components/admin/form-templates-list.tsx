@@ -286,6 +286,7 @@ export default function FormTemplatesList({ onEditForm, onCreateNewForm, onBack,
   }
 
   const filteredForms = forms.filter(form => {
+    if (form.name === "طلب تفويض صلاحيات") return false
     const matchesSearch = form.name.toLowerCase().includes(searchTerm.toLowerCase())
     // For audience filter, check the target_audience JSON field
     const matchesAudience = audienceFilter === "all" ||
@@ -296,10 +297,7 @@ export default function FormTemplatesList({ onEditForm, onCreateNewForm, onBack,
   if (loading) {
     return (
       <div className="space-y-6" dir="rtl">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold">إدارة النماذج</h1>
-          <Button onClick={onBack} variant="outline">رجوع</Button>
-        </div>
+        <h1 className="text-3xl font-bold">إدارة النماذج</h1>
         <TableSkeleton />
       </div>
     )
@@ -308,10 +306,7 @@ export default function FormTemplatesList({ onEditForm, onCreateNewForm, onBack,
   if (error) {
     return (
       <div className="space-y-6" dir="rtl">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold">إدارة النماذج</h1>
-          <Button onClick={onBack} variant="outline">رجوع</Button>
-        </div>
+        <h1 className="text-3xl font-bold">إدارة النماذج</h1>
         <ErrorMessage error={error} onRetry={fetchForms} />
       </div>
     )
@@ -329,10 +324,6 @@ export default function FormTemplatesList({ onEditForm, onCreateNewForm, onBack,
             <Button onClick={onCreateNewForm} className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
               <Plus className="w-4 h-4" />
               إنشاء نموذج جديد
-            </Button>
-            <Button variant="outline" onClick={onBack} className="gap-2">
-              <ArrowRight className="w-4 h-4" />
-              رجوع
             </Button>
           </div>
         </div>

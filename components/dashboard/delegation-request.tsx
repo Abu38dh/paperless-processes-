@@ -6,13 +6,25 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Loader2, Plus, Calendar as CalendarIcon, History } from "lucide-react"
 import { getDepartmentColleagues, submitDelegationRequest, getEmployeeRequests, getDelegations } from "@/app/actions/employee"
+import { getApprovableFormTemplates } from "@/app/actions/forms"
 import { useToast } from "@/components/ui/use-toast"
+import { Checkbox } from "@/components/ui/checkbox"
 import { format } from "date-fns"
 import { arSA } from "date-fns/locale"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 interface DelegationRequestProps {
     userData: {
@@ -24,14 +36,19 @@ interface DelegationRequestProps {
 export default function DelegationRequest({ userData }: DelegationRequestProps) {
     const { toast } = useToast()
     const [loading, setLoading] = useState(true)
-    const [colleagues, setColleagues] = useState<{ id: string, name: string }[]>([])
+    const [colleagues, setColleagues] = useState<{ id: string, name: string, group?: string }[]>([])
+    const [formTemplates, setFormTemplates] = useState<{ form_id: number, name: string }[]>([])
+    const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
 
     // Form State
     const [delegateeId, setDelegateeId] = useState("")
     const [startDate, setStartDate] = useState("")
     const [endDate, setEndDate] = useState("")
     const [reason, setReason] = useState("")
+    const [selectedTypes, setSelectedTypes] = useState<number[]>([])
     const [submitting, setSubmitting] = useState(false)
+    const [attachmentData, setAttachmentData] = useState<string>("")
+    const [attachmentName, setAttachmentName] = useState<string>("")
 
     // History State
     const [history, setHistory] = useState<any[]>([])
@@ -48,6 +65,12 @@ export default function DelegationRequest({ userData }: DelegationRequestProps) 
             const colleaguesRes = await getDepartmentColleagues(userData.university_id)
             if (colleaguesRes.success && colleaguesRes.users) {
                 setColleagues(colleaguesRes.users)
+            }
+
+            // 1.5 Fetch Approvable Form Templates
+            const templatesRes = await getApprovableFormTemplates(userData.university_id)
+            if (templatesRes.success && templatesRes.data) {
+                setFormTemplates(templatesRes.data)
             }
 
             // 2. Fetch Active Delegations (Real Records)
@@ -95,7 +118,10 @@ export default function DelegationRequest({ userData }: DelegationRequestProps) 
                 delegateeId,
                 new Date(startDate),
                 new Date(endDate),
-                reason
+                reason,
+                selectedTypes.length > 0 ? selectedTypes : null,
+                attachmentData || undefined,
+                attachmentName || undefined
             )
 
             if (result.success) {
@@ -105,6 +131,9 @@ export default function DelegationRequest({ userData }: DelegationRequestProps) 
                 setStartDate("")
                 setEndDate("")
                 setReason("")
+                setSelectedTypes([])
+                setAttachmentData("")
+                setAttachmentName("")
                 // Reload
                 loadData()
             } else {
@@ -132,50 +161,156 @@ export default function DelegationRequest({ userData }: DelegationRequestProps) 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label>الموظف المفوض (الزميل)</Label>
-                                <Select value={delegateeId} onValueChange={setDelegateeId}>
+                                <Label>الموظف المفوض (الزميل) <span className="text-red-500">*</span></Label>
+                                <Select value={delegateeId} onValueChange={setDelegateeId} required>
                                     <SelectTrigger>
                                         <SelectValue placeholder="اختر الموظف" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {colleagues.map(user => (
-                                            <SelectItem key={user.id} value={user.id}>
-                                                {user.name}
-                                            </SelectItem>
-                                        ))}
+                                        {colleagues.filter(c => c.group === 'القسم').length > 0 && (
+                                            <SelectGroup>
+                                                <SelectLabel>زملاء القسم</SelectLabel>
+                                                {colleagues.filter(c => c.group === 'القسم').map(user => (
+                                                    <SelectItem key={user.id} value={user.id}>
+                                                        {user.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectGroup>
+                                        )}
+                                        {colleagues.filter(c => c.group === 'الكلية').length > 0 && (
+                                            <SelectGroup>
+                                                <SelectLabel>زملاء الكلية</SelectLabel>
+                                                {colleagues.filter(c => c.group === 'الكلية').map(user => (
+                                                    <SelectItem key={user.id} value={user.id}>
+                                                        {user.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectGroup>
+                                        )}
+                                        {colleagues.filter(c => !c.group).length > 0 && (
+                                            <SelectGroup>
+                                                {colleagues.filter(c => !c.group).map(user => (
+                                                    <SelectItem key={user.id} value={user.id}>
+                                                        {user.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectGroup>
+                                        )}
                                     </SelectContent>
                                 </Select>
                             </div>
                             <div className="grid grid-cols-2 gap-2">
                                 <div className="space-y-2">
-                                    <Label>من تاريخ</Label>
+                                    <Label>من تاريخ <span className="text-red-500">*</span></Label>
                                     <Input
                                         type="date"
                                         value={startDate}
                                         onChange={e => setStartDate(e.target.value)}
                                         min={new Date().toISOString().split('T')[0]}
+                                        required
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>إلى تاريخ</Label>
+                                    <Label>إلى تاريخ <span className="text-red-500">*</span></Label>
                                     <Input
                                         type="date"
                                         value={endDate}
                                         onChange={e => setEndDate(e.target.value)}
                                         min={startDate}
+                                        required
                                     />
                                 </div>
                             </div>
                         </div>
+                        <div className="space-y-4">
+                            <Label>أنواع الطلبات المفوضة (اختياري)</Label>
+                            <div className="text-sm text-muted-foreground mb-2">
+                                إذا لم تختر أي نوع، سيشمل التفويض كافة الصلاحيات الحالية وأنواع الطلبات.
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 border p-4 rounded-md bg-muted/20">
+                                {formTemplates.map((template) => (
+                                    <div key={template.form_id} className="flex items-center space-x-2 space-x-reverse">
+                                        <Checkbox 
+                                            id={`type-${template.form_id}`} 
+                                            checked={selectedTypes.includes(template.form_id)}
+                                            onCheckedChange={(checked) => {
+                                                if (checked) {
+                                                    setSelectedTypes([...selectedTypes, template.form_id])
+                                                } else {
+                                                    setSelectedTypes(selectedTypes.filter(id => id !== template.form_id))
+                                                }
+                                            }}
+                                        />
+                                        <label
+                                            htmlFor={`type-${template.form_id}`}
+                                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                        >
+                                            {template.name}
+                                        </label>
+                                    </div>
+                                ))}
+                                {formTemplates.length === 0 && (
+                                    <div className="text-sm text-muted-foreground">لا توجد أنواع طلبات متاحة.</div>
+                                )}
+                            </div>
+                        </div>
                         <div className="space-y-2">
-                            <Label>سبب التفويض</Label>
+                            <Label>سبب التفويض <span className="text-red-500">*</span></Label>
                             <Textarea
                                 placeholder="مثال: إجازة سنوية، مهمة عمل..."
                                 value={reason}
                                 onChange={e => setReason(e.target.value)}
+                                required
                             />
                         </div>
-                        <Button type="submit" disabled={submitting} className="w-full md:w-auto">
+                        <div className="space-y-2">
+                            <Label>المرفقات (اختياري)</Label>
+                            <div className="text-sm text-muted-foreground mb-2">
+                                يمكنك إرفاق مستند أو صورة (PDF, JPG, PNG) لدعم طلب التفويض.
+                            </div>
+                            <Input
+                                type="file"
+                                accept=".pdf,image/png,image/jpeg,image/jpg"
+                                onChange={(e) => {
+                                    const file = e.target.files?.[0]
+                                    if (file) {
+                                        if (file.size > 5 * 1024 * 1024) {
+                                            toast({ title: "تنبيه", description: "حجم الملف يجب ألا يتجاوز 5 ميجابايت", variant: "destructive" })
+                                            e.target.value = ''
+                                            setAttachmentData("")
+                                            setAttachmentName("")
+                                            return
+                                        }
+                                        const reader = new FileReader()
+                                        reader.onloadend = () => {
+                                            setAttachmentData(reader.result as string)
+                                            setAttachmentName(file.name)
+                                        }
+                                        reader.readAsDataURL(file)
+                                    } else {
+                                        setAttachmentData("")
+                                        setAttachmentName("")
+                                    }
+                                }}
+                            />
+                            {attachmentName && (
+                                <p className="text-xs text-primary mt-1">
+                                    الملف المختار: {attachmentName}
+                                </p>
+                            )}
+                        </div>
+                        <Button
+                            type="button"
+                            onClick={() => {
+                                if (!delegateeId || !startDate || !endDate || !reason) {
+                                    toast({ title: "تنبيه", description: "جميع الحقول المطلوبة يجب تعبئتها", variant: "destructive" })
+                                    return
+                                }
+                                setConfirmDialogOpen(true)
+                            }}
+                            disabled={submitting}
+                            className="w-full md:w-auto"
+                        >
                             {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                             إرسال الطلب
                         </Button>
@@ -257,6 +392,26 @@ export default function DelegationRequest({ userData }: DelegationRequestProps) 
                     </CardContent>
                 </Card>
             </div>
+            <AlertDialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
+                <AlertDialogContent dir="rtl">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>تأكيد طلب التفويض</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            هل أنت متأكد من رغبتك في إرسال طلب التفويض؟ 
+                            سيتطلب هذا الإجراء موافقة مديرك المباشر.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                        <AlertDialogAction onClick={(e) => {
+                            handleSubmit(e as unknown as React.FormEvent)
+                        }}>
+                            تأكيد وإرسال
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
 }
+

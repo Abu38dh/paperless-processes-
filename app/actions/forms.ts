@@ -591,3 +591,72 @@ export async function getAvailableFormTemplates(userId: string) {
         return { success: false, error: "فشل في تحميل النماذج المتاحة" }
     }
 }
+
+/**
+ * Get form templates where the user can act as an approver based on workflow steps
+ */
+export async function getApprovableFormTemplates(userId: string) {
+    try {
+        const user = await db.users.findUnique({
+            where: { university_id: userId },
+            include: {
+                roles: true
+            }
+        })
+
+        if (!user) {
+            return { success: false, error: "المستخدم غير موجود" }
+        }
+
+        const roleId = user.role_id
+
+        // Get all active templates with their workflows and steps
+        const allTemplates = await db.form_templates.findMany({
+            where: { is_active: true },
+            include: {
+                request_types: {
+                    include: {
+                        workflows: {
+                            include: {
+                                workflow_steps: true
+                            }
+                        }
+                    }
+                }
+            }
+        })
+
+        // Filter templates where the user's role is involved in any workflow step
+        const approvableTemplates = allTemplates.filter(template => {
+            // Must have a request type and workflow
+            const requestTypes = Array.isArray(template.request_types) ? template.request_types : (template.request_types ? [template.request_types] : [])
+            
+            for (const rType of requestTypes) {
+                if (!rType) continue; // Skip if rType is null/undefined
+                const workflows = Array.isArray(rType.workflows) ? rType.workflows : (rType.workflows ? [rType.workflows] : [])
+                
+                for (const workflow of workflows) {
+                    if (!workflow) continue; // Skip if workflow is null/undefined
+                    const steps = Array.isArray(workflow.workflow_steps) ? workflow.workflow_steps : (workflow.workflow_steps ? [workflow.workflow_steps] : [])
+                    
+                    // If any step requires this user's role OR this specific user, they are an approver for this form type
+                    if (steps.some((step: any) => step && (
+                        step.approver_role_id === roleId || 
+                        (step.approver_user_id != null && String(step.approver_user_id) === String(user.user_id))
+                    ))) {
+                        return true
+                    }
+                }
+            }
+            return false
+        })
+
+        return {
+            success: true,
+            data: approvableTemplates
+        }
+    } catch (error) {
+        console.error("Get Approvable Templates Error:", error)
+        return { success: false, error: "فشل في تحميل نماذج الصلاحيات" }
+    }
+}

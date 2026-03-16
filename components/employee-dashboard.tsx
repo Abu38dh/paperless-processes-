@@ -489,39 +489,105 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                       <div className="w-full md:w-2/3 flex flex-col p-6 bg-slate-50/50 rounded-lg border border-border/50">
                         {selectedRequest ? (
                           <div className="space-y-6">
-                            <div>
-                              <h2 className="text-2xl font-bold mb-2">{selectedRequest.type}</h2>
-                              <p className="text-muted-foreground">{selectedRequest.description}</p>
-                            </div>
-
-                            <Card className="p-4 bg-muted/30">
-                              <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                  <p className="text-sm text-muted-foreground">مقدم الطلب</p>
-                                  <p
-                                    className="font-semibold text-primary hover:underline cursor-pointer"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      handleViewRequesterHistory(selectedRequest.applicant)
-                                    }}
-                                  >
-                                    {selectedRequest.applicant}
+                            {/* Premium Header */}
+                            <div className="overflow-hidden rounded-xl border border-orange-100 shadow-md">
+                              {/* Gradient Banner */}
+                              <div className="relative bg-gradient-to-l from-orange-400/75 to-orange-300/60 p-5">
+                                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white/10 to-transparent pointer-events-none" />
+                                <div className="relative">
+                                  <h2 className="text-xl font-bold text-white drop-shadow-sm mb-1">
+                                    {selectedRequest.type}
+                                  </h2>
+                                  <p className="text-white/70 text-sm mb-2">
+                                    {selectedRequest.description || "لا يوجد وصف"}
                                   </p>
-                                </div>
-                                <div>
-                                  <p className="text-sm text-muted-foreground">تاريخ التقديم</p>
-                                  <p className="font-semibold">{selectedRequest.date}</p>
-                                </div>
-                                <div>
-                                  <p className="text-sm text-muted-foreground">رقم الطلب</p>
-                                  <p className="font-semibold font-mono">{selectedRequest.id}</p>
-                                </div>
-                                <div>
-                                  <p className="text-sm text-muted-foreground">الحالة</p>
-                                  {getStatusBadge(selectedRequest.status)}
+                                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold bg-white/20 text-white border border-white/30 backdrop-blur-sm w-fit">
+                                    {getStatusBadge(selectedRequest.status)}
+                                  </div>
                                 </div>
                               </div>
-                            </Card>
+
+                              {/* Info Grid */}
+                              <div className="grid grid-cols-1 md:grid-cols-2 bg-white">
+                                {/* Applicant Info */}
+                                <div className="p-5 border-b md:border-b-0 md:border-l border-orange-50">
+                                  <p className="text-xs font-semibold text-orange-500/80 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                    <span className="w-4 h-px bg-orange-300 inline-block"/>
+                                    مقدم الطلب
+                                  </p>
+                                  <div className="space-y-2.5">
+                                    <p
+                                      className="font-bold text-lg text-orange-500 hover:underline cursor-pointer leading-tight"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleViewRequesterHistory(selectedRequest.applicant)
+                                      }}
+                                    >
+                                      {selectedRequest.applicant}
+                                    </p>
+                                    {(selectedRequest as any).college && (
+                                      <div className="flex items-center gap-2 text-sm">
+                                        <span className="w-7 h-7 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
+                                          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-orange-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+                                        </span>
+                                        <div>
+                                          <p className="text-xs text-muted-foreground">الكلية</p>
+                                          <p className="font-semibold text-foreground">{(selectedRequest as any).college}</p>
+                                        </div>
+                                      </div>
+                                    )}
+                                    {(selectedRequest as any).department && (
+                                      <div className="flex items-center gap-2 text-sm">
+                                        <span className="w-7 h-7 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
+                                          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-orange-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                                        </span>
+                                        <div>
+                                          <p className="text-xs text-muted-foreground">القسم</p>
+                                          <p className="font-semibold text-foreground">{(selectedRequest as any).department}</p>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Request Meta */}
+                                <div className="p-5 bg-orange-50/30">
+                                  <p className="text-xs font-semibold text-orange-500/80 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                    <span className="w-4 h-px bg-orange-300 inline-block"/>
+                                    معلومات الطلب
+                                  </p>
+                                  <div className="space-y-2.5">
+                                    <div className="flex items-center gap-2 text-sm">
+                                      <span className="w-7 h-7 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-orange-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>
+                                      </span>
+                                      <div>
+                                        <p className="text-xs text-muted-foreground">رقم الطلب</p>
+                                        <p className="font-mono font-bold text-foreground text-base">{selectedRequest.id}</p>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-sm">
+                                      <span className="w-7 h-7 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-orange-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                                      </span>
+                                      <div>
+                                        <p className="text-xs text-muted-foreground">تاريخ التقديم</p>
+                                        <p className="font-semibold text-foreground">{selectedRequest.date}</p>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-sm">
+                                      <span className="w-7 h-7 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-orange-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                                      </span>
+                                      <div>
+                                        <p className="text-xs text-muted-foreground">نوع الطلب</p>
+                                        <p className="font-semibold text-foreground">{selectedRequest.type}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
 
                             {/* Request Content Details */}
                             <Card>
@@ -610,12 +676,49 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                                     )
                                   })
                                 ) : selectedRequest.submissionData && Object.keys(selectedRequest.submissionData).length > 0 ? (
-                                  Object.entries(selectedRequest.submissionData).map(([key, value]) => (
-                                    <div key={key} className="grid grid-cols-1 md:grid-cols-3 gap-2 border-b last:border-0 pb-2 last:pb-0">
-                                      <span className="text-sm font-medium text-muted-foreground md:col-span-1">{key}:</span>
-                                      <span className="text-sm font-semibold text-foreground md:col-span-2">{String(value)}</span>
-                                    </div>
-                                  ))
+                                  (() => {
+                                    const orderedKeys = [
+                                      "type", "delegatee_name", "delegatee_university_id",
+                                      "start_date", "end_date", "reason", "delegated_types"
+                                    ];
+                                    const entries = Object.entries(selectedRequest.submissionData);
+                                    entries.sort(([keyA], [keyB]) => {
+                                      const a = orderedKeys.indexOf(keyA);
+                                      const b = orderedKeys.indexOf(keyB);
+                                      if (a === -1 && b === -1) return 0;
+                                      if (a === -1) return 1;
+                                      if (b === -1) return -1;
+                                      return a - b;
+                                    });
+
+                                    return entries.map(([key, value]) => {
+                                      const labels: Record<string, string> = {
+                                        type: "نوع الطلب",
+                                        delegatee_university_id: "الرقم الوظيفي للزميل",
+                                        delegatee_name: "اسم الموظف المفوض (الزميل)",
+                                        start_date: "تاريخ بداية التفويض",
+                                        end_date: "تاريخ نهاية التفويض",
+                                        reason: "سبب التفويض",
+                                        delegated_types: "نماذج الطلبات المفوضة"
+                                      }
+
+                                      let displayValue = String(value)
+                                      if (key === 'type' && value === 'SYSTEM_DELEGATION') displayValue = "طلب تفويض نظامي"
+                                      else if (key.includes('date') && typeof value === 'string') {
+                                        try { displayValue = new Date(value).toLocaleDateString('ar-SA') } catch(e) {}
+                                      } else if (key === 'delegated_types') {
+                                        if (value === null) displayValue = "إدارة كافة الصلاحيات الحالية وأنواع الطلبات"
+                                        else if (Array.isArray(value)) displayValue = `محدد (${value.length} نماذج)`
+                                      }
+                                      
+                                      return (
+                                      <div key={key} className="grid grid-cols-1 md:grid-cols-3 gap-2 border-b last:border-0 pb-2 last:pb-0">
+                                        <span className="text-sm font-medium text-muted-foreground md:col-span-1">{labels[key] || key}:</span>
+                                        <span className="text-sm font-semibold text-foreground md:col-span-2">{displayValue}</span>
+                                      </div>
+                                      )
+                                    })
+                                  })()
                                 ) : (
                                   <p className="text-sm text-yellow-600 bg-yellow-50 p-3 rounded border border-yellow-200">⚠️ لم يتم العثور على بيانات لهذا الطلب (بيانات فارغة)</p>
                                 )}
@@ -1014,7 +1117,7 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
 
       {/* Requester Interaction History Dialog */}
       <Dialog open={requesterHistoryDialog.open} onOpenChange={(open) => setRequesterHistoryDialog({ ...requesterHistoryDialog, open })}>
-        <DialogContent dir="rtl" className="max-w-2xl">
+        <DialogContent dir="rtl" className="max-w-xl w-[90vw] max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>سجل تعاملاتك السابقة</DialogTitle>
             <DialogDescription>
@@ -1034,6 +1137,9 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                   <p>الرقم الجامعي: {requesterHistoryDialog.requesterBio.university_id}</p>
                   {requesterHistoryDialog.requesterBio.phone && (
                     <p>رقم الجوال: <span dir="ltr">{requesterHistoryDialog.requesterBio.phone}</span></p>
+                  )}
+                  {requesterHistoryDialog.requesterBio.email && (
+                    <p>البريد الإلكتروني: <span dir="ltr">{requesterHistoryDialog.requesterBio.email}</span></p>
                   )}
                   {(requesterHistoryDialog.requesterBio.college || requesterHistoryDialog.requesterBio.department) && (
                     <p className="flex items-center gap-1">
@@ -1221,12 +1327,13 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                     <div className="flex items-center justify-between mb-4 pb-2 border-b">
                       <div className="flex items-center gap-2">
                         <Button 
-                          variant="ghost" 
-                          size="icon" 
+                          variant="outline" 
+                          size="sm"
                           onClick={() => setRequesterHistoryDialog(prev => ({ ...prev, selectedRequestType: null }))}
-                          className="h-8 w-8 hover:bg-muted"
+                          className="flex items-center gap-1.5 border-orange-200 text-orange-600 bg-orange-50 hover:bg-orange-100 hover:text-orange-700 hover:border-orange-300 transition-all font-medium"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><path d="m15 18-6-6 6-6"/></svg>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                          رجوع
                         </Button>
                         <h3 className="font-semibold text-lg">{requesterHistoryDialog.selectedRequestType}</h3>
                       </div>

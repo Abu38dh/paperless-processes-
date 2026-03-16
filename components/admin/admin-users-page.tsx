@@ -16,6 +16,8 @@ import { getUsers, createUser, updateUser, deleteUser, getAllRoles } from "@/app
 import { getAllColleges } from "@/app/actions/organizations"
 import { useToast } from "@/hooks/use-toast"
 import { translateRole } from "@/lib/translations"
+import { ArrowRightLeft } from "lucide-react"
+import { AdminDelegationsDialog } from "./admin-delegations-dialog"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,6 +53,9 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
   const [expandedUserData, setExpandedUserData] = useState<any>({})
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [itemToDelete, setItemToDelete] = useState<number | null>(null)
+
+  const [delegationsDialogOpen, setDelegationsDialogOpen] = useState(false)
+  const [delegationsUser, setDelegationsUser] = useState<any>(null)
 
   // New user form
   const [newUserName, setNewUserName] = useState("")
@@ -315,10 +320,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
   if (loading) {
     return (
       <div className="space-y-6 p-6" dir="rtl">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold">إدارة المستخدمين</h1>
-          <Button onClick={onBack} variant="ghost">رجوع</Button>
-        </div>
+        <h1 className="text-3xl font-bold">إدارة المستخدمين</h1>
         <TableSkeleton />
       </div>
     )
@@ -327,10 +329,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
   if (error) {
     return (
       <div className="space-y-6 p-6" dir="rtl">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold">إدارة المستخدمين</h1>
-          <Button onClick={onBack} variant="ghost">رجوع</Button>
-        </div>
+        <h1 className="text-3xl font-bold">إدارة المستخدمين</h1>
         <ErrorMessage error={error} onRetry={fetchUsers} />
       </div>
     )
@@ -348,10 +347,6 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
           <Button onClick={() => setShowAddUser(true)} className="bg-primary hover:bg-primary/90 gap-2">
             <Plus className="w-4 h-4" />
             مستخدم جديد
-          </Button>
-          <Button onClick={onBack} variant="ghost" className="gap-2">
-            <ArrowRight className="w-4 h-4" />
-            رجوع
           </Button>
         </div>
       </div>
@@ -573,7 +568,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                       <p className="text-sm text-muted-foreground">القسم</p>
                       <p className="font-medium">{user.departments_users_department_idTodepartments?.dept_name || "-"}</p>
                     </div>
-                    <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center gap-2 ml-2">
                         <span className={`text-xs ${user.is_active ? "text-primary" : "text-muted-foreground"}`}>
                           {user.is_active ? "نشط" : "معطّل"}
@@ -581,17 +576,18 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                         <Switch
                           checked={user.is_active}
                           onCheckedChange={(checked) => {
-                            // We need to create a synthetic event or just pass null/mock since handler expects event
-                            // Actually, let's modify handler or just call it directly.
-                            // The handler expects (userId, currentStatus, event).
-                            // But checked change gives boolean.
-                            // Let's call updateUser directly here or simpler wrapper?
-                            // No, let's use the handler but adapt it.
                             handleToggleUserStatus(user.user_id, user.is_active, { stopPropagation: () => { } } as any)
                           }}
                           dir="ltr"
                         />
                       </div>
+                      <Button variant="ghost" size="icon" onClick={(e) => {
+                          e.stopPropagation();
+                          setDelegationsUser(user);
+                          setDelegationsDialogOpen(true);
+                        }} className="text-muted-foreground hover:text-primary">
+                        <ArrowRightLeft className="w-4 h-4" />
+                      </Button>
                       <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleDeleteUser(user.user_id); }} className="text-destructive">
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -971,7 +967,17 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
             ))}
           </div>
 
-          {/* Infinite Scroll Sentinel */}
+          {/* Delegations Dialog */}
+      {delegationsDialogOpen && delegationsUser && currentUserId && (
+        <AdminDelegationsDialog
+          user={delegationsUser}
+          currentUserId={currentUserId}
+          isOpen={delegationsDialogOpen}
+          onClose={() => setDelegationsDialogOpen(false)}
+        />
+      )}
+
+      {/* Infinite Scroll Sentinel */}
           <div ref={observerTarget} className="h-10 flex items-center justify-center mt-4">
             {loading && page > 1 && <span className="custom-loader"></span>}
           </div>

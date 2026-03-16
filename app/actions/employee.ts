@@ -35,31 +35,44 @@ export async function getEmployeeInbox(employeeId: string) {
             }
         })
 
-        // Collect Grantor IDs and Grantor Role IDs
-        const grantorIds = activeDelegations
-            .map(d => d.grantor_user_id)
-            .filter(id => id !== null) as number[]
+        // Build OR conditions for authorization
+        const authOrConditions: any[] = []
 
-        const grantorRoleIds = activeDelegations
-            .map(d => d.users_delegations_grantor_user_idTousers?.role_id)
-            .filter(id => id !== undefined) as number[]
+        // 1. My own permissions
+        authOrConditions.push({
+            OR: [
+                { workflow_steps: { approver_role_id: user.role_id } },
+                { workflow_steps: { approver_user_id: user.user_id } }
+            ]
+        })
 
-        // Combine with current user's IDs
-        const targetUserIds = [user.user_id, ...grantorIds]
-        const targetRoleIds = [user.role_id, ...grantorRoleIds]
+        // 2. Delegated permissions
+        for (const d of activeDelegations) {
+            const types = d.delegated_types as number[] | null
+            const dRole = d.users_delegations_grantor_user_idTousers?.role_id
+            
+            const pOr: any[] = []
+            if (d.grantor_user_id) pOr.push({ workflow_steps: { approver_user_id: d.grantor_user_id } })
+            if (dRole) pOr.push({ workflow_steps: { approver_role_id: dRole } })
 
-        console.log(`Inbox for ${user.full_name} (${user.user_id}). Delegated for: ${grantorIds.join(', ')}`)
+            if (pOr.length > 0) {
+                const condition: any = { OR: pOr }
+                if (types && types.length > 0) {
+                    condition.form_id = { in: types }
+                }
+                authOrConditions.push(condition)
+            }
+        }
+
+        console.log(`Inbox for ${user.full_name} (${user.user_id}). Active Delegations: ${activeDelegations.length}`)
 
         // Find requests where:
         // 1. Status is pending
-        // 2. AND (Approver Role matches Target Roles OR Approver User matches Target User IDs)
+        // 2. AND (Matches my roles/id OR matches delegated roles/id with specific types)
         const pendingRequests = await db.requests.findMany({
             where: {
                 status: "pending",
-                OR: [
-                    { workflow_steps: { approver_role_id: { in: targetRoleIds } } },
-                    { workflow_steps: { approver_user_id: { in: targetUserIds } } }
-                ]
+                OR: authOrConditions
             },
             select: {
                 request_id: true,
@@ -72,7 +85,17 @@ export async function getEmployeeInbox(employeeId: string) {
                     select: { name: true, schema: true }
                 },
                 users: {
-                    select: { full_name: true }
+                    select: { 
+                        full_name: true,
+                        departments_users_department_idTodepartments: {
+                            select: {
+                                dept_name: true,
+                                colleges: {
+                                    select: { name: true }
+                                }
+                            }
+                        }
+                    }
                 },
                 workflow_steps: {
                     select: { name: true }
@@ -92,9 +115,10 @@ export async function getEmployeeInbox(employeeId: string) {
                     type = "طلب تفويض صلاحيات"
                 }
 
+                const dept = (r.users as any)?.departments_users_department_idTodepartments
                 return {
                     id: r.request_id.toString(),
-                    applicant: r.users.full_name,
+                    applicant: (r.users as any).full_name,
                     type: type,
                     date: r.submitted_at?.toISOString().split('T')[0] || "",
                     status: "pending",
@@ -102,7 +126,9 @@ export async function getEmployeeInbox(employeeId: string) {
                     description: subData?.reason || "", // Show reason for delegations
                     submissionData: subData || {},
                     formSchema: r.form_templates?.schema,
-                    reference_no: r.reference_no
+                    reference_no: r.reference_no,
+                    college: dept?.colleges?.name || undefined,
+                    department: dept?.dept_name || undefined
                 }
             })
         }
@@ -304,7 +330,7 @@ export async function processRequest(requestId: string, action: 'approve' | 'rej
                 }
 
                 if (delegationOrConditions.length > 0) {
-                     const delegations = await db.delegations.findFirst({
+                     const delegations = await db.delegations.findMany({
                         where: {
                             grantee_user_id: user.user_id,
                             is_active: true,
@@ -313,7 +339,14 @@ export async function processRequest(requestId: string, action: 'approve' | 'rej
                             OR: delegationOrConditions
                         }
                     })
-                    if (delegations) isDelegateeAuthorized = true;
+
+                    for (const d of delegations) {
+                        const types = d.delegated_types as number[] | null
+                        if (!types || types.length === 0 || (request.form_id && types.includes(request.form_id))) {
+                            isDelegateeAuthorized = true;
+                            break;
+                        }
+                    }
                 }
             }
 
@@ -363,32 +396,6 @@ export async function processRequest(requestId: string, action: 'approve' | 'rej
                 }
             })
 
-            // *** DELEGATION SYSTEM HOOK ***
-            // Check if this is a SYSTEM_DELEGATION request
-            const subData = request.submission_data as any;
-            if (subData?.type === 'SYSTEM_DELEGATION' && action === 'approve') {
-                // Determine if this is the final step / Dean approval
-                // Since System Delegation is created with single step (Dean), any approval is final.
-
-                // Create the actual Delegation Record
-                const granteeId = subData.delegatee_university_id; // Stored as university_id
-                const grantee = await tx.users.findUnique({ where: { university_id: granteeId } });
-
-                if (grantee) {
-                    await tx.delegations.create({
-                        data: {
-                            grantor_user_id: request.requester_id,
-                            grantee_user_id: grantee.user_id,
-                            starts_at: new Date(subData.start_date),
-                            ends_at: new Date(subData.end_date),
-                            is_active: true,
-                            request_id: request.request_id
-                        }
-                    })
-                    console.log("Delegation Activated via Request Approval")
-                }
-            }
-            // ******************************
 
             if (action === 'reject') {
                 await tx.requests.update({
@@ -421,9 +428,9 @@ export async function processRequest(requestId: string, action: 'approve' | 'rej
                         })
                         // Notify next approver
                         if (nextStep.approver_user_id) {
-                            await notifyUserApproverNewRequest(nextStep.approver_user_id, request.request_id, request.form_templates?.name || "طلب", user.full_name)
+                            notifyUserApproverNewRequest(nextStep.approver_user_id, request.request_id, request.form_templates?.name || "طلب", user.full_name).catch(console.error)
                         } else if (nextStep.approver_role_id) {
-                            await notifyApproverNewRequest(nextStep.approver_role_id, request.request_id, request.form_templates?.name || "طلب", user.full_name)
+                            notifyApproverNewRequest(nextStep.approver_role_id, request.request_id, request.form_templates?.name || "طلب", user.full_name).catch(console.error)
                         }
                     } else {
                         // Final Approval with changes
@@ -447,9 +454,9 @@ export async function processRequest(requestId: string, action: 'approve' | 'rej
                     })
                     // Notify next approver logic (kept same)
                     if (nextStep.approver_user_id) {
-                        await notifyUserApproverNewRequest(nextStep.approver_user_id, request.request_id, request.form_templates?.name || "طلب", user.full_name)
+                        notifyUserApproverNewRequest(nextStep.approver_user_id, request.request_id, request.form_templates?.name || "طلب", user.full_name).catch(console.error)
                     } else if (nextStep.approver_role_id) {
-                        await notifyApproverNewRequest(nextStep.approver_role_id, request.request_id, request.form_templates?.name || "طلب", user.full_name)
+                        notifyApproverNewRequest(nextStep.approver_role_id, request.request_id, request.form_templates?.name || "طلب", user.full_name).catch(console.error)
                     }
                 } else {
                     // Standard Approve - Final Step
@@ -477,7 +484,8 @@ export async function processRequest(requestId: string, action: 'approve' | 'rej
                                     grantee_user_id: delegatee.user_id,
                                     starts_at: new Date(subData.start_date),
                                     ends_at: new Date(subData.end_date),
-                                    is_active: true
+                                    is_active: true,
+                                    delegated_types: subData.delegated_types ? subData.delegated_types : null
                                 }
                             })
                             console.log(`Delegation activated: ${request.requester_id} -> ${delegatee.user_id}`)
@@ -513,7 +521,7 @@ export async function processRequest(requestId: string, action: 'approve' | 'rej
 // ... existing stats/history functions ... (kept below implicitly by replacement scope)
 
 // NEW: Submit Delegation Request
-export async function submitDelegationRequest(requesterId: string, delegateeId: string, startDate: Date, endDate: Date, reason: string) {
+export async function submitDelegationRequest(requesterId: string, delegateeId: string, startDate: Date, endDate: Date, reason: string, delegatedTypes: number[] | null = null, attachmentData?: string, attachmentName?: string) {
     try {
         const requester = await db.users.findUnique({
             where: { university_id: requesterId },
@@ -548,6 +556,10 @@ export async function submitDelegationRequest(requesterId: string, delegateeId: 
             }
         }
 
+        const delegatee = await db.users.findUnique({
+            where: { university_id: delegateeId }
+        })
+        
         // 2. Create Transaction
         await db.$transaction(async (tx) => {
             // Create Ad-hoc Workflow Step for Dean Approval
@@ -564,7 +576,7 @@ export async function submitDelegationRequest(requesterId: string, delegateeId: 
 
             // Create Request
             const refNo = `DEL-${Date.now()}` // Unique Reference
-            await tx.requests.create({
+            const request = await tx.requests.create({
                 data: {
                     requester_id: requester.user_id,
                     reference_no: refNo,
@@ -573,13 +585,40 @@ export async function submitDelegationRequest(requesterId: string, delegateeId: 
                     submission_data: {
                         type: 'SYSTEM_DELEGATION',
                         delegatee_university_id: delegateeId,
+                        delegatee_name: delegatee?.full_name || "غير معروف",
                         start_date: startDate,
                         end_date: endDate,
-                        reason: reason
+                        reason: reason,
+                        delegated_types: delegatedTypes
                     },
                     submitted_at: new Date()
                 }
             })
+
+            // Attachment handling
+            if (attachmentData && attachmentName) {
+                try {
+                    const uploadDir = path.join(process.cwd(), 'public', 'uploads')
+                    if (!fs.existsSync(uploadDir)) {
+                        fs.mkdirSync(uploadDir, { recursive: true })
+                    }
+                    const fileName = `req-${request.request_id}-act-${Date.now()}-${attachmentName}`
+                    const filePath = path.join(uploadDir, fileName)
+                    const base64Data = attachmentData.split(';base64,').pop() || ""
+                    fs.writeFileSync(filePath, base64Data, { encoding: 'base64' })
+                    await tx.attachments.create({
+                        data: {
+                            request_id: request.request_id,
+                            uploader_id: requester.user_id,
+                            storage_location: `/uploads/${fileName}`,
+                            file_type: attachmentName.split('.').pop() || 'file',
+                            uploaded_at: new Date()
+                        }
+                    })
+                } catch (err) {
+                    console.error("Failed to save attachment:", err)
+                }
+            }
         })
 
         return { success: true }
@@ -646,24 +685,39 @@ export async function getEmployeeStats(userId: string) {
             }
         })
 
-        const grantorIds = activeDelegations
-            .map(d => d.grantor_user_id)
-            .filter(id => id !== null) as number[]
+        // Build OR conditions for authorization matching getEmployeeInbox
+        const authOrConditions: any[] = []
 
-        const grantorRoleIds = activeDelegations
-            .map(d => d.users_delegations_grantor_user_idTousers?.role_id)
-            .filter(id => id !== undefined && id !== null) as number[]
+        // 1. My own permissions
+        authOrConditions.push({
+            OR: [
+                { workflow_steps: { approver_role_id: user.role_id } },
+                { workflow_steps: { approver_user_id: user.user_id } }
+            ]
+        })
 
-        const targetUserIds = [user.user_id, ...grantorIds]
-        const targetRoleIds = [user.role_id, ...grantorRoleIds]
+        // 2. Delegated permissions
+        for (const d of activeDelegations) {
+            const types = d.delegated_types as number[] | null
+            const dRole = d.users_delegations_grantor_user_idTousers?.role_id
+            
+            const pOr: any[] = []
+            if (d.grantor_user_id) pOr.push({ workflow_steps: { approver_user_id: d.grantor_user_id } })
+            if (dRole) pOr.push({ workflow_steps: { approver_role_id: dRole } })
+
+            if (pOr.length > 0) {
+                const condition: any = { OR: pOr }
+                if (types && types.length > 0) {
+                    condition.form_id = { in: types }
+                }
+                authOrConditions.push(condition)
+            }
+        }
 
         const pendingCount = await db.requests.count({
             where: {
                 status: "pending",
-                OR: [
-                    { workflow_steps: { approver_role_id: { in: targetRoleIds } } },
-                    { workflow_steps: { approver_user_id: { in: targetUserIds } } }
-                ]
+                OR: authOrConditions
             }
         })
 
@@ -887,6 +941,7 @@ export async function getRequesterInteractionHistory(employeeId: string, applica
                     department: applicantUser.departments_users_department_idTodepartments?.dept_name,
                     college: applicantUser.departments_users_department_idTodepartments?.colleges?.name,
                     phone: applicantUser.phone,
+                    email: applicantUser.email,
                 }
             }
             return { success: true, interactions: [], requesterBio: fallbackBio }
@@ -912,6 +967,7 @@ export async function getRequesterInteractionHistory(employeeId: string, applica
             department: departmentInfo?.dept_name,
             college: departmentInfo?.colleges?.name,
             phone: requester.phone,
+            email: requester.email,
         } : null;
 
         return {
@@ -951,10 +1007,17 @@ export async function getDepartmentColleagues(userId: string) {
 
         let whereClause: any = {
             user_id: { not: user.user_id },
-            is_active: true
+            is_active: true,
+            // Exclude students from colleagues list
+            roles: {
+                role_name: {
+                    notIn: ['student', 'Student']
+                }
+            }
         }
 
-        let collegeId = null
+        let collegeId = user.departments_users_department_idTodepartments?.college_id
+
         if (user.roles.role_name === 'dean') {
             const deanCollege = await db.colleges.findFirst({ where: { dean_id: user.user_id } })
             if (deanCollege) collegeId = deanCollege.college_id
@@ -975,6 +1038,7 @@ export async function getDepartmentColleagues(userId: string) {
             select: {
                 university_id: true,
                 full_name: true,
+                department_id: true,
                 roles: { select: { role_name: true } }
             },
             orderBy: { full_name: 'asc' }
@@ -984,7 +1048,8 @@ export async function getDepartmentColleagues(userId: string) {
             success: true,
             users: colleagues.map(u => ({
                 id: u.university_id,
-                name: `${u.full_name} (${u.roles.role_name})`
+                name: `${u.full_name} (${u.roles.role_name})`,
+                group: (u.department_id && user.department_id && u.department_id === user.department_id) ? 'القسم' : 'الكلية'
             }))
         }
     } catch (error) {

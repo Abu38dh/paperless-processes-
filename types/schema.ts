@@ -46,6 +46,8 @@ export interface Request {
     reference_no?: string
     users?: any
     formId?: string
+    college?: string // Applicant's college name
+    department?: string // Applicant's department name
 }
 
 export interface RequestStats {

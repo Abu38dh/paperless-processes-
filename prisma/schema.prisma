@@ -41,6 +41,7 @@ model delegations {
   starts_at                                DateTime? @db.Timestamp(6)
   ends_at                                  DateTime? @db.Timestamp(6)
   is_active                                Boolean?  @default(true)
+  delegated_types                          Json?     @db.Json
   users_delegations_grantee_user_idTousers users?    @relation("delegations_grantee_user_idTousers", fields: [grantee_user_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
   users_delegations_grantor_user_idTousers users?    @relation("delegations_grantor_user_idTousers", fields: [grantor_user_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
   requests                                 requests? @relation(fields: [request_id], references: [request_id], onDelete: NoAction, onUpdate: NoAction)

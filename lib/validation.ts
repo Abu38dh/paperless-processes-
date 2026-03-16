@@ -78,12 +78,12 @@ export const createWorkflowSchema = z.object({
     })).min(1, "يجب إضافة خطوة واحدة على الأقل"),
 })
 
-// Delegation schemas
 export const createDelegationSchema = z.object({
     grantorId: z.string().min(1, "معرف المانح مطلوب"),
     granteeId: z.string().min(1, "معرف المستلم مطلوب"),
     startDate: z.date(),
     endDate: z.date(),
+    delegatedTypes: z.array(z.number().int().positive()).optional().nullable(),
 }).refine((data) => data.endDate > data.startDate, {
     message: "تاريخ النهاية يجب أن يكون بعد تاريخ البداية",
     path: ["endDate"],
