@@ -485,7 +485,7 @@ export async function processRequest(requestId: string, action: 'approve' | 'rej
                                     starts_at: new Date(subData.start_date),
                                     ends_at: new Date(subData.end_date),
                                     is_active: true,
-                                    delegated_types: subData.delegated_types ? subData.delegated_types : null
+                                    delegated_types: subData.delegated_types || null
                                 }
                             })
                             console.log(`Delegation activated: ${request.requester_id} -> ${delegatee.user_id}`)
