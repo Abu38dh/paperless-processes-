@@ -175,6 +175,14 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
     ? departments.filter((d: any) => d.college_id === parseInt(selectedCollegeId))
     : departments
 
+  const availableColleges = isCollegeDisabled 
+    ? colleges.filter((c: any) => c.college_id.toString() === selectedCollegeId)
+    : colleges
+
+  const availableDepartments = isDeptDisabled
+    ? filteredDepartments.filter((d: any) => d.department_id.toString() === selectedDeptId)
+    : filteredDepartments
+
   // Server side filtering is now active, so filteredUsers is just users
   const filteredUsers = users
 
@@ -365,8 +373,8 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
               className={`w-full px-3 py-2 border rounded-lg text-right bg-background ${isCollegeDisabled ? 'opacity-50 cursor-not-allowed bg-muted' : ''}`}
             >
               {!isCollegeDisabled && <option value="">جميع الكليات</option>}
-              {colleges.map((college: any) => (
-                <option key={college.college_id} value={college.college_id}>{college.name}</option>
+              {availableColleges.map((college: any) => (
+                <option key={`college-${college.college_id}`} value={college.college_id}>{college.name}</option>
               ))}
             </select>
             <select
@@ -375,9 +383,9 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
               disabled={isDeptDisabled}
               className={`w-full px-3 py-2 border rounded-lg text-right bg-background ${isDeptDisabled ? 'opacity-50 cursor-not-allowed bg-muted' : ''}`}
             >
-              <option value="">جميع الأقسام</option>
-              {filteredDepartments.map((dept: any) => (
-                <option key={dept.department_id} value={dept.department_id}>{dept.dept_name}</option>
+              {!isDeptDisabled && <option value="">جميع الأقسام</option>}
+              {availableDepartments.map((dept: any) => (
+                <option key={`dept-${dept.department_id}`} value={dept.department_id}>{dept.dept_name}</option>
               ))}
             </select>
             <div className="relative">

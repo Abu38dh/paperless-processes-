@@ -31,12 +31,20 @@ export async function getStudentDashboardData(studentId: string, page: number = 
                             form_id: true,
                             // @ts-ignore
                             pdf_template: true,
+                            // @ts-ignore
+                            schema: true,
                             request_types: {
                                 select: {
                                     workflows: {
                                         select: {
                                             workflow_steps: {
-                                                select: { step_id: true, name: true, order: true },
+                                                select: { 
+                                                    step_id: true, 
+                                                    name: true, 
+                                                    order: true,
+                                                    roles: { select: { role_name: true } },
+                                                    users: { select: { full_name: true } }
+                                                },
                                                 orderBy: { order: 'asc' }
                                             }
                                         }

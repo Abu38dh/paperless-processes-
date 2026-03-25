@@ -29,7 +29,18 @@ interface StudentDashboardProps {
 
 export default function StudentDashboard({ onLogout, userData }: StudentDashboardProps) {
   const [selectedRequest, setSelectedRequest] = useState<string>("")
-  const [currentView, setCurrentView] = useState<"requests" | "submit" | "settings">("requests")
+  type ViewType = "requests" | "submit" | "settings"
+  const [currentView, setCurrentView] = useState<ViewType>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = window.sessionStorage.getItem('studentDashboardView')
+      if (saved) return saved as ViewType
+    }
+    return "requests"
+  })
+
+  useEffect(() => {
+    window.sessionStorage.setItem('studentDashboardView', currentView)
+  }, [currentView])
   const [selectedRequestType, setSelectedRequestType] = useState<string | null>(null)
   const [editingRequestId, setEditingRequestId] = useState<string | null>(null)
   const [formSearchQuery, setFormSearchQuery] = useState("")
@@ -46,13 +57,22 @@ export default function StudentDashboard({ onLogout, userData }: StudentDashboar
   useEffect(() => {
     fetchDashboardData()
 
-    const intervalId = setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        fetchDashboardData()
-      }
-    }, 5000)
+    // --- REAL-TIME UPDATES (SSE) ---
+    const eventSource = new EventSource('/api/realtime')
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data)
+        if (data.type === 'refresh') {
+          console.log(`[Realtime] Received ${data.target} refresh signal. Updating dashboard...`)
+          fetchDashboardData()
+        }
+      } catch (err) {}
+    }
+    eventSource.onerror = () => {
+      console.warn("[Realtime] Student EventSource lost connection. Retrying...")
+    }
 
-    return () => clearInterval(intervalId)
+    return () => eventSource.close()
   }, [])
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -78,6 +98,7 @@ export default function StudentDashboard({ onLogout, userData }: StudentDashboar
           status: r.status === 'returned' ? 'rejected_with_changes' : (r.status || "pending"),
           description: (r.submission_data as any)?.reason || "لا يوجد وصف",
           submissionData: r.submission_data,
+          formSchema: r.form_templates?.schema || null,
           reference_no: r.reference_no,
           pdfTemplate: r.form_templates?.pdf_template,
           applicant: userData.full_name,
@@ -99,6 +120,10 @@ export default function StudentDashboard({ onLogout, userData }: StudentDashboar
                 if (index < currentStepIndex) status = "approved";
                 else if (index === currentStepIndex) status = "rejected";
                 else status = "pending";
+              } else if (requestStatus === "returned" || requestStatus === "rejected_with_changes") {
+                if (index < currentStepIndex) status = "approved";
+                else if (index === currentStepIndex) status = "returned";
+                else status = "pending";
               } else {
                 // In progress
                 if (index < currentStepIndex) status = "approved";
@@ -114,7 +139,7 @@ export default function StudentDashboard({ onLogout, userData }: StudentDashboar
               return {
                 step: index + 1,
                 department: step.name || `خطوة ${index + 1}`,
-                role: step.users?.full_name || step.roles?.role_name || "موافق",
+                role: step.users?.full_name || step.roles?.role_name || "المسؤول",
                 status: status
               };
             });
@@ -290,7 +315,7 @@ export default function StudentDashboard({ onLogout, userData }: StudentDashboar
 
           {/* Submit View */}
           {currentView === "submit" || editingRequestId ? (
-            <div className="p-6 max-w-4xl">
+            <div className="p-6 w-full">
               {!selectedRequestType && !editingRequestId ? (
                 <>
                   <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
@@ -312,7 +337,7 @@ export default function StudentDashboard({ onLogout, userData }: StudentDashboar
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {requestTypes.filter(f => f.label.toLowerCase().includes(formSearchQuery.toLowerCase())).length > 0 ? (
                       requestTypes
                         .filter(f => f.label.toLowerCase().includes(formSearchQuery.toLowerCase()))

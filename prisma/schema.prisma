@@ -154,7 +154,7 @@ model roles {
   permissions    Json?            @db.Json
   users          users[]
   workflow_steps workflow_steps[]
-  workflow_steps_escalations workflow_steps[] @relation("EscalationRole")
+  workflow_steps_escalations_role workflow_steps[] @relation("EscalationRole")
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
@@ -181,6 +181,7 @@ model users {
   departments_users_department_idTodepartments   departments?      @relation("users_department_idTodepartments", fields: [department_id], references: [department_id], onDelete: NoAction, onUpdate: NoAction)
   roles                                          roles             @relation(fields: [role_id], references: [role_id], onDelete: NoAction, onUpdate: NoAction)
   workflow_steps_approvals                       workflow_steps[]  @relation("WorkflowStepApprover")
+  workflow_steps_escalations_user                workflow_steps[]  @relation("EscalationUser")
   audit_logs                                     audit_logs[]
 }
 
@@ -192,14 +193,17 @@ model workflow_steps {
   approver_role_id Int?
   approver_user_id Int?
   sla_hours        Int?
-  is_final         Boolean?          @default(false)
+  is_final           Boolean?          @default(false)
   escalation_role_id Int?
-  request_actions  request_actions[]
-  requests         requests[]
-  roles            roles?            @relation(fields: [approver_role_id], references: [role_id], onDelete: NoAction, onUpdate: NoAction)
-  escalation_role  roles?            @relation("EscalationRole", fields: [escalation_role_id], references: [role_id], onDelete: NoAction, onUpdate: NoAction)
-  users            users?            @relation("WorkflowStepApprover", fields: [approver_user_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
-  workflows        workflows?        @relation(fields: [workflow_id], references: [workflow_id], onDelete: NoAction, onUpdate: NoAction)
+  escalation_user_id Int?
+  escalate_to_next   Boolean?          @default(false)
+  request_actions    request_actions[]
+  requests           requests[]
+  roles              roles?            @relation(fields: [approver_role_id], references: [role_id], onDelete: NoAction, onUpdate: NoAction)
+  escalation_role    roles?            @relation("EscalationRole", fields: [escalation_role_id], references: [role_id], onDelete: NoAction, onUpdate: NoAction)
+  escalation_user    users?            @relation("EscalationUser", fields: [escalation_user_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+  users              users?            @relation("WorkflowStepApprover", fields: [approver_user_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+  workflows          workflows?        @relation(fields: [workflow_id], references: [workflow_id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 model workflows {

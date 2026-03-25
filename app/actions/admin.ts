@@ -43,7 +43,19 @@ export async function getCurrentUserScope(requesterId: string) {
 
     if (!requester) return { success: false, error: "User not found" }
 
-    const roleName = requester.roles.role_name.toLowerCase()
+    let roleName = requester.roles.role_name.toLowerCase()
+    
+    // Treat as admin if they have the 'all' permission
+    if (requester.custom_permissions) {
+        try {
+            const perms = JSON.parse(requester.custom_permissions)
+            if (perms.includes('all')) {
+                roleName = 'admin'
+            }
+        } catch (e) {
+            console.error("Error parsing permissions", e)
+        }
+    }
 
     // Determine College ID
     let collegeId: number | undefined = undefined
@@ -95,10 +107,22 @@ export async function getUsers(
             })
 
             if (requester) {
-                const roleName = requester.roles.role_name.toLowerCase()
+                let roleName = requester.roles.role_name.toLowerCase()
+                
+                // Check if user has full admin permissions
+                if (requester.custom_permissions) {
+                    try {
+                        const perms = JSON.parse(requester.custom_permissions)
+                        if (perms.includes('all')) {
+                            roleName = 'admin'
+                        }
+                    } catch (e) {
+                        console.error("Error parsing permissions", e)
+                    }
+                }
 
                 if (roleName === 'admin') {
-                    // Admin sees all (base is empty)
+                    // Admin sees all (including students in the management list)
                     baseWhere = {}
                 }
                 // Dean Scope: Only users in their college
@@ -118,9 +142,21 @@ export async function getUsers(
 
                     if (collegeId) {
                         baseWhere = {
-                            departments_users_department_idTodepartments: {
-                                college_id: collegeId
-                            }
+                            roles: { role_name: { not: 'student' } },
+                            OR: [
+                                {
+                                    departments_users_department_idTodepartments: {
+                                        college_id: collegeId
+                                    }
+                                },
+                                // Also include users who are directly linked to this college if applicable, 
+                                // such as the dean themselves or users without departments but in the college.
+                                {
+                                    colleges: {
+                                        some: { college_id: collegeId }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -129,6 +165,7 @@ export async function getUsers(
                     const deptId = requester.department_id
                     if (deptId) {
                         baseWhere = {
+                            roles: { role_name: { not: 'student' } },
                             department_id: deptId
                         }
                     }
@@ -589,7 +626,10 @@ export async function getAuditLog(filters?: {
  */
 export async function getApproversList(requesterId?: string) {
     try {
-        let userWhereClause: any = { is_active: true }
+        let userWhereClause: any = { 
+            is_active: true,
+            roles: { role_name: { not: 'student' } }
+        }
 
         if (requesterId) {
             const requester = await db.users.findUnique({
@@ -620,9 +660,19 @@ export async function getApproversList(requesterId?: string) {
                     if (collegeId) {
                         userWhereClause = {
                             is_active: true,
-                            departments_users_department_idTodepartments: {
-                                college_id: collegeId
-                            }
+                            roles: { role_name: { not: 'student' } },
+                            OR: [
+                                {
+                                    departments_users_department_idTodepartments: {
+                                        college_id: collegeId
+                                    }
+                                },
+                                {
+                                    colleges: {
+                                        some: { college_id: collegeId }
+                                    }
+                                }
+                            ]
                         }
                     } else {
                         // Fail Closed
@@ -633,6 +683,7 @@ export async function getApproversList(requesterId?: string) {
                     if (deptId) {
                         userWhereClause = {
                             is_active: true,
+                            roles: { role_name: { not: 'student' } },
                             department_id: deptId
                         }
                     } else {

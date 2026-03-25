@@ -56,9 +56,18 @@ interface EmployeeDashboardProps {
 }
 
 export default function EmployeeDashboard({ onLogout, permissions = [], userData }: EmployeeDashboardProps) {
-  const [currentView, setCurrentView] = useState<
-    "requests" | "inbox" | "submit" | "reviews" | "forms" | "users" | "departments" | "reports" | "workflows" | "delegation" | "settings" | "history"
-  >("requests")
+  type ViewType = "requests" | "inbox" | "submit" | "reviews" | "forms" | "users" | "departments" | "reports" | "workflows" | "delegation" | "settings" | "history"
+  const [currentView, setCurrentView] = useState<ViewType>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = window.sessionStorage.getItem('employeeDashboardView')
+      if (saved) return saved as ViewType
+    }
+    return "requests"
+  })
+
+  useEffect(() => {
+    window.sessionStorage.setItem('employeeDashboardView', currentView)
+  }, [currentView])
 
   const [selectedRequestType, setSelectedRequestType] = useState<string | null>(null)
   const [editingRequestId, setEditingRequestId] = useState<string | null>(null)
@@ -105,15 +114,23 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
     fetchHistoryData()
 
     // Auto-refresh interval (polling) for real-time updates
-    const intervalId = setInterval(() => {
-      // Only refresh sensitive data if tab is active (optional optimization)
-      if (document.visibilityState === 'visible') {
-        fetchInboxData()
-        fetchStats()
-      }
-    }, 5000) // Refresh every 5 seconds
+    // --- REAL-TIME UPDATES (SSE) ---
+    const eventSource = new EventSource('/api/realtime')
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data)
+        if (data.type === 'refresh') {
+          console.log(`[Realtime] Received employee refresh signal (target: ${data.target}). Updating dashboard...`)
+          fetchInboxData()
+          fetchStats()
+        }
+      } catch (err) {}
+    }
+    eventSource.onerror = (error) => {
+      console.warn("[Realtime] Employee EventSource connection error, retrying...", error)
+    }
 
-    return () => clearInterval(intervalId) // Cleanup on unmount
+    return () => eventSource.close() // Cleanup on unmount
   }, [])
 // ... (rest of the component logic)
 

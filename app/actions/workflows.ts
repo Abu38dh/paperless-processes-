@@ -65,9 +65,45 @@ export async function getWorkflow(workflowId: number) {
 }
 
 import { logAuditAction } from "./audit"
-// ... (existing imports)
 
-// ... (keep getAllWorkflows, getWorkflow)
+// ─── Shared Scope Validation Helper ───────────────────────────────────────────
+/**
+ * Validates that a candidate user (approver OR escalation target) belongs to
+ * the same college/department as the requester when the requester is a
+ * scoped role (dean / manager / head).
+ *
+ * Throws a localised error if the constraint is violated.
+ */
+async function validateUserInScope(
+    candidateUserId: number,
+    requester: {
+        roles: { role_name: string }
+        department_id: number | null
+        departments_users_department_idTodepartments: { colleges: { college_id: number } | null } | null
+    },
+    label: string   // used in the Arabic error message, e.g. "موافق" or "مستهدف التصعيد"
+) {
+    const roleName = requester.roles.role_name.toLowerCase()
+    if (roleName !== 'dean' && roleName !== 'manager' && roleName !== 'head') return
+
+    const candidate = await db.users.findUnique({
+        where: { user_id: candidateUserId },
+        include: { departments_users_department_idTodepartments: { include: { colleges: true } } }
+    })
+    if (!candidate) return
+
+    if (roleName === 'dean') {
+        const reqCollege = requester.departments_users_department_idTodepartments?.colleges?.college_id
+        const candCollege = candidate.departments_users_department_idTodepartments?.colleges?.college_id
+        if (reqCollege && reqCollege !== candCollege) {
+            throw new Error(`لا يمكنك إضافة ${label} من خارج كليتك لهذا المسار (${candidate.full_name})`)
+        }
+    } else if (requester.department_id !== candidate.department_id) {
+        // manager / head → department scope
+        throw new Error(`لا يمكنك إضافة ${label} من خارج قسمك لهذا المسار (${candidate.full_name})`)
+    }
+}
+// ──────────────────────────────────────────────────────────────────────────────
 
 /**
  * Create new workflow with steps
@@ -82,6 +118,8 @@ export async function createWorkflow(data: {
         sla_hours?: number
         is_final?: boolean
         escalation_role_id?: number | null
+        escalation_user_id?: number | null
+        escalate_to_next?: boolean
     }>
     requesterId?: string
 }) {
@@ -101,27 +139,13 @@ export async function createWorkflow(data: {
             if (requester) {
                 const roleName = requester.roles.role_name.toLowerCase()
 
-                // Validate steps
+                // Validate both approver and escalation user for every step
                 for (const step of data.steps) {
                     if (step.approver_user_id) {
-                        const approver = await db.users.findUnique({
-                            where: { user_id: step.approver_user_id },
-                            include: { departments_users_department_idTodepartments: { include: { colleges: true } } }
-                        })
-
-                        if (approver) {
-                            if (roleName === 'dean') {
-                                // Dean can only pick users in their college
-                                const reqCollege = requester.departments_users_department_idTodepartments?.colleges?.college_id
-                                const appCollege = approver.departments_users_department_idTodepartments?.colleges?.college_id
-                                if (reqCollege && reqCollege !== appCollege) {
-                                    throw new Error(`لا يمكنك إضافة موظف من خارج كليتك لهذا المسار (${approver.full_name})`)
-                                }
-                            } else if ((roleName === 'manager' || roleName === 'head') && requester.department_id !== approver.department_id) {
-                                // Head can only pick users in their department
-                                throw new Error(`لا يمكنك إضافة موظف من خارج قسمك لهذا المسار (${approver.full_name})`)
-                            }
-                        }
+                        await validateUserInScope(step.approver_user_id, requester, 'موافق')
+                    }
+                    if (step.escalation_user_id) {
+                        await validateUserInScope(step.escalation_user_id, requester, 'مستهدف التصعيد')
                     }
                 }
             }
@@ -139,7 +163,9 @@ export async function createWorkflow(data: {
                         approver_user_id: step.approver_user_id || null,
                         sla_hours: step.sla_hours || null,
                         is_final: step.is_final || false,
-                        escalation_role_id: step.escalation_role_id || null
+                        escalation_role_id: step.escalation_role_id || null,
+                        escalation_user_id: step.escalation_user_id || null,
+                        escalate_to_next: step.escalate_to_next || false,
                     }))
                 }
             },
@@ -178,6 +204,8 @@ export async function updateWorkflow(
             sla_hours?: number
             is_final?: boolean
             escalation_role_id?: number | null
+            escalation_user_id?: number | null
+            escalate_to_next?: boolean
         }>
         requesterId?: string
     }
@@ -198,27 +226,13 @@ export async function updateWorkflow(
             if (requester) {
                 const roleName = requester.roles.role_name.toLowerCase()
 
-                // Validate steps
+                // Validate both approver and escalation user for every step
                 for (const step of data.steps) {
                     if (step.approver_user_id) {
-                        const approver = await db.users.findUnique({
-                            where: { user_id: step.approver_user_id },
-                            include: { departments_users_department_idTodepartments: { include: { colleges: true } } }
-                        })
-
-                        if (approver) {
-                            if (roleName === 'dean') {
-                                // Dean can only pick users in their college
-                                const reqCollege = requester.departments_users_department_idTodepartments?.colleges?.college_id
-                                const appCollege = approver.departments_users_department_idTodepartments?.colleges?.college_id
-                                if (reqCollege && reqCollege !== appCollege) {
-                                    throw new Error(`لا يمكنك إضافة موظف من خارج كليتك لهذا المسار (${approver.full_name})`)
-                                }
-                            } else if ((roleName === 'manager' || roleName === 'head') && requester.department_id !== approver.department_id) {
-                                // Head can only pick users in their department
-                                throw new Error(`لا يمكنك إضافة موظف من خارج قسمك لهذا المسار (${approver.full_name})`)
-                            }
-                        }
+                        await validateUserInScope(step.approver_user_id, requester, 'موافق')
+                    }
+                    if (step.escalation_user_id) {
+                        await validateUserInScope(step.escalation_user_id, requester, 'مستهدف التصعيد')
                     }
                 }
             }
@@ -253,7 +267,9 @@ export async function updateWorkflow(
                     approver_user_id: step.approver_user_id || null,
                     sla_hours: step.sla_hours || null,
                     is_final: step.is_final || false,
-                    escalation_role_id: step.escalation_role_id || null
+                    escalation_role_id: step.escalation_role_id || null,
+                    escalation_user_id: step.escalation_user_id || null,
+                    escalate_to_next: step.escalate_to_next || false,
                 }))
             })
         }

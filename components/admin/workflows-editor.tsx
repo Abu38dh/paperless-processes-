@@ -70,7 +70,7 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
     sla: 48,
     slaUnit: "hours",
     isFinal: false,
-    escalationRoleId: ""
+    escalatorId: ""
   })
   const [editingStepIndex, setEditingStepIndex] = useState<number | null>(null)
 
@@ -237,6 +237,19 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
       const selectedRole = roleId ? roles.find(r => r.role_id === roleId) : null
       const selectedUser = userId ? users.find(u => u.user_id === userId) : null
 
+      // Parse Escalation ID
+      let escRoleId: number | null = null
+      let escUserId: number | null = null
+      let escToNext = false
+      
+      if (updatedStep.escalatorId === 'next_step') {
+        escToNext = true
+      } else if (updatedStep.escalatorId.startsWith('role_')) {
+        escRoleId = parseInt(updatedStep.escalatorId.split('_')[1])
+      } else if (updatedStep.escalatorId.startsWith('user_')) {
+        escUserId = parseInt(updatedStep.escalatorId.split('_')[1])
+      }
+
       newSteps[editingStepIndex] = {
         name: updatedStep.name,
         approver_role_id: roleId,
@@ -246,7 +259,9 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
         sla_hours: updatedStep.slaUnit === 'days' ? (updatedStep.sla || 0) * 24 : (updatedStep.sla || 0),
         sequence_order: currentSequence,
         is_final: updatedStep.isFinal,
-        escalation_role_id: updatedStep.escalationRoleId ? parseInt(updatedStep.escalationRoleId) : null
+        escalation_role_id: escRoleId,
+        escalation_user_id: escUserId,
+        escalate_to_next: escToNext
       }
       setSteps(newSteps)
     }
@@ -272,6 +287,19 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
     const selectedRole = roleId ? roles.find(r => r.role_id === roleId) : null
     const selectedUser = userId ? users.find(u => u.user_id === userId) : null
 
+    // Parse Escalation ID
+    let escRoleId: number | null = null
+    let escUserId: number | null = null
+    let escToNext = false
+    
+    if (currentStep.escalatorId === 'next_step') {
+      escToNext = true
+    } else if (currentStep.escalatorId.startsWith('role_')) {
+      escRoleId = parseInt(currentStep.escalatorId.split('_')[1])
+    } else if (currentStep.escalatorId.startsWith('user_')) {
+      escUserId = parseInt(currentStep.escalatorId.split('_')[1])
+    }
+
     // Only for adding new steps
     if (editingStepIndex === null) {
       const newStep = {
@@ -283,7 +311,9 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
         sla_hours: currentStep.slaUnit === 'days' ? currentStep.sla * 24 : currentStep.sla,
         sequence_order: steps.length + 1,
         is_final: currentStep.isFinal,
-        escalation_role_id: currentStep.escalationRoleId ? parseInt(currentStep.escalationRoleId) : null
+        escalation_role_id: escRoleId,
+        escalation_user_id: escUserId,
+        escalate_to_next: escToNext
       }
       setSteps([...steps, newStep])
       toast({ title: "تمت الإضافة", description: "تم إضافة الخطوة بنجاح" })
@@ -296,7 +326,7 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
         sla: 48,
         slaUnit: "hours",
         isFinal: false,
-        escalationRoleId: ""
+        escalatorId: ""
       })
     } else {
       setCurrentStep({
@@ -306,7 +336,7 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
         sla: 48,
         slaUnit: "hours",
         isFinal: false,
-        escalationRoleId: ""
+        escalatorId: ""
       })
       setEditingStepIndex(null)
     }
@@ -322,6 +352,15 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
       approverId = `role_${step.approver_role_id}`
     }
 
+    let escalatorId = ""
+    if (step.escalate_to_next) {
+      escalatorId = "next_step"
+    } else if (step.escalation_user_id) {
+      escalatorId = `user_${step.escalation_user_id}`
+    } else if (step.escalation_role_id) {
+      escalatorId = `role_${step.escalation_role_id}`
+    }
+
     setCurrentStep({
       name: step.name,
       approverId: approverId,
@@ -329,7 +368,7 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
       sla: step.sla_hours ? (step.sla_hours >= 24 && step.sla_hours % 24 === 0 ? step.sla_hours / 24 : step.sla_hours) : 48,
       slaUnit: step.sla_hours && step.sla_hours >= 24 && step.sla_hours % 24 === 0 ? 'days' : 'hours',
       isFinal: step.is_final || false,
-      escalationRoleId: step.escalation_role_id ? step.escalation_role_id.toString() : ""
+      escalatorId: escalatorId
     })
   }
 
@@ -342,7 +381,7 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
     setSteps(newSteps)
     if (editingStepIndex === index) {
       setEditingStepIndex(null)
-      setCurrentStep({ name: "", approverId: "", roleId: "", sla: 48, slaUnit: "hours", isFinal: false, escalationRoleId: "" })
+      setCurrentStep({ name: "", approverId: "", roleId: "", sla: 48, slaUnit: "hours", isFinal: false, escalatorId: "" })
     }
   }
 
@@ -393,7 +432,7 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
     setShowAddWorkflow(false)
     setEditingWorkflow(null)
     setEditingStepIndex(null)
-    setCurrentStep({ name: "", approverId: "", roleId: "", sla: 48, slaUnit: "hours", isFinal: false, escalationRoleId: "" })
+    setCurrentStep({ name: "", approverId: "", roleId: "", sla: 48, slaUnit: "hours", isFinal: false, escalatorId: "" })
   }
 
   const getApproverName = (step: any) => {
@@ -630,16 +669,27 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-gray-700">يتصعد إلى</Label>
                   <select
-                    value={currentStep.escalationRoleId}
-                    onChange={(e) => handleFieldChange('escalationRoleId', e.target.value)}
+                    value={currentStep.escalatorId}
+                    onChange={(e) => handleFieldChange('escalatorId', e.target.value)}
                     className="w-full flex h-10 w-full rounded-md border border-input bg-gray-50 px-3 py-2 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-sans"
                   >
-                    <option value="">رئيس القسم (تلقائي)</option>
-                    {roles.map((role: any) => (
-                      <option key={role.role_id} value={role.role_id}>
-                        {role.role_name}
-                      </option>
-                    ))}
+                    <option value="">لا يوجد تصعيد</option>
+                    <option value="next_step" className="font-semibold text-teal-700">الخطوة التالية (تلقائي)</option>
+                    <optgroup label="الأدوار الوظيفية">
+                      <option value="role_1">رئيس القسم (تلقائي لمقدم الطلب)</option>
+                      {roles.map((role: any) => (
+                        <option key={`esc_role_${role.role_id}`} value={`role_${role.role_id}`}>
+                          {role.role_name}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="مستخدم معين">
+                      {users.map((user: any) => (
+                        <option key={`esc_user_${user.user_id}`} value={`user_${user.user_id}`}>
+                          {user.full_name} ({user.university_id})
+                        </option>
+                      ))}
+                    </optgroup>
                   </select>
                 </div>
 

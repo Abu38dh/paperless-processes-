@@ -25,19 +25,22 @@ export default function RequestTracking({ workflow }: RequestTrackingProps) {
   let upcomingSteps: WorkflowStep[] = []
 
   if (currentStepIndex === -1) {
-    // Check if all are approved
-    const allApproved = workflow.every((s) => s.status === "approved")
-    if (allApproved) {
-      completedSteps = workflow
+    // Check if any is rejected or returned
+    const rejectedIndex = workflow.findIndex((s) => s.status === "rejected")
+    const returnedIndex = workflow.findIndex((s) => s.status === "returned" || s.status === "rejected_with_changes")
+    
+    if (rejectedIndex !== -1) {
+      completedSteps = workflow.slice(0, rejectedIndex + 1)
+      upcomingSteps = []
+    } else if (returnedIndex !== -1) {
+      completedSteps = workflow.slice(0, returnedIndex + 1)
       upcomingSteps = []
     } else {
-      // Check if any is rejected
-      const rejectedIndex = workflow.findIndex((s) => s.status === "rejected")
-      if (rejectedIndex !== -1) {
-        completedSteps = workflow.slice(0, rejectedIndex + 1)
+      const allApproved = workflow.every((s) => s.status === "approved")
+      if (allApproved) {
+        completedSteps = workflow
         upcomingSteps = []
       } else {
-        // Fallback for other cases (e.g. all pending but findIndex failed? shouldn't happen if status is typed correctly)
         completedSteps = workflow
       }
     }
@@ -59,7 +62,9 @@ export default function RequestTracking({ workflow }: RequestTrackingProps) {
           } else if (step.status === "processing") {
             badgeClass = "bg-blue-50 border-blue-200 text-blue-700 font-medium ring-2 ring-blue-100"
           } else if (step.status === "rejected") {
-            badgeClass = "bg-red-50 border-red-200 text-red-700"
+            badgeClass = "bg-red-50 border-red-200 text-red-700 font-medium"
+          } else if (step.status === "returned" || step.status === "rejected_with_changes") {
+            badgeClass = "bg-orange-50 border-orange-200 text-orange-700 font-medium"
           }
 
           return (
@@ -68,6 +73,7 @@ export default function RequestTracking({ workflow }: RequestTrackingProps) {
                 {step.status === "approved" && <CheckCircle className="w-3.5 h-3.5 ml-2" />}
                 {step.status === "processing" && <Clock className="w-3.5 h-3.5 ml-2 animate-pulse" />}
                 {step.status === "rejected" && <XCircle className="w-3.5 h-3.5 ml-2" />}
+                {(step.status === "returned" || step.status === "rejected_with_changes") && <Clock className="w-3.5 h-3.5 ml-2" />}
                 {step.department}
               </div>
 

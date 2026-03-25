@@ -6,6 +6,8 @@ import { queueWhatsAppMessage } from "@/lib/whatsapp-queue"
 import { sendEmail } from "@/lib/email-service"
 import fs from 'fs'
 import path from 'path'
+import { firestore } from "@/lib/firebase-admin"
+import { FieldValue } from "firebase-admin/firestore"
 
 /**
  * Get user notifications
@@ -37,6 +39,36 @@ export async function getUserNotifications(userId: string, limit: number = 20) {
 }
 
 /**
+ * Trigger a real-time sync signal in Firestore
+ */
+async function triggerSync(type: 'user' | 'role', id: string | number) {
+    try {
+        const docId = `${type}_${id}`
+        console.log(`[Realtime] EXECUTING sync trigger for ${docId}...`)
+        await firestore.collection('signals').doc(docId).set({
+            last_update: FieldValue.serverTimestamp()
+        }, { merge: true })
+        console.log(`[Realtime] ✅ Successfully triggered sync for ${docId}`)
+    } catch (error) {
+        console.error(`[Realtime] ❌ Failed to trigger sync for ${type}_${id}:`, error)
+    }
+}
+
+/**
+ * Trigger sync for all users in a specific role
+ */
+async function triggerRoleSync(roleId: number) {
+    try {
+        const role = await db.roles.findUnique({ where: { role_id: roleId } })
+        if (role) {
+            await triggerSync('role', role.role_name)
+        }
+    } catch (error) {
+        console.error(`[Realtime] Failed to trigger role sync for ${roleId}:`, error)
+    }
+}
+
+/**
  * Create notification for a user
  */
 export async function createNotification(data: {
@@ -62,6 +94,9 @@ export async function createNotification(data: {
                 link: data.link || null
             }
         })
+
+        // Trigger Real-time Sync
+        await triggerSync('user', user.university_id)
 
         // revalidatePath('/')
         return { success: true, data: notification }
@@ -99,6 +134,9 @@ export async function createBulkNotifications(data: {
                 link: data.link || null
             }))
         })
+
+        // Trigger Real-time Sync for each user
+        await Promise.all(users.map(u => triggerSync('user', u.university_id)))
 
         // revalidatePath('/')
         return { success: true }
@@ -150,6 +188,9 @@ export async function notifyRequestStatusChange(
             message: statusMessages[newStatus] || `تم تحديث طلبك رقم ${request.reference_no}`,
             link: `/requests/${request.request_id}`
         })
+
+        // Trigger Real-time Sync for requester
+        await triggerSync('user', request.users.university_id)
 
         // WhatsApp Integration (Queue)
         if (newStatus === 'approved' && request.users.phone) {
@@ -355,6 +396,9 @@ export async function notifyApproverNewRequest(
 
         if (approvers.length === 0) return { success: false }
 
+        // Trigger Real-time Sync for the entire role
+        await triggerRoleSync(approverRoleId)
+
         const request = await db.requests.findUnique({
             where: { request_id: requestId },
             select: { reference_no: true }
@@ -425,6 +469,23 @@ export async function markNotificationAsRead(notificationId: number) {
         return { success: true }
     } catch (error) {
         console.error("Mark Notification Read Error:", error)
+        return { success: false }
+    }
+}
+
+/**
+ * DEBUG: Manually trigger a sync for the current user/role
+ */
+export async function debugTriggerSync(type: 'user' | 'role', id: string) {
+    console.log(`[DEBUG] Manually triggering ${type} sync for ${id}`)
+    try {
+        const docId = `${type}_${id}`
+        await firestore.collection('signals').doc(docId).set({
+            last_update: FieldValue.serverTimestamp()
+        }, { merge: true })
+        return { success: true }
+    } catch (err) {
+        console.error("Debug Trigger Error:", err)
         return { success: false }
     }
 }

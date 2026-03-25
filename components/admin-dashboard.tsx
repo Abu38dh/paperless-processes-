@@ -66,7 +66,17 @@ const adminCards = [
 ]
 
 export default function AdminDashboard({ onLogout, userData }: AdminDashboardProps) {
-  const [currentView, setCurrentView] = useState<string>("home")
+  const [currentView, setCurrentView] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = window.sessionStorage.getItem('adminDashboardView')
+      if (saved) return saved
+    }
+    return "home"
+  })
+
+  useEffect(() => {
+    window.sessionStorage.setItem('adminDashboardView', currentView)
+  }, [currentView])
 
   // Stats state
   const [stats, setStats] = useState({

@@ -416,6 +416,11 @@ export default function RequestDetail({ request, onEdit, onBack, userId, showHis
                   });
 
                   return entries.map(([key, value]) => {
+                    // Try to find label in schema (for dynamic form fields like field_XXXXX)
+                    const schemaField = Array.isArray(schema)
+                      ? schema.find((f: any) => f.key === key || f.id === key)
+                      : null;
+
                     const labels: Record<string, string> = {
                       type: "نوع الطلب",
                       delegatee_university_id: "الرقم الوظيفي للزميل",
@@ -426,6 +431,10 @@ export default function RequestDetail({ request, onEdit, onBack, userId, showHis
                       delegated_types: "نماذج الطلبات المفوضة"
                     }
 
+                    const displayLabel = schemaField?.label || labels[key] || null;
+                    // Skip raw field_XXXXX keys with no schema label
+                    if (!displayLabel && key.startsWith('field_')) return null;
+
                     let displayValue = String(value)
                     if (key === 'type' && value === 'SYSTEM_DELEGATION') displayValue = "طلب تفويض نظامي"
                     else if (key.includes('date') && typeof value === 'string') {
@@ -434,10 +443,10 @@ export default function RequestDetail({ request, onEdit, onBack, userId, showHis
                       if (value === null) displayValue = "إدارة كافة الصلاحيات الحالية وأنواع الطلبات"
                       else if (Array.isArray(value)) displayValue = `محدد (${value.length} نماذج)`
                     }
-                    
+
                     return (
                     <div key={key} className="grid grid-cols-1 gap-1 border-b last:border-0 pb-2 last:pb-0">
-                      <span className="text-sm font-medium text-muted-foreground">{labels[key] || key}:</span>
+                      <span className="text-sm font-medium text-muted-foreground">{displayLabel || key}:</span>
                       <span className="text-sm font-semibold text-foreground break-words whitespace-pre-wrap">{displayValue}</span>
                     </div>
                   )})
@@ -533,27 +542,26 @@ export default function RequestDetail({ request, onEdit, onBack, userId, showHis
       {request.workflow && request.workflow.length > 0 && <RequestTracking workflow={request.workflow} />
       }
 
-      <div className="space-y-3">
-        <h3 className="font-semibold text-foreground">الإجراءات</h3>
-        <div className="flex gap-3">
-          {request.status === "approved" && (
-            <Button onClick={handleDownloadOfficialPDF} className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground">
-              <Download className="w-4 h-4" />
-              تحميل الموافقة (PDF)
-            </Button>
-          )}
-          {(request.status === "pending" || request.status === "returned" || (request.status as string) === "rejected_with_changes") && onEdit && (
-            <Button onClick={onEdit} variant="outline" className="gap-2 bg-transparent">
-              <Edit2 className="w-4 h-4" />
-              تعديل
-            </Button>
-          )}
-          <Button variant="outline" className="gap-2 bg-transparent">
-            <MessageSquare className="w-4 h-4" />
-            تعليق
-          </Button>
+      {((request.status === "approved") || 
+        ((request.status === "returned" || (request.status as string) === "rejected_with_changes") && onEdit)) && (
+        <div className="space-y-3">
+          <h3 className="font-semibold text-foreground">الإجراءات</h3>
+          <div className="flex gap-3">
+            {request.status === "approved" && (
+              <Button onClick={handleDownloadOfficialPDF} className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground">
+                <Download className="w-4 h-4" />
+                تحميل الموافقة (PDF)
+              </Button>
+            )}
+            {(request.status === "returned" || (request.status as string) === "rejected_with_changes") && onEdit && (
+              <Button onClick={onEdit} variant="outline" className="gap-2 bg-transparent">
+                <Edit2 className="w-4 h-4" />
+                تعديل
+              </Button>
+            )}
+          </div>
         </div>
-      </div >
+      )}
 
       {showHistory && (
         <div className="bg-card border border-slate-200 rounded-lg p-4 space-y-3">
