@@ -44,13 +44,11 @@ export async function getUserNotifications(userId: string, limit: number = 20) {
 async function triggerSync(type: 'user' | 'role', id: string | number) {
     try {
         const docId = `${type}_${id}`
-        console.log(`[Realtime] EXECUTING sync trigger for ${docId}...`)
         await firestore.collection('signals').doc(docId).set({
             last_update: FieldValue.serverTimestamp()
         }, { merge: true })
-        console.log(`[Realtime] ✅ Successfully triggered sync for ${docId}`)
     } catch (error) {
-        console.error(`[Realtime] ❌ Failed to trigger sync for ${type}_${id}:`, error)
+        console.error(`[Realtime] Failed to trigger sync for ${type}_${id}:`, error)
     }
 }
 
@@ -154,8 +152,9 @@ export async function notifyRequestStatusChange(
     newStatus: string,
     actorName: string
 ) {
-    console.log(`[NotifyRequestStatusChange] Triggered for RequestID: ${requestId}, Status: ${newStatus}`)
     try {
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || 'http://localhost:3000';
+        
         const request = await db.requests.findUnique({
             where: { request_id: requestId },
             include: {
@@ -304,14 +303,13 @@ export async function notifyRequestStatusChange(
                     // For WhatsApp Bot, we might need absolute path or URL.
                     // Bot is running locally so absolute path is fine.
                     pdfPath = filePath;
-                    console.log("Generated PDF for WhatsApp:", pdfPath);
 
                 } catch (err) {
                     console.error("Failed to generate PDF for WhatsApp:", err);
                 }
              }
 
-             const wapMessage = `*جامعة العرب - نظام المراسلات*\n\nعزيزي الطالب/ة ${request.users.full_name}،\n\nتمت *الموافقة* على طلبك رقم *${request.reference_no}* (${request.form_templates?.name}).\n\nتجدون مرفقاً نسخة من القرار الرسمي.\n\nرابط الطلب: ${process.env.NEXTAUTH_URL}/requests/${request.request_id}`
+             const wapMessage = `*جامعة العرب - نظام المراسلات*\n\nعزيزي الطالب/ة ${request.users.full_name}،\n\nتمت *الموافقة* على طلبك رقم *${request.reference_no}* (${request.form_templates?.name}).\n\nتجدون مرفقاً نسخة من القرار الرسمي.\n\nرابط الموقع: ${appUrl}`
              
              // Pass pdfPath to queue
              await queueWhatsAppMessage(request.users.phone, wapMessage, pdfPath)
@@ -320,8 +318,18 @@ export async function notifyRequestStatusChange(
              const userEmail = (request.users as any).email;
              if (userEmail) {
                 const emailSubject = `تمت الموافقة على طلبك رقم ${request.reference_no}`;
-                const emailText = `عزيزي الطالب/ة ${request.users.full_name}،\n\nنود إبلاغك بأنه تمت الموافقة على طلبك رقم ${request.reference_no} (${request.form_templates?.name}).\n\nيمكنك متابعة وتنزيل القرار الرسمي وتفاصيل الطلب من خلال الرابط التالي:\n${process.env.NEXTAUTH_URL}/requests/${request.request_id}\n\nمع تحيات,\nنظام طلبات جامعة العرب`;
-                await sendEmail(userEmail, emailSubject, emailText);
+                const emailText = `عزيزي الطالب/ة ${request.users.full_name}،\n\nنود إبلاغك بأنه تمت الموافقة على طلبك رقم ${request.reference_no} (${request.form_templates?.name}).\n\nيمكنك متابعة وتنزيل القرار الرسمي وتفاصيل الطلب من خلال رابط الموقع التالي:\n${appUrl}\n\nمع تحيات،\nنظام طلبات جامعة العرب`;
+                const emailHtml = `
+                <div dir="rtl" style="font-family: Arial, sans-serif; line-height: 1.8; color: #333; text-align: right; margin: 20px;">
+                    <p>عزيزي الطالب/ة <strong>${request.users.full_name}</strong>،</p>
+                    <p>نود إبلاغك بأنه تمت <strong>الموافقة</strong> على طلبك رقم <strong>${request.reference_no}</strong> (${request.form_templates?.name}).</p>
+                    <p>يمكنك الدخول للنظام لمتابعة وتنزيل القرار الرسمي وتفاصيل الطلب:</p>
+                    <p style="margin: 20px 0;"><a href="${appUrl}" style="display: inline-block; padding: 10px 20px; background-color: #0f172a; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold;">الدخول للنظام</a></p>
+                    <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
+                    <p style="color: #666; font-size: 14px;">مع تحيات،<br/><strong>نظام طلبات جامعة العرب</strong></p>
+                </div>
+                `;
+                await sendEmail(userEmail, emailSubject, emailText, emailHtml);
              }
         }
 
@@ -334,7 +342,7 @@ export async function notifyRequestStatusChange(
             });
             const comment = lastAction?.comment || "لا توجد ملاحظات إضافية";
 
-            const wapMessage = `*جامعة العرب - نظام المراسلات*\n\nعزيزي الطالب/ة ${request.users.full_name}،\n\nتم *إعادة* طلبك رقم *${request.reference_no}* للتعديل.\n\n📝 *الملاحظات:*\n${comment}\n\nيرجى الدخول للموقع لتعديل الطلب وإعادة إرساله.\n\nرابط الطلب: ${process.env.NEXTAUTH_URL}/requests/${request.request_id}`
+            const wapMessage = `*جامعة العرب - نظام المراسلات*\n\nعزيزي الطالب/ة ${request.users.full_name}،\n\nتم *إعادة* طلبك رقم *${request.reference_no}* للتعديل.\n\n📝 *الملاحظات:*\n${comment}\n\nيرجى الدخول للموقع لتعديل الطلب وإعادة إرساله.\n\nرابط الموقع: ${appUrl}`
 
             await queueWhatsAppMessage(request.users.phone, wapMessage)
             
@@ -342,8 +350,22 @@ export async function notifyRequestStatusChange(
             const userEmail = (request.users as any).email;
             if (userEmail) {
                 const emailSubject = `إعادة طلبك رقم ${request.reference_no} للتعديل`;
-                const emailText = `عزيزي الطالب/ة ${request.users.full_name}،\n\nتبين لنا أن طلبك رقم ${request.reference_no} (${request.form_templates?.name}) بحاجة لبعض التعديلات قبل القدرة على الموافقة عليه.\n\nالملاحظات من الموظف المختص:\n${comment}\n\nيرجى الدخول للنظام وإجراء التعديلات المطلوبة لإعادة التقديم.\nرابط الطلب: ${process.env.NEXTAUTH_URL}/requests/${request.request_id}\n\nمع تحيات,\nنظام طلبات جامعة العرب`;
-                await sendEmail(userEmail, emailSubject, emailText);
+                const emailText = `عزيزي الطالب/ة ${request.users.full_name}،\n\nتبين لنا أن طلبك رقم ${request.reference_no} (${request.form_templates?.name}) بحاجة لبعض التعديلات قبل القدرة على الموافقة عليه.\n\nالملاحظات من الموظف المختص:\n${comment}\n\nيرجى الدخول للنظام وإجراء التعديلات المطلوبة لإعادة التقديم.\nرابط الموقع: ${appUrl}\n\nمع تحيات،\nنظام طلبات جامعة العرب`;
+                const emailHtml = `
+                <div dir="rtl" style="font-family: Arial, sans-serif; line-height: 1.8; color: #333; text-align: right; margin: 20px;">
+                    <p>عزيزي الطالب/ة <strong>${request.users.full_name}</strong>،</p>
+                    <p>تبين لنا أن طلبك رقم <strong>${request.reference_no}</strong> (${request.form_templates?.name}) بحاجة لبعض التعديلات قبل القدرة على الموافقة عليه.</p>
+                    <div style="background-color: #fff7ed; border-right: 4px solid #f97316; padding: 15px; margin: 20px 0; border-radius: 4px;">
+                        <p style="margin-top: 0; font-weight: bold; color: #c2410c;">الملاحظات من الموظف المختص:</p>
+                        <p style="margin-bottom: 0; white-space: pre-wrap;">${comment}</p>
+                    </div>
+                    <p>يرجى الدخول للنظام وإجراء التعديلات المطلوبة لإعادة التقديم:</p>
+                    <p style="margin: 20px 0;"><a href="${appUrl}" style="display: inline-block; padding: 10px 20px; background-color: #f97316; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold;">تعديل الطلب</a></p>
+                    <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
+                    <p style="color: #666; font-size: 14px;">مع تحيات،<br/><strong>نظام طلبات جامعة العرب</strong></p>
+                </div>
+                `;
+                await sendEmail(userEmail, emailSubject, emailText, emailHtml);
             }
         }
 
@@ -356,7 +378,7 @@ export async function notifyRequestStatusChange(
             });
             const reason = lastAction?.comment || "لا يوجد سبب محدد";
 
-            const wapMessage = `*جامعة العرب - نظام المراسلات*\n\nعزيزي الطالب/ة ${request.users.full_name}،\n\nنأسف لإبلاغك بأنه تم *رفض* طلبك رقم *${request.reference_no}* (${request.form_templates?.name}).\n\n❌ *سبب الرفض:*\n${reason}\n\nيمكنك التواصل مع الجهة المختصة للاستفسار.\n\nرابط الطلب: ${process.env.NEXTAUTH_URL}/requests/${request.request_id}`
+            const wapMessage = `*جامعة العرب - نظام المراسلات*\n\nعزيزي الطالب/ة ${request.users.full_name}،\n\nنأسف لإبلاغك بأنه تم *رفض* طلبك رقم *${request.reference_no}* (${request.form_templates?.name}).\n\n❌ *سبب الرفض:*\n${reason}\n\nيمكنك التواصل مع الجهة المختصة للاستفسار.\n\nرابط الموقع: ${appUrl}`
 
             await queueWhatsAppMessage(request.users.phone, wapMessage)
             
@@ -364,8 +386,22 @@ export async function notifyRequestStatusChange(
             const userEmail = (request.users as any).email;
             if (userEmail) {
                 const emailSubject = `تم رفض طلبك رقم ${request.reference_no}`;
-                const emailText = `عزيزي الطالب/ة ${request.users.full_name}،\n\nنأسف لإبلاغك بأنه تم رفض طلبك رقم ${request.reference_no} (${request.form_templates?.name}).\n\nسبب الرفض الموجه من الموظف المختص:\n${reason}\n\nللتفاصيل، يمكنك التواصل مع شؤون الطلاب أو زيارة الرابط أدناه:\n${process.env.NEXTAUTH_URL}/requests/${request.request_id}\n\nمع تحيات,\nنظام طلبات جامعة العرب`;
-                await sendEmail(userEmail, emailSubject, emailText);
+                const emailText = `عزيزي الطالب/ة ${request.users.full_name}،\n\nنأسف لإبلاغك بأنه تم رفض طلبك رقم ${request.reference_no} (${request.form_templates?.name}).\n\nسبب الرفض الموجه من الموظف المختص:\n${reason}\n\nللتفاصيل، يمكنك التواصل مع شؤون الطلاب أو زيارة الرابط أدناه:\n${appUrl}\n\nمع تحيات،\nنظام طلبات جامعة العرب`;
+                const emailHtml = `
+                <div dir="rtl" style="font-family: Arial, sans-serif; line-height: 1.8; color: #333; text-align: right; margin: 20px;">
+                    <p>عزيزي الطالب/ة <strong>${request.users.full_name}</strong>،</p>
+                    <p>نأسف لإبلاغك بأنه تم <strong>رفض</strong> طلبك رقم <strong>${request.reference_no}</strong> (${request.form_templates?.name}).</p>
+                    <div style="background-color: #fef2f2; border-right: 4px solid #ef4444; padding: 15px; margin: 20px 0; border-radius: 4px;">
+                        <p style="margin-top: 0; font-weight: bold; color: #b91c1c;">سبب الرفض الموجه من الموظف المختص:</p>
+                        <p style="margin-bottom: 0; white-space: pre-wrap;">${reason}</p>
+                    </div>
+                    <p>للتفاصيل، يمكنك التواصل مع شؤون الطلاب أو الدخول للنظام:</p>
+                    <p style="margin: 20px 0;"><a href="${appUrl}" style="display: inline-block; padding: 10px 20px; background-color: #e2e8f0; color: #0f172a; text-decoration: none; border-radius: 6px; font-weight: bold;">الدخول للنظام</a></p>
+                    <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
+                    <p style="color: #666; font-size: 14px;">مع تحيات،<br/><strong>نظام طلبات جامعة العرب</strong></p>
+                </div>
+                `;
+                await sendEmail(userEmail, emailSubject, emailText, emailHtml);
             }
         }
 
@@ -473,19 +509,3 @@ export async function markNotificationAsRead(notificationId: number) {
     }
 }
 
-/**
- * DEBUG: Manually trigger a sync for the current user/role
- */
-export async function debugTriggerSync(type: 'user' | 'role', id: string) {
-    console.log(`[DEBUG] Manually triggering ${type} sync for ${id}`)
-    try {
-        const docId = `${type}_${id}`
-        await firestore.collection('signals').doc(docId).set({
-            last_update: FieldValue.serverTimestamp()
-        }, { merge: true })
-        return { success: true }
-    } catch (err) {
-        console.error("Debug Trigger Error:", err)
-        return { success: false }
-    }
-}

@@ -3,10 +3,14 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowRight, TrendingUp, Users, FileText, CheckCircle, XCircle, Clock, Download } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { ArrowRight, TrendingUp, Users, FileText, CheckCircle, XCircle, Clock, Download, Search, Calendar } from "lucide-react"
 import { TableSkeleton } from "@/components/ui/loading-skeleton"
 import { ErrorMessage } from "@/components/ui/error-message"
+import { Input } from "@/components/ui/input"
 import { getReportsData, getAuditLog } from "@/app/actions/admin"
+import RequestDetail from "@/components/request-detail"
+import { Loader2 } from "lucide-react"
 
 interface AdminReportsPageProps {
   onBack: () => void
@@ -36,6 +40,23 @@ export default function AdminReportsPage({ onBack, currentUserId }: AdminReports
   const [auditLog, setAuditLog] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [statDialog, setStatDialog] = useState<{ open: boolean; filter: string | null; title: string }>({ open: false, filter: null, title: '' })
+
+  const [statSearchQuery, setStatSearchQuery] = useState("")
+  const [statStartDate, setStatStartDate] = useState("")
+  const [statEndDate, setStatEndDate] = useState("")
+  const [selectedRequestData, setSelectedRequestData] = useState<any>(null)
+  const [loadingDetails, setLoadingDetails] = useState<boolean>(false)
+
+  useEffect(() => {
+    if (!statDialog.open) {
+      setStatSearchQuery("")
+      setStatStartDate("")
+      setStatEndDate("")
+      setSelectedRequestData(null)
+      setLoadingDetails(false)
+    }
+  }, [statDialog.open])
 
   useEffect(() => {
     fetchData()
@@ -164,8 +185,8 @@ export default function AdminReportsPage({ onBack, currentUserId }: AdminReports
       </div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <Card className="cursor-pointer hover:shadow-md hover:border-primary/50 transition-all" onClick={() => setStatDialog({ open: true, filter: null, title: 'إجمالي الطلبات' })}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">إجمالي الطلبات</CardTitle>
             <FileText className="w-4 h-4 text-muted-foreground" />
@@ -175,7 +196,7 @@ export default function AdminReportsPage({ onBack, currentUserId }: AdminReports
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="cursor-pointer hover:shadow-md hover:border-yellow-400/50 transition-all" onClick={() => setStatDialog({ open: true, filter: 'pending', title: 'قيد المراجعة' })}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">قيد المراجعة</CardTitle>
             <Clock className="w-4 h-4 text-yellow-600" />
@@ -185,7 +206,7 @@ export default function AdminReportsPage({ onBack, currentUserId }: AdminReports
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="cursor-pointer hover:shadow-md hover:border-green-400/50 transition-all" onClick={() => setStatDialog({ open: true, filter: 'approved', title: 'تمت الموافقة' })}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">تمت الموافقة</CardTitle>
             <CheckCircle className="w-4 h-4 text-green-600" />
@@ -195,7 +216,17 @@ export default function AdminReportsPage({ onBack, currentUserId }: AdminReports
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="cursor-pointer hover:shadow-md hover:border-orange-400/50 transition-all" onClick={() => setStatDialog({ open: true, filter: 'returned', title: 'معاد للتعديل' })}>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">معاد للتعديل</CardTitle>
+            <ArrowRight className="w-4 h-4 text-orange-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-500">{byStatus.find((s: any) => s.status === 'returned')?.count || 0}</div>
+          </CardContent>
+        </Card>
+
+        <Card className="cursor-pointer hover:shadow-md hover:border-red-400/50 transition-all" onClick={() => setStatDialog({ open: true, filter: 'rejected', title: 'مرفوضة' })}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">مرفوضة</CardTitle>
             <XCircle className="w-4 h-4 text-red-600" />
@@ -206,6 +237,147 @@ export default function AdminReportsPage({ onBack, currentUserId }: AdminReports
         </Card>
       </div>
 
+      {/* Stat Filter Dialog */}
+      <Dialog open={statDialog.open} onOpenChange={(open) => setStatDialog(prev => ({ ...prev, open }))}>
+        <DialogContent className="sm:max-w-4xl w-[95vw] max-h-[90vh] overflow-y-auto flex flex-col" dir="rtl">
+          {!selectedRequestData && !loadingDetails && (
+            <DialogHeader className="shrink-0">
+              <DialogTitle>الطلبات — {statDialog.title}</DialogTitle>
+            </DialogHeader>
+          )}
+
+          {loadingDetails ? (
+            <div className="flex flex-col items-center justify-center py-20">
+              <Loader2 className="h-8 w-8 animate-spin text-orange-500 mb-4" />
+              <p className="text-sm text-muted-foreground">جاري تحميل تفاصيل الطلب...</p>
+            </div>
+          ) : selectedRequestData ? (
+             <div className="flex flex-col h-full bg-slate-50/50 p-2 md:p-4 rounded-lg">
+                <Button variant="outline" className="mb-4 self-start bg-white" onClick={() => setSelectedRequestData(null)}>
+                  &rarr; عودة للقائمة
+                </Button>
+                <RequestDetail 
+                  request={selectedRequestData} 
+                  onBack={() => setSelectedRequestData(null)} 
+                  userId={currentUserId || ""} 
+                  showHistory={true} 
+                />
+             </div>
+          ) : (
+            <>
+              <div className="flex flex-col md:flex-row items-center gap-3 mt-4 shrink-0 bg-orange-50/50 border border-orange-200 p-2 rounded-2xl">
+            <div className="relative flex-1 w-full">
+              <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-orange-500" />
+              <Input
+                placeholder="بحث عن طلب، رقم، ملاحظة..."
+                className="pr-10 h-10 border-orange-200 focus-visible:ring-orange-500 rounded-xl bg-white text-sm"
+                value={statSearchQuery}
+                onChange={(e) => setStatSearchQuery(e.target.value)}
+              />
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-orange-800 font-medium text-sm">من:</span>
+              <Input
+                type="date"
+                className="w-[135px] h-10 border-orange-200 focus-visible:ring-orange-500 rounded-xl bg-white text-sm"
+                value={statStartDate}
+                onChange={(e) => setStatStartDate(e.target.value)}
+              />
+              <span className="text-orange-800 font-medium text-sm">إلى:</span>
+              <Input
+                type="date"
+                className="w-[135px] h-10 border-orange-200 focus-visible:ring-orange-500 rounded-xl bg-white text-sm"
+                value={statEndDate}
+                onChange={(e) => setStatEndDate(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2 mt-4 flex-1 overflow-y-auto pr-1">
+            {(() => {
+              let filtered = statDialog.filter ? recent.filter((r: any) => r.status === statDialog.filter) : recent;
+              
+              if (statSearchQuery) {
+                const q = statSearchQuery.toLocaleLowerCase('ar');
+                filtered = filtered.filter((r: any) => 
+                  r.request_id?.toString().includes(q) ||
+                  r.requester?.full_name?.toLocaleLowerCase('ar').includes(q) ||
+                  r.form_templates?.name?.toLocaleLowerCase('ar').includes(q)
+                )
+              }
+              
+              if (statStartDate) {
+                const start = new Date(statStartDate);
+                start.setHours(0, 0, 0, 0);
+                filtered = filtered.filter((r: any) => new Date(r.submitted_at) >= start);
+              }
+              
+              if (statEndDate) {
+                const end = new Date(statEndDate);
+                end.setHours(23, 59, 59, 999);
+                filtered = filtered.filter((r: any) => new Date(r.submitted_at) <= end);
+              }
+
+              if (filtered.length === 0) {
+                return (
+                  <p className="text-sm text-muted-foreground text-center py-8 bg-muted/20 rounded-lg border border-dashed">
+                    لا توجد طلبات تطابق بحثك بهذه الحالة
+                  </p>
+                )
+              }
+
+              const handleViewRequest = async (requestId: number) => {
+                  setLoadingDetails(true)
+                  try {
+                      const { getRequestDetail } = await import("@/app/actions/student")
+                      const result = await getRequestDetail(requestId, currentUserId || "")
+                      if (result.success && result.data) {
+                          setSelectedRequestData(result.data)
+                      } else {
+                          console.error("Failed to load request details:", result.error)
+                      }
+                  } catch (e) {
+                      console.error("Error fetching request:", e)
+                  } finally {
+                      setLoadingDetails(false)
+                  }
+              }
+
+              return filtered.map((request: any) => {
+                const STATUS_LABELS: Record<string, { label: string; cls: string }> = {
+                  approved:  { label: 'موافق عليه',      cls: 'bg-green-100 text-green-700' },
+                  rejected:  { label: 'مرفوض',            cls: 'bg-red-100 text-red-700' },
+                  returned:  { label: 'معاد للتعديل',     cls: 'bg-orange-100 text-orange-700' },
+                  pending:   { label: 'قيد المراجعة',     cls: 'bg-yellow-100 text-yellow-700' },
+                  processing:{ label: 'قيد المعالجة',     cls: 'bg-blue-100 text-blue-700' },
+                }
+                const st = STATUS_LABELS[request.status] || { label: request.status, cls: 'bg-gray-100 text-gray-700' }
+                return (
+                  <div 
+                    key={request.request_id} 
+                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/30 transition-colors cursor-pointer"
+                    onClick={() => handleViewRequest(request.request_id)}
+                  >
+                    <div>
+                      <p className="font-medium text-sm flex items-center gap-2">
+                        <span>{request.requester?.full_name || 'غير محدد'}</span>
+                        <span className="text-xs text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">#{request.request_id}</span>
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {request.form_templates?.name || 'غير محدد'} • {new Date(request.submitted_at).toLocaleDateString('ar-SA')}
+                      </p>
+                    </div>
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${st.cls}`}>{st.label}</span>
+                  </div>
+                )
+              })
+            })()}
+          </div>
+          </>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Charts Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* By Status */}
@@ -214,30 +386,41 @@ export default function AdminReportsPage({ onBack, currentUserId }: AdminReports
             <CardTitle>التوزيع حسب الحالة</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {byStatus.map((item: any) => (
-                <div key={item.status} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-3 h-3 rounded-full ${item.status === 'approved' ? 'bg-green-500' :
-                      item.status === 'rejected' ? 'bg-red-500' :
-                        item.status === 'pending' ? 'bg-yellow-500' :
-                          'bg-gray-500'
-                      }`} />
-                    <span className="text-sm">{
-                      item.status === 'approved' ? 'موافق عليها' :
-                        item.status === 'rejected' ? 'مرفوضة' :
-                          item.status === 'pending' ? 'قيد المراجعة' :
-                            item.status === 'processing' ? 'قيد المعالجة' :
-                              item.status
-                    }</span>
-                  </div>
-                  <span className="text-sm font-medium">{item.count}</span>
+            {(() => {
+              const STATUS_ORDER = ['pending', 'processing', 'in_progress', 'approved', 'returned', 'rejected']
+              const STATUS_MAP: Record<string, { label: string; color: string }> = {
+                pending:     { label: 'قيد الانتظار',    color: 'bg-yellow-500' },
+                processing:  { label: 'قيد المراجعة',    color: 'bg-blue-500' },
+                in_progress: { label: 'قيد التنفيذ',     color: 'bg-cyan-500' },
+                approved:    { label: 'موافق عليها',     color: 'bg-green-500' },
+                returned:    { label: 'معادة للتعديل',   color: 'bg-orange-500' },
+                rejected:    { label: 'مرفوضة',          color: 'bg-red-500' },
+              }
+              const sorted = [...byStatus].sort((a: any, b: any) => {
+                const ai = STATUS_ORDER.indexOf(a.status)
+                const bi = STATUS_ORDER.indexOf(b.status)
+                return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi)
+              })
+              return (
+                <div className="space-y-3">
+                  {sorted.map((item: any) => {
+                    const cfg = STATUS_MAP[item.status] || { label: item.status, color: 'bg-gray-500' }
+                    return (
+                      <div key={item.status} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-3 h-3 rounded-full ${cfg.color}`} />
+                          <span className="text-sm">{cfg.label}</span>
+                        </div>
+                        <span className="text-sm font-medium">{item.count}</span>
+                      </div>
+                    )
+                  })}
+                  {byStatus.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-4">لا توجد بيانات</p>
+                  )}
                 </div>
-              ))}
-              {byStatus.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">لا توجد بيانات</p>
-              )}
-            </div>
+              )
+            })()}
           </CardContent>
         </Card>
 
@@ -278,18 +461,19 @@ export default function AdminReportsPage({ onBack, currentUserId }: AdminReports
                     {request.form_templates?.name || "غير محدد"} • {new Date(request.submitted_at).toLocaleDateString('ar-SA')}
                   </p>
                 </div>
-                <div className={`px-3 py-1 rounded-full text-xs font-medium ${request.status === 'approved' ? 'bg-green-100 text-green-700' :
+                <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+                  request.status === 'approved' ? 'bg-green-100 text-green-700' :
                   request.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                    request.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                      'bg-gray-100 text-gray-700'
-                  }`}>
-                  {
-                    request.status === 'approved' ? 'موافق عليه' :
-                      request.status === 'rejected' ? 'مرفوض' :
-                        request.status === 'pending' ? 'قيد المراجعة' :
-                          request.status === 'processing' ? 'قيد المعالجة' :
-                            request.status
-                  }
+                  request.status === 'returned' ? 'bg-orange-100 text-orange-700' :
+                  request.status === 'pending'  ? 'bg-yellow-100 text-yellow-700' :
+                  'bg-gray-100 text-gray-700'
+                }`}>
+                  {request.status === 'approved' ? 'موافق عليه' :
+                   request.status === 'rejected' ? 'مرفوض' :
+                   request.status === 'returned' ? 'معاد للتعديل' :
+                   request.status === 'pending'  ? 'قيد المراجعة' :
+                   request.status === 'processing' ? 'قيد المعالجة' :
+                   request.status}
                 </div>
               </div>
             ))}

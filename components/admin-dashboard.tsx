@@ -11,10 +11,12 @@ import AdminUsersPage from "@/components/admin/admin-users-page"
 import AdminReportsPage from "@/components/admin/admin-reports-page"
 import AdminDepartmentsPage from "@/components/admin/admin-departments-page"
 import AdminCollegesPage from "@/components/admin/admin-colleges-page"
+import TermsManagementPage from "@/components/admin/terms-management"
+import EmployeeKpiDashboard from "@/components/admin/employee-kpi-dashboard"
 import { DashboardSkeleton } from "@/components/ui/loading-skeleton"
 import { ErrorMessage } from "@/components/ui/error-message"
 import { getAdminStats } from "@/app/actions/admin"
-import { FileText, Users, Workflow, BarChart3, Building2, GraduationCap } from "lucide-react"
+import { FileText, Users, Workflow, BarChart3, Building2, GraduationCap, CalendarDays, UserCheck } from "lucide-react"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 
 interface AdminDashboardProps {
@@ -62,6 +64,18 @@ const adminCards = [
     title: "إدارة الكليات",
     description: "إضافة وتعديل الكليات",
     icon: GraduationCap,
+  },
+  {
+    id: "terms",
+    title: "إدارة الأترام",
+    description: "تحديد بداية ونهاية الفصول الدراسية",
+    icon: CalendarDays,
+  },
+  {
+    id: "employee-kpis",
+    title: "تقارير أداء الموظفين",
+    description: "إحصائيات تفصيلية لإنتاجية كل موظف",
+    icon: UserCheck,
   },
 ]
 
@@ -251,6 +265,8 @@ export default function AdminDashboard({ onLogout, userData }: AdminDashboardPro
           {currentView === "reports" && <AdminReportsPage onBack={() => setCurrentView("home")} currentUserId={userData?.university_id} />}
           {currentView === "departments" && <AdminDepartmentsPage onBack={() => setCurrentView("home")} currentUserId={userData?.university_id} />}
           {currentView === "colleges" && <AdminCollegesPage onBack={() => setCurrentView("home")} currentUserId={userData?.university_id} />}
+          {currentView === "terms" && <TermsManagementPage onBack={() => setCurrentView("home")} currentUserId={userData?.university_id} />}
+          {currentView === "employee-kpis" && <EmployeeKpiDashboard onBack={() => setCurrentView("home")} currentUserId={userData?.university_id} />}
         </main>
       </div>
     </div>

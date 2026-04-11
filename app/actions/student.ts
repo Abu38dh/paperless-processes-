@@ -95,10 +95,21 @@ export async function getStudentDashboardData(studentId: string, page: number = 
             })
         ])
 
+        // Fetch term_ids for these requests via raw SQL (since term_id not in Prisma typed model)
+        let termIdMap: Record<number, number | null> = {}
+        if (requests.length > 0) {
+            const requestIds = requests.map((r: any) => r.request_id)
+            const termRows = await db.$queryRawUnsafe<{request_id: number, term_id: number | null}[]>(
+                `SELECT request_id, term_id FROM requests WHERE request_id = ANY($1::int[])`,
+                requestIds
+            )
+            termRows.forEach(row => { termIdMap[row.request_id] = row.term_id } )
+        }
+
         return {
             success: true,
             data: {
-                requests,
+                requests: requests.map((r: any) => ({ ...r, term_id: termIdMap[r.request_id] ?? null })),
                 stats: {
                     total: totalRequests,
                     pending: pendingRequests,
@@ -109,7 +120,7 @@ export async function getStudentDashboardData(studentId: string, page: number = 
                     limit,
                     total: totalRequests,
                     totalPages: Math.ceil(totalRequests / limit)
-                } // Added missing parenthesis or brace logic fix if needed, but here just replacing the block
+                }
             }
         }
     } catch (error) {
@@ -164,6 +175,24 @@ export async function submitRequest(data: any) {
                 })()
             }
         })
+
+        // Auto-link to current active term via raw SQL
+        try {
+            const now = new Date().toISOString()
+            const termRows = await db.$queryRawUnsafe<{term_id: number}[]>(
+                `SELECT term_id FROM terms WHERE start_date <= $1 AND end_date >= $1 ORDER BY start_date DESC LIMIT 1`,
+                now
+            )
+            if (termRows[0]?.term_id) {
+                await db.$executeRawUnsafe(
+                    `UPDATE requests SET term_id = $1 WHERE request_id = $2`,
+                    termRows[0].term_id,
+                    newRequest.request_id
+                )
+            }
+        } catch (termErr) {
+            console.warn("Could not link request to term:", termErr)
+        }
 
         // Notify approver if workflow exists
         if (approverRoleId) {

@@ -159,7 +159,20 @@ export async function getEmployeeRequests(employeeId: string) {
                     select: { name: true, schema: true }
                 },
                 users: {
-                    select: { full_name: true }
+                    select: { 
+                        full_name: true,
+                        university_id: true,
+                        email: true,
+                        phone: true,
+                        departments_users_department_idTodepartments: {
+                            select: {
+                                dept_name: true,
+                                colleges: {
+                                    select: { name: true }
+                                }
+                            }
+                        }
+                    }
                 },
                 workflow_steps: {
                     select: { name: true }
@@ -190,6 +203,7 @@ export async function getEmployeeRequests(employeeId: string) {
                     formSchema: r.form_templates?.schema,
                     reference_no: r.reference_no,
                     formId: r.form_id?.toString() || "",
+                    users: r.users, // Include users for request detailing
                     workflow: [
                         {
                             step: 1,
@@ -970,6 +984,19 @@ export async function getRequesterInteractionHistory(employeeId: string, applica
             email: requester.email,
         } : null;
 
+        // Fetch term_ids via raw SQL since it's missing from Prisma client
+        let termIdMap: Record<number, number | null> = {}
+        if (uniqueInteractions.length > 0) {
+            const requestIds = uniqueInteractions.map(a => a.request_id).filter(Boolean)
+            if (requestIds.length > 0) {
+                const termRows = await db.$queryRawUnsafe<{request_id: number, term_id: number | null}[]>(
+                    `SELECT request_id, term_id FROM requests WHERE request_id = ANY($1::int[])`,
+                    requestIds
+                )
+                termRows.forEach(row => { termIdMap[row.request_id] = row.term_id } )
+            }
+        }
+
         return {
             success: true,
             requesterBio,
@@ -980,7 +1007,8 @@ export async function getRequesterInteractionHistory(employeeId: string, applica
                 action: a.action,
                 date: a.created_at?.toISOString().split('T')[0],
                 comment: a.comment,
-                originalStatus: a.requests?.status
+                originalStatus: a.requests?.status,
+                term_id: a.request_id ? (termIdMap[a.request_id] ?? null) : null
             }))
         }
     } catch (error) {

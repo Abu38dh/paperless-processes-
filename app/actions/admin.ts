@@ -495,7 +495,7 @@ export async function getReportsData(startDate?: Date, endDate?: Date, requester
         // 4. Recent Requests
         const recentRequests = await db.requests.findMany({
             where: whereClause,
-            take: 5,
+            take: 100,
             orderBy: { submitted_at: 'desc' },
             include: {
                 users: {

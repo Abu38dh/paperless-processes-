@@ -13,10 +13,12 @@ import { ErrorMessage } from "@/components/ui/error-message"
 import { EmptyState } from "@/components/ui/empty-state"
 import { getStudentDashboardData } from "@/app/actions/student"
 import { getAvailableFormTemplates } from "@/app/actions/forms"
+import { getAllTerms } from "@/app/actions/terms"
 import { Badge } from "@/components/ui/badge"
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Search, Sparkles, ChevronRight } from "lucide-react"
 import { Input } from "@/components/ui/input"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface StudentDashboardProps {
   onLogout: () => void
@@ -44,6 +46,9 @@ export default function StudentDashboard({ onLogout, userData }: StudentDashboar
   const [selectedRequestType, setSelectedRequestType] = useState<string | null>(null)
   const [editingRequestId, setEditingRequestId] = useState<string | null>(null)
   const [formSearchQuery, setFormSearchQuery] = useState("")
+  const [filterTab, setFilterTab] = useState<"all" | "pending" | "approved" | "rejected" | "returned">("all")
+  const [selectedTermIds, setSelectedTermIds] = useState<number[]>([]) // empty = show all
+  const [terms, setTerms] = useState<any[]>([])
 
   // State for requests and stats
   // State for requests and stats
@@ -56,6 +61,10 @@ export default function StudentDashboard({ onLogout, userData }: StudentDashboar
   // Fetch data on mount
   useEffect(() => {
     fetchDashboardData()
+    // Fetch terms for filter
+    getAllTerms().then(result => {
+      if (result.success && result.data) setTerms(result.data as any[])
+    })
 
     // --- REAL-TIME UPDATES (SSE) ---
     const eventSource = new EventSource('/api/realtime')
@@ -102,6 +111,7 @@ export default function StudentDashboard({ onLogout, userData }: StudentDashboar
           reference_no: r.reference_no,
           pdfTemplate: r.form_templates?.pdf_template,
           applicant: userData.full_name,
+          term_id: r.term_id ?? null,
           users: r.users, // Pass the users object containing college/dept info
           workflow: (() => {
             const steps = r.form_templates?.request_types?.workflows?.workflow_steps || [];
@@ -278,11 +288,87 @@ export default function StudentDashboard({ onLogout, userData }: StudentDashboar
                     </div>
                   ) : (
                     <div className="flex flex-col md:flex-row gap-6 items-start">
-                      {/* Request List Column */}
+                    {/* Term filter + Request List Column */}
                       <div className={`w-full md:w-1/3 space-y-4 ${selectedRequest ? 'hidden md:block' : 'block'
                         }`}>
+                        <div className="w-full overflow-x-auto pb-1 mb-2">
+                          <Tabs defaultValue="all" value={filterTab} onValueChange={(val) => setFilterTab(val as any)} className="w-full min-w-max">
+                            <TabsList className="w-full flex h-11 p-1">
+                              <TabsTrigger value="all" className="flex-1 text-xs md:text-sm font-semibold data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700">الكل</TabsTrigger>
+                              <TabsTrigger value="pending" className="flex-1 text-xs md:text-sm font-semibold text-amber-600 data-[state=active]:bg-amber-50 data-[state=active]:text-amber-700">قيد الانتظار</TabsTrigger>
+                              <TabsTrigger value="returned" className="flex-1 text-xs md:text-sm font-semibold text-orange-600 data-[state=active]:bg-orange-50 data-[state=active]:text-orange-700">للتعديل</TabsTrigger>
+                              <TabsTrigger value="approved" className="flex-1 text-xs md:text-sm font-semibold text-emerald-600 data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-700">المقبولة</TabsTrigger>
+                              <TabsTrigger value="rejected" className="flex-1 text-xs md:text-sm font-semibold text-rose-600 data-[state=active]:bg-rose-50 data-[state=active]:text-rose-700">المرفوضة</TabsTrigger>
+                            </TabsList>
+                          </Tabs>
+                        </div>
+
+                        {/* Term filter checkboxes */}
+                        {(() => {
+                          const relevantTerms = terms.filter(t => requests.some(r => r.term_id === t.term_id))
+                          if (relevantTerms.length === 0) return null
+                          
+                          return (
+                            <div className="border border-border/50 rounded-xl p-4 bg-card shadow-sm space-y-3">
+                              <div className="flex items-center justify-between">
+                                <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                                  تصفية حسب الترم
+                                </h3>
+                                {selectedTermIds.length > 0 && (
+                                  <button
+                                    className="text-xs font-medium text-rose-500 hover:text-rose-600 hover:underline transition-colors bg-rose-50 px-2 py-1 rounded-md"
+                                    onClick={() => setSelectedTermIds([])}
+                                  >
+                                    إلغاء التصفية
+                                  </button>
+                                )}
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                {relevantTerms.map((term: any) => {
+                                  const checked = selectedTermIds.includes(term.term_id)
+                                  return (
+                                    <button
+                                      key={term.term_id}
+                                      onClick={() => {
+                                        setSelectedTermIds(prev =>
+                                          checked
+                                            ? prev.filter(id => id !== term.term_id)
+                                            : [...prev, term.term_id]
+                                        )
+                                      }}
+                                      className={`px-3 py-1.5 text-xs font-medium rounded-full cursor-pointer transition-all duration-200 border ${
+                                        checked 
+                                          ? 'bg-primary text-primary-foreground border-primary shadow-sm hover:bg-primary/90' 
+                                          : 'bg-muted/50 text-muted-foreground border-transparent hover:bg-muted hover:text-foreground'
+                                      }`}
+                                    >
+                                      {term.name}
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )
+                        })()}
+
                         <RequestList
-                          requests={requests}
+                          requests={requests.filter(r => {
+                            // Status filter
+                            const statusMatch = (() => {
+                              if (filterTab === "all") return true;
+                              if (filterTab === "pending") return ['pending', 'in_progress', 'processing'].includes(r.status);
+                              if (filterTab === "returned") return ['returned', 'rejected_with_changes'].includes(r.status);
+                              if (filterTab === "approved") return r.status === 'approved';
+                              if (filterTab === "rejected") return r.status === 'rejected';
+                              return true;
+                            })()
+                            // Term filter (if any selected)
+                            const termMatch = selectedTermIds.length === 0
+                              ? true
+                              : selectedTermIds.includes(r.term_id)
+                            return statusMatch && termMatch
+                          })}
                           selectedId={selectedRequest}
                           onSelect={setSelectedRequest}
                           loading={loading}
@@ -292,19 +378,23 @@ export default function StudentDashboard({ onLogout, userData }: StudentDashboar
                       {/* Request Detail Column */}
                       <div className={`w-full md:w-2/3 flex flex-col bg-slate-50/50 p-4 md:p-6 rounded-lg border border-border/50 ${selectedRequest ? 'flex' : 'hidden md:flex'
                         }`}>
-                        {selectedRequest ? (
+                        {(() => {
+                          const selectedRequestObj = requests.find((r) => r.id === selectedRequest)
+                          return selectedRequestObj ? (
                           <RequestDetail
-                            request={requests.find((r) => r.id === selectedRequest)!}
+                            request={selectedRequestObj}
                             onEdit={() => setEditingRequestId(selectedRequest)}
                             onBack={() => setSelectedRequest("")}
                             userId={userData.university_id}
-                            showHistory={false}
+                            showHistory={true}
+                            hideActivityLog={true}
                           />
                         ) : (
                           <div className="flex items-center justify-center p-12 text-muted-foreground w-full">
                             اختر طلباً لعرض التفاصيل
                           </div>
-                        )}
+                        )
+                        })()}
                       </div>
                     </div>
                   )}

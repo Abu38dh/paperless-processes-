@@ -20,7 +20,7 @@ const transporter = nodemailer.createTransport({
  * @param text Plain text content of the email
  * @returns boolean indicating success or failure
  */
-export async function sendEmail(to: string, subject: string, text: string): Promise<boolean> {
+export async function sendEmail(to: string, subject: string, text: string, html?: string): Promise<boolean> {
   // If SMTP is not configured or recipient email is missing, we fail gracefully
   if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
     console.warn("⚠️ SMTP credentials are not configured in environment variables. Email will not be sent.");
@@ -38,7 +38,7 @@ export async function sendEmail(to: string, subject: string, text: string): Prom
       to,
       subject,
       text, // plain text body
-      // html: "<b>Hello world?</b>", // We can add HTML later if needed
+      html: html || text, // Send HTML if provided, otherwise fallback to text
     });
 
     console.log(`✅ Email sent successfully to ${to}. Message ID: ${info.messageId}`);

@@ -267,3 +267,111 @@ export async function getDepartmentStatistics(departmentId: number) {
         return { success: false, error: "فشل في تحميل إحصائيات القسم" }
     }
 }
+
+/**
+ * Get all employees performance KPIs for the admin.
+ * Returns one row per employee with their action stats.
+ */
+export async function getAllEmployeesKPIs(termId?: number) {
+    try {
+        const employees = await db.users.findMany({
+            where: {
+                is_active: true,
+                roles: { role_name: { not: "student" } }
+            },
+            include: { roles: true }
+        })
+
+        const now = new Date()
+        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+
+        const kpis = await Promise.all(employees.map(async (emp) => {
+            // Build SQL to get all actions by this employee, optionally filtered by term
+            let actionsQuery: string
+            let actionsParams: any[]
+
+            if (termId) {
+                actionsQuery = `
+                    SELECT ra.action_id, ra.request_id, ra.action, ra.created_at,
+                           r.submitted_at
+                    FROM request_actions ra
+                    LEFT JOIN requests r ON ra.request_id = r.request_id
+                    WHERE ra.actor_id = $1 AND r.term_id = $2
+                    ORDER BY ra.created_at ASC
+                `
+                actionsParams = [emp.user_id, termId]
+            } else {
+                actionsQuery = `
+                    SELECT ra.action_id, ra.request_id, ra.action, ra.created_at,
+                           r.submitted_at
+                    FROM request_actions ra
+                    LEFT JOIN requests r ON ra.request_id = r.request_id
+                    WHERE ra.actor_id = $1
+                    ORDER BY ra.created_at ASC
+                `
+                actionsParams = [emp.user_id]
+            }
+
+            const allActions = await db.$queryRawUnsafe<{
+                action_id: number
+                request_id: number | null
+                action: string | null
+                created_at: Date | null
+                submitted_at: Date | null
+            }[]>(actionsQuery, ...actionsParams)
+
+            const approved = allActions.filter(a => a.action === "approve").length
+            const rejected = allActions.filter(a => a.action === "reject").length
+            const returned = allActions.filter(a =>
+                a.action === "returned" || a.action === "return" ||
+                a.action === "reject_with_changes" || a.action === "returned_for_edit"
+            ).length
+            const totalProcessed = approved + rejected + returned
+
+            const distinctRequestIds = new Set(allActions.map(a => a.request_id).filter(Boolean))
+            const totalReceived = distinctRequestIds.size
+
+            const recentActions = allActions.filter(a =>
+                a.created_at && new Date(a.created_at) >= thirtyDaysAgo
+            )
+            const dailyInRate = parseFloat((totalReceived / 30).toFixed(2))
+            const dailyProcessed = parseFloat((recentActions.length / 30).toFixed(2))
+
+            const resolutionTimes: number[] = []
+            allActions.forEach(action => {
+                if (
+                    (action.action === "approve" || action.action === "reject" || (action.action && action.action.includes("return"))) &&
+                    action.created_at && action.submitted_at
+                ) {
+                    const diff = new Date(action.created_at).getTime() - new Date(action.submitted_at).getTime()
+                    if (diff > 0) resolutionTimes.push(diff / (1000 * 60 * 60))
+                }
+            })
+            const avgResolutionHours = resolutionTimes.length > 0
+                ? parseFloat((resolutionTimes.reduce((a, b) => a + b, 0) / resolutionTimes.length).toFixed(2))
+                : null
+
+            return {
+                id: emp.user_id,
+                universityId: emp.university_id,
+                name: emp.full_name,
+                role: emp.roles.role_name,
+                totalReceived,
+                approved,
+                rejected,
+                returned,
+                totalProcessed,
+                dailyInRate,
+                dailyProcessed,
+                avgResolutionHours
+            }
+        }))
+
+        const activeKpis = kpis.filter(k => k.totalReceived > 0 || k.totalProcessed > 0)
+
+        return { success: true, data: activeKpis }
+    } catch (error) {
+        console.error("getAllEmployeesKPIs Error:", error)
+        return { success: false, error: "فشل في تحميل إحصائيات الموظفين" }
+    }
+}

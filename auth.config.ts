@@ -7,14 +7,16 @@ export const authConfig = {
     callbacks: {
         authorized({ auth, request: { nextUrl } }) {
             const isLoggedIn = !!auth?.user
+            const isAdminRoute = nextUrl.pathname.startsWith('/admin')
 
-            // Protect dashboard routes
-            // Note: We'll implement specific role-based protection in the layout/page components
-            // or Middleware but here we just ensure they are logged in.
-            // We are not strictly protecting routes here yet to avoid infinite loops during setup
-            // but the middleware will use this `authorized` callback.
+            if (!isLoggedIn) return false
 
-            return true; // We will handle redirection logic in the middleware explicitly or page components
+            if (isAdminRoute) {
+                // فقط المدير يدخل مسارات /admin
+                return auth?.user?.role === 'admin'
+            }
+
+            return true
         },
         async session({ session, token }) {
             if (token.sub && session.user) {

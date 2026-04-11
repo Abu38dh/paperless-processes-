@@ -14,6 +14,7 @@ interface RequestDetailProps {
   onBack?: () => void
   userId?: string
   showHistory?: boolean
+  hideActivityLog?: boolean
 }
 
 import { useEffect, useState } from "react"
@@ -35,7 +36,7 @@ import { toast } from "sonner"
 
 import { translateRole } from "@/lib/translations"
 
-export default function RequestDetail({ request, onEdit, onBack, userId, showHistory = true }: RequestDetailProps) {
+export default function RequestDetail({ request, onEdit, onBack, userId, showHistory = true, hideActivityLog = false }: RequestDetailProps) {
 // ... existing code ...
 
   const [history, setHistory] = useState<RequestAction[]>([])
@@ -54,10 +55,6 @@ export default function RequestDetail({ request, onEdit, onBack, userId, showHis
   }, [request.id, (request as any).request_id, showHistory])
 
   const handleDownloadOfficialPDF = async () => {
-    console.log("Download button clicked")
-    console.log("Request status:", request.status)
-    console.log("PDF Template present:", !!request.pdfTemplate)
-    
     // Fallback template if none exists
     const templateToUse = request.pdfTemplate || `
       <div style="text-align: right; direction: rtl; font-family: 'Arial', sans-serif; padding: 20px;">
@@ -107,7 +104,6 @@ export default function RequestDetail({ request, onEdit, onBack, userId, showHis
     `
 
     try {
-      console.log("Starting PDF generation...")
       const blob = await generateOfficialPDF({
         template: templateToUse,
         data: {
@@ -121,8 +117,6 @@ export default function RequestDetail({ request, onEdit, onBack, userId, showHis
           Department: request.users?.departments_users_department_idTodepartments?.dept_name || "---",
         }
       })
-      console.log("PDF generated successfully, blob size:", blob.size)
-      
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -224,7 +218,11 @@ export default function RequestDetail({ request, onEdit, onBack, userId, showHis
                   </span>
                   <div>
                     <p className="text-xs text-muted-foreground">رقم الجوال</p>
-                    <p className="font-mono font-semibold text-foreground" dir="ltr">{((request as any).applicantPhone || (request as any).users?.phone)}</p>
+                    <p className="font-mono font-semibold text-foreground text-blue-600 hover:text-blue-800 transition-colors" dir="ltr">
+                      <a href={`https://wa.me/${((request as any).applicantPhone || (request as any).users?.phone)?.replace(/\D/g, '') || ''}`} target="_blank" rel="noopener noreferrer">
+                        {((request as any).applicantPhone || (request as any).users?.phone)}
+                      </a>
+                    </p>
                   </div>
                 </div>
               )}
@@ -235,7 +233,11 @@ export default function RequestDetail({ request, onEdit, onBack, userId, showHis
                   </span>
                   <div>
                     <p className="text-xs text-muted-foreground">البريد الإلكتروني</p>
-                    <p className="font-semibold text-foreground">{((request as any).applicantEmail || (request as any).users?.email)}</p>
+                    <p className="font-semibold text-foreground text-blue-600 hover:text-blue-800 transition-colors">
+                      <a href={`https://mail.google.com/mail/?view=cm&fs=1&to=${((request as any).applicantEmail || (request as any).users?.email)}`} target="_blank" rel="noopener noreferrer">
+                        {((request as any).applicantEmail || (request as any).users?.email)}
+                      </a>
+                    </p>
                   </div>
                 </div>
               )}
@@ -459,20 +461,52 @@ export default function RequestDetail({ request, onEdit, onBack, userId, showHis
       })()}
 
       {/* Prominently display the latest relevant comment if available */}
-      {showHistory && history.length > 0 && history.find(a => a.comment && (a.action === 'returned' || a.action === 'rejected_with_changes' || a.action === 'rejected')) && (
-        <Card className="p-4 bg-orange-50 border border-orange-200">
-           <h3 className="font-semibold text-orange-800 mb-2 flex items-center gap-2">
-             <MessageSquare className="w-4 h-4" />
-             سبب الإجراء (الملاحظات)
-           </h3>
-           <p className="text-orange-900 text-sm whitespace-pre-wrap">
-             {history.find(a => a.comment && (a.action === 'returned' || a.action === 'rejected_with_changes' || a.action === 'rejected'))?.comment}
-           </p>
-           <p className="text-orange-700/70 text-xs mt-2">
-             بواسطة: {history.find(a => a.comment && (a.action === 'returned' || a.action === 'rejected_with_changes' || a.action === 'rejected'))?.actorName}
-           </p>
-        </Card>
-      )}
+      {showHistory && (request.status === 'returned' || (request.status as string) === 'rejected_with_changes') && (() => {
+        const returnedAction = history.find(a => a.action === 'returned' || a.action === 'rejected_with_changes' || a.action === 'reject_with_changes');
+        if (!returnedAction) return null;
+        return (
+          <div className="rounded-xl border-2 border-orange-300 bg-orange-50 shadow-sm overflow-hidden">
+            <div className="bg-orange-400 px-4 py-2.5 flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 text-white" />
+              <span className="font-bold text-white text-sm">ملاحظات الموظف - يرجى التعديل</span>
+            </div>
+            <div className="p-4 space-y-2">
+              <p className="text-orange-900 text-base font-medium whitespace-pre-wrap leading-relaxed">
+                {returnedAction.comment || "لا توجد ملاحظات إضافية"}
+              </p>
+              <p className="text-orange-600 text-xs border-t border-orange-200 pt-2 mt-2">
+                بواسطة: <span className="font-semibold">{returnedAction.actorName}</span>
+                {" — "}
+                {new Date(returnedAction.timestamp).toLocaleDateString('ar-SA')}
+              </p>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Show comment banner for rejected requests too */}
+      {showHistory && request.status === 'rejected' && (() => {
+        const rejectedAction = history.find(a => a.action === 'rejected' || a.action === 'reject');
+        if (!rejectedAction?.comment) return null;
+        return (
+          <div className="rounded-xl border-2 border-red-300 bg-red-50 shadow-sm overflow-hidden">
+            <div className="bg-red-500 px-4 py-2.5 flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 text-white" />
+              <span className="font-bold text-white text-sm">سبب الرفض</span>
+            </div>
+            <div className="p-4 space-y-2">
+              <p className="text-red-900 text-base font-medium whitespace-pre-wrap leading-relaxed">
+                {rejectedAction.comment}
+              </p>
+              <p className="text-red-600 text-xs border-t border-red-200 pt-2 mt-2">
+                بواسطة: <span className="font-semibold">{rejectedAction.actorName}</span>
+                {" — "}
+                {new Date(rejectedAction.timestamp).toLocaleDateString('ar-SA')}
+              </p>
+            </div>
+          </div>
+        );
+      })()}
 
       {request.attachments && request.attachments.length > 0 && (
         <Card className="p-4 bg-muted/20 border border-slate-200">
@@ -563,7 +597,7 @@ export default function RequestDetail({ request, onEdit, onBack, userId, showHis
         </div>
       )}
 
-      {showHistory && (
+      {showHistory && !hideActivityLog && (
         <div className="bg-card border border-slate-200 rounded-lg p-4 space-y-3">
           <h3 className="font-semibold text-foreground mb-4">سجل النشاطات</h3>
           <div className="relative space-y-8 pr-4 border-r border-slate-200">

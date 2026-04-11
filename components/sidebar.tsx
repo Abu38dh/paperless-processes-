@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { FileText, Plus, Settings, BarChart3, Users, Zap, CheckCircle, Inbox, Building2, Share2 } from "lucide-react"
+import { FileText, Plus, Settings, BarChart3, Users, Zap, CheckCircle, Inbox, Building2, Share2, CalendarDays, UserCheck } from "lucide-react"
 
 interface SidebarProps {
   currentView: string
@@ -77,6 +77,8 @@ export default function Sidebar({ currentView, onViewChange, userRole = "student
       { id: "colleges", label: "إدارة الكليات", icon: Building2 },
       { id: "users", label: "إدارة المستخدمين", icon: Users },
       { id: "reports", label: "التقارير", icon: BarChart3 },
+      { id: "terms", label: "إدارة الأترام", icon: CalendarDays },
+      { id: "employee-kpis", label: "أداء الموظفين", icon: UserCheck },
     ],
     employee: getEmployeeMenu(),
     reviewer: [

@@ -83,6 +83,7 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
   const [myRequests, setMyRequests] = useState<Request[]>([])
   const [historyRequests, setHistoryRequests] = useState<any[]>([])
   const [availableForms, setAvailableForms] = useState<any[]>([])
+  const [terms, setTerms] = useState<any[]>([])
   const [stats, setStats] = useState<RequestStatsType>({ returned: 0, approved: 0, rejected: 0, pending: 0 })
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null)
   const [loading, setLoading] = useState(true)
@@ -112,22 +113,26 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
     fetchStats()
     fetchAvailableForms()
     fetchHistoryData()
+    import("@/app/actions/terms").then(m => m.getAllTerms().then(res => {
+      if(res.success && res.data) setTerms(res.data)
+    }))
 
-    // Auto-refresh interval (polling) for real-time updates
     // --- REAL-TIME UPDATES (SSE) ---
+    // Guard: EventSource is not available in SSR or some test environments
+    if (typeof window === 'undefined' || typeof window.EventSource === 'undefined') return
+
     const eventSource = new EventSource('/api/realtime')
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data)
         if (data.type === 'refresh') {
-          console.log(`[Realtime] Received employee refresh signal (target: ${data.target}). Updating dashboard...`)
           fetchInboxData()
           fetchStats()
         }
       } catch (err) {}
     }
-    eventSource.onerror = (error) => {
-      console.warn("[Realtime] Employee EventSource connection error, retrying...", error)
+    eventSource.onerror = () => {
+      // Connection error — browser will auto-retry
     }
 
     return () => eventSource.close() // Cleanup on unmount
@@ -165,7 +170,7 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
         // Map the response to match Request interface
         const mappedRequests: Request[] = result.requests.map((r: any) => ({
           ...r,
-          applicant: r.users?.full_name || "N/A", // Ensure applicant exists
+          applicant: r.users?.full_name || userData.full_name, // Use userData for my requests
           status: r.status as any, // Cast status
           type: r.title || r.type // Handle title/type discrepancy
         }))
@@ -279,11 +284,12 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
     startDate: string | null
     endDate: string | null
     textSearch: string
+    selectedTerms: number[]
     requesterBio?: { name: string; university_id: string; department?: string | null; college?: string | null; email?: string | null; phone?: string | null } | null
-  }>({ open: false, loading: false, data: [], applicantName: "", selectedRequestType: null, startDate: null, endDate: null, textSearch: "", requesterBio: null })
+  }>({ open: false, loading: false, data: [], applicantName: "", selectedRequestType: null, startDate: null, endDate: null, textSearch: "", selectedTerms: [], requesterBio: null })
 
   const handleViewRequesterHistory = async (applicantName: string) => {
-    setRequesterHistoryDialog({ open: true, loading: true, data: [], applicantName, selectedRequestType: null, startDate: null, endDate: null, textSearch: "", requesterBio: null })
+    setRequesterHistoryDialog({ open: true, loading: true, data: [], applicantName, selectedRequestType: null, startDate: null, endDate: null, textSearch: "", selectedTerms: [], requesterBio: null })
     try {
       const { getRequesterInteractionHistory } = await import("@/app/actions/employee")
       const result = await getRequesterInteractionHistory(userData.university_id, applicantName)
@@ -329,22 +335,20 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
       )
 
       if (result.success) {
-        // Refresh inbox
         await fetchInboxData()
         await fetchStats()
-        // setActionComment("") // Removed
         setInternalNote("")
         setAttachment(null)
         setSelectedRequest(null)
         setActionDialog({ open: false, type: null })
       } else {
+        // Keep dialog open so the user can adjust and retry
         setError(result.error || "فشل في تنفيذ الإجراء")
-        setActionDialog({ open: false, type: null })
       }
     } catch (err) {
       console.error("Failed to process request:", err)
+      // Keep dialog open so the user can adjust and retry
       setError("حدث خطأ غير متوقع")
-      setActionDialog({ open: false, type: null })
     } finally {
       setIsProcessing(false)
     }
@@ -352,25 +356,36 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
 
   const handleStatClick = (type: 'pending' | 'approved' | 'rejected' | 'returned') => {
     if (type === 'pending') {
-      setCurrentView("inbox");
+      setCurrentView("inbox")
+      setHistorySearchQuery("")
     } else {
-      fetchHistoryData(); // Refreshes history data to ensure it's up to date
-      setCurrentView("history");
-      if (type === 'approved') setHistorySearchQuery("موافق");
-      if (type === 'rejected') setHistorySearchQuery("مرفوض");
-      if (type === 'returned') setHistorySearchQuery("معاد");
+      fetchHistoryData()
+      setCurrentView("history")
+      const statusMap: Record<string, string> = {
+        approved: "موافق عليه",
+        rejected: "مرفوض",
+        returned: "معاد للتعديل"
+      }
+      setHistorySearchQuery(statusMap[type] || type)
     }
   };
 
+  type KnownStatus = "pending" | "processing" | "approved" | "rejected" | "returned"
+
   const getStatusBadge = (status: string) => {
-    const statusMap: Record<string, { label: string; className: string }> = {
-      pending: { label: "قيد الانتظار", className: "bg-yellow-100 text-yellow-800" },
-      processing: { label: "قيد المراجعة", className: "bg-blue-100 text-blue-800" },
-      approved: { label: "موافق عليه", className: "bg-green-100 text-green-800" },
-      rejected: { label: "مرفوض", className: "bg-red-100 text-red-800" },
-      returned: { label: "معاد للتعديل", className: "bg-orange-100 text-orange-800" },
+    const statusMap: Record<KnownStatus | 'unknown', { label: string; className: string }> = {
+      pending:    { label: "قيد الانتظار",   className: "bg-yellow-100 text-yellow-800" },
+      processing: { label: "قيد المراجعة",   className: "bg-blue-100 text-blue-800" },
+      approved:   { label: "موافق عليه",      className: "bg-green-100 text-green-800" },
+      rejected:   { label: "مرفوض",           className: "bg-red-100 text-red-800" },
+      returned:   { label: "معاد للتعديل",    className: "bg-orange-100 text-orange-800" },
+      unknown:    { label: "غير معروف",        className: "bg-gray-100 text-gray-800" },
     }
-    const config = statusMap[status] || statusMap.pending
+    const key: KnownStatus | 'unknown' =
+      Object.prototype.hasOwnProperty.call(statusMap, status)
+        ? (status as KnownStatus)
+        : 'unknown'
+    const config = statusMap[key]
     return <Badge className={config.className}>{config.label}</Badge>
   }
 
@@ -493,7 +508,7 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                       />
                     </div>
                   ) : (
-                    <div className="flex flex-col md:flex-row gap-6 items-start">
+                    <div className="flex flex-col md:flex-row gap-6 items-stretch min-h-[600px]">
                       {/* Requests List */}
                       <InboxRequestList
                         requests={inboxRequests}
@@ -507,9 +522,9 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                         {selectedRequest ? (
                           <div className="space-y-6">
                             {/* Premium Header */}
-                            <div className="overflow-hidden rounded-xl border border-orange-100 shadow-md">
+                            <div className="overflow-hidden rounded-xl border border-slate-200 shadow-md">
                               {/* Gradient Banner */}
-                              <div className="relative bg-gradient-to-l from-orange-400/75 to-orange-300/60 p-5">
+                              <div className="relative bg-gradient-to-l from-primary/90 to-primary/60 p-5">
                                 <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white/10 to-transparent pointer-events-none" />
                                 <div className="relative">
                                   <h2 className="text-xl font-bold text-white drop-shadow-sm mb-1">
@@ -518,8 +533,18 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                                   <p className="text-white/70 text-sm mb-2">
                                     {selectedRequest.description || "لا يوجد وصف"}
                                   </p>
-                                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold bg-white/20 text-white border border-white/30 backdrop-blur-sm w-fit">
-                                    {getStatusBadge(selectedRequest.status)}
+                                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold mt-1 bg-white/20 text-white border border-white/30 backdrop-blur-sm w-fit">
+                                    {(selectedRequest.status === 'pending' || selectedRequest.status === 'processing') && <Clock className="w-4 h-4" />}
+                                    {selectedRequest.status === 'approved' && <CheckCircle className="w-4 h-4" />}
+                                    {selectedRequest.status === 'rejected' && <XCircle className="w-4 h-4" />}
+                                    {selectedRequest.status === 'returned' && <RotateCcw className="w-4 h-4" />}
+                                    <span>
+                                      {selectedRequest.status === 'pending' ? 'قيد الانتظار' :
+                                       selectedRequest.status === 'processing' ? 'قيد المراجعة' :
+                                       selectedRequest.status === 'approved' ? 'موافق عليه' :
+                                       selectedRequest.status === 'rejected' ? 'مرفوض' :
+                                       selectedRequest.status === 'returned' ? 'معاد للتعديل' : 'غير معروف'}
+                                    </span>
                                   </div>
                                 </div>
                               </div>
@@ -527,14 +552,14 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                               {/* Info Grid */}
                               <div className="grid grid-cols-1 md:grid-cols-2 bg-white">
                                 {/* Applicant Info */}
-                                <div className="p-5 border-b md:border-b-0 md:border-l border-orange-50">
-                                  <p className="text-xs font-semibold text-orange-500/80 uppercase tracking-widest mb-3 flex items-center gap-2">
-                                    <span className="w-4 h-px bg-orange-300 inline-block"/>
+                                <div className="p-5 border-b md:border-b-0 md:border-l border-slate-100">
+                                  <p className="text-xs font-semibold text-primary/70 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                    <span className="w-4 h-px bg-primary/40 inline-block"/>
                                     مقدم الطلب
                                   </p>
                                   <div className="space-y-2.5">
                                     <p
-                                      className="font-bold text-lg text-orange-500 hover:underline cursor-pointer leading-tight"
+                                      className="font-bold text-lg text-foreground hover:underline cursor-pointer leading-tight"
                                       onClick={(e) => {
                                         e.stopPropagation()
                                         handleViewRequesterHistory(selectedRequest.applicant)
@@ -542,25 +567,25 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                                     >
                                       {selectedRequest.applicant}
                                     </p>
-                                    {(selectedRequest as any).college && (
+                                    {selectedRequest.college && (
                                       <div className="flex items-center gap-2 text-sm">
-                                        <span className="w-7 h-7 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
-                                          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-orange-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+                                        <span className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                                          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
                                         </span>
                                         <div>
                                           <p className="text-xs text-muted-foreground">الكلية</p>
-                                          <p className="font-semibold text-foreground">{(selectedRequest as any).college}</p>
+                                          <p className="font-semibold text-foreground">{selectedRequest.college}</p>
                                         </div>
                                       </div>
                                     )}
-                                    {(selectedRequest as any).department && (
+                                    {selectedRequest.department && (
                                       <div className="flex items-center gap-2 text-sm">
-                                        <span className="w-7 h-7 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
-                                          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-orange-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                                        <span className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                                          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
                                         </span>
                                         <div>
                                           <p className="text-xs text-muted-foreground">القسم</p>
-                                          <p className="font-semibold text-foreground">{(selectedRequest as any).department}</p>
+                                          <p className="font-semibold text-foreground">{selectedRequest.department}</p>
                                         </div>
                                       </div>
                                     )}
@@ -568,15 +593,15 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                                 </div>
 
                                 {/* Request Meta */}
-                                <div className="p-5 bg-orange-50/30">
-                                  <p className="text-xs font-semibold text-orange-500/80 uppercase tracking-widest mb-3 flex items-center gap-2">
-                                    <span className="w-4 h-px bg-orange-300 inline-block"/>
+                                <div className="p-5 bg-slate-50/70">
+                                  <p className="text-xs font-semibold text-primary/70 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                    <span className="w-4 h-px bg-primary/40 inline-block"/>
                                     معلومات الطلب
                                   </p>
                                   <div className="space-y-2.5">
                                     <div className="flex items-center gap-2 text-sm">
-                                      <span className="w-7 h-7 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-orange-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>
+                                      <span className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>
                                       </span>
                                       <div>
                                         <p className="text-xs text-muted-foreground">رقم الطلب</p>
@@ -584,8 +609,8 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                                       </div>
                                     </div>
                                     <div className="flex items-center gap-2 text-sm">
-                                      <span className="w-7 h-7 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-orange-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                                      <span className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                                       </span>
                                       <div>
                                         <p className="text-xs text-muted-foreground">تاريخ التقديم</p>
@@ -593,8 +618,8 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                                       </div>
                                     </div>
                                     <div className="flex items-center gap-2 text-sm">
-                                      <span className="w-7 h-7 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-orange-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                                      <span className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
                                       </span>
                                       <div>
                                         <p className="text-xs text-muted-foreground">نوع الطلب</p>
@@ -686,7 +711,12 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                                                 </span>
                                               )
                                             ) :
-                                              field.type === 'date' ? new Date(value).toLocaleDateString('ar-EG') :
+                                              field.type === 'date' ? (() => {
+                                                try {
+                                                  const d = new Date(value)
+                                                  return isNaN(d.getTime()) ? String(value) : d.toLocaleDateString('ar-EG')
+                                                } catch { return String(value) }
+                                              })() :
                                                 String(value)}
                                         </span>
                                       </div>
@@ -895,8 +925,14 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                           {historyRequests
                             .filter((item) => {
                               if (!historySearchQuery) return true
-                              const query = historySearchQuery.toLowerCase()
-                              
+                              // Check if query is an internal status key first, then fall back to full-text search
+                              const query = historySearchQuery
+                              const knownStatuses = ['pending', 'approved', 'rejected', 'returned', 'processing']
+                              if (knownStatuses.includes(query)) {
+                                return item.status === query
+                              }
+                              // Free-text search with locale-aware lowercasing
+                              const q = query.toLocaleLowerCase('ar')
                               const statusMap: Record<string, string> = {
                                 pending: "قيد الانتظار",
                                 processing: "قيد المراجعة",
@@ -904,15 +940,14 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                                 rejected: "مرفوض",
                                 returned: "معاد للتعديل",
                               }
-                              const statusLabel = statusMap[item.status] || ""
-
+                              const statusLabel = (statusMap[item.status] || "").toLocaleLowerCase('ar')
                               return (
-                                item.requestId?.toString().includes(query) ||
-                                item.requestType?.toLowerCase().includes(query) ||
-                                item.applicant?.toLowerCase().includes(query) ||
-                                item.applicantId?.toLowerCase().includes(query) ||
-                                item.comment?.toLowerCase().includes(query) ||
-                                statusLabel.includes(query)
+                                item.requestId?.toString().includes(q) ||
+                                item.requestType?.toLocaleLowerCase('ar').includes(q) ||
+                                item.applicant?.toLocaleLowerCase('ar').includes(q) ||
+                                item.applicantId?.toLocaleLowerCase('ar').includes(q) ||
+                                item.comment?.toLocaleLowerCase('ar').includes(q) ||
+                                statusLabel.includes(q)
                               )
                             })
                             .map((item) => (
@@ -952,39 +987,12 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                   )}
                 </CardContent>
               </Card>
-
-              {/* History Item Detail Dialog */}
-              <Dialog open={!!selectedHistoryItem} onOpenChange={(open) => !open && setSelectedHistoryItem(null)}>
-                <DialogContent className="sm:max-w-2xl w-[95vw] md:w-full max-h-[90vh] overflow-y-auto" dir="rtl">
-                  <DialogHeader>
-                    <DialogTitle>تفاصيل الطلب (من السجل)</DialogTitle>
-                  </DialogHeader>
-                  <div className="p-1">
-                    {historyLoading ? (
-                      <div className="p-4 space-y-4">
-                        <div className="h-4 bg-muted animate-pulse rounded w-1/4"></div>
-                        <div className="h-32 bg-muted animate-pulse rounded"></div>
-                      </div>
-                    ) : selectedHistoryItem && selectedHistoryItem !== true ? (
-                      <div className="mt-4">
-                        <RequestDetail
-                          request={selectedHistoryItem}
-                          showHistory={true}
-                        />
-                      </div>
-                    ) : null}
-                  </div>
-                </DialogContent>
-              </Dialog>
-
-
-
             </div>
           )}
 
           {/* Submit Request View */}
           {currentView === "submit" && (
-            <div className="p-6 max-w-4xl">
+            <div className="p-6 w-full">
               {!selectedRequestType && !editingRequestId ? (
                 <>
                   <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
@@ -1133,7 +1141,7 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
       </div>
 
       {/* Requester Interaction History Dialog */}
-      <Dialog open={requesterHistoryDialog.open} onOpenChange={(open) => setRequesterHistoryDialog({ ...requesterHistoryDialog, open })}>
+      <Dialog open={requesterHistoryDialog.open} onOpenChange={(open) => setRequesterHistoryDialog(prev => ({ ...prev, open }))}>
         <DialogContent dir="rtl" className="max-w-xl w-[90vw] max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>سجل تعاملاتك السابقة</DialogTitle>
@@ -1153,10 +1161,10 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                 <div className="text-sm text-muted-foreground space-y-1">
                   <p>الرقم الجامعي: {requesterHistoryDialog.requesterBio.university_id}</p>
                   {requesterHistoryDialog.requesterBio.phone && (
-                    <p>رقم الجوال: <span dir="ltr">{requesterHistoryDialog.requesterBio.phone}</span></p>
+                    <p>رقم الجوال: <a href={`https://wa.me/${requesterHistoryDialog.requesterBio.phone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1" dir="ltr">{requesterHistoryDialog.requesterBio.phone}</a></p>
                   )}
                   {requesterHistoryDialog.requesterBio.email && (
-                    <p>البريد الإلكتروني: <span dir="ltr">{requesterHistoryDialog.requesterBio.email}</span></p>
+                    <p>البريد الإلكتروني: <a href={`mailto:${requesterHistoryDialog.requesterBio.email}`} className="text-primary hover:underline inline-flex items-center gap-1" dir="ltr">{requesterHistoryDialog.requesterBio.email}</a></p>
                   )}
                   {(requesterHistoryDialog.requesterBio.college || requesterHistoryDialog.requesterBio.department) && (
                     <p className="flex items-center gap-1">
@@ -1221,6 +1229,39 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
             </div>
           )}
 
+          {/* Terms Filters */}
+          {!requesterHistoryDialog.loading && terms && terms.length > 0 && (
+            <div className="mb-4 bg-orange-50/50 p-3 rounded-lg border border-orange-100/50">
+              <h4 className="text-xs font-semibold text-orange-800 mb-2">تصفية حسب الترم:</h4>
+              <div className="flex flex-wrap gap-2">
+                {terms.map(term => {
+                  const isSelected = requesterHistoryDialog.selectedTerms.includes(term.term_id)
+                  return (
+                    <button
+                      key={term.term_id}
+                      onClick={() => {
+                        setRequesterHistoryDialog(prev => {
+                          const newTerms = isSelected
+                            ? prev.selectedTerms.filter(id => id !== term.term_id)
+                            : [...prev.selectedTerms, term.term_id]
+                          return { ...prev, selectedTerms: newTerms }
+                        })
+                      }}
+                      className={`text-xs px-3 py-1.5 rounded-full border transition-all flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-orange-500/50 ${
+                        isSelected 
+                          ? 'bg-orange-500 text-white border-orange-600 shadow-sm font-medium' 
+                          : 'bg-white text-slate-600 border-orange-200 hover:border-orange-400 hover:bg-orange-50 hover:text-orange-700'
+                      }`}
+                    >
+                      {isSelected && <CheckCircle2 className="w-3.5 h-3.5" />}
+                      {term.name}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           <div className="space-y-4 max-h-[60vh] overflow-y-auto">
             {requesterHistoryDialog.loading ? (
               <ListSkeleton />
@@ -1228,11 +1269,13 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
               (() => {
                 const filteredData = requesterHistoryDialog.data.filter((item) => {
                   let keep = true;
-                  if (requesterHistoryDialog.startDate && item.date && item.date < requesterHistoryDialog.startDate) {
-                    keep = false;
+                  // Use Date objects to avoid lexicographic comparison issues with non-ISO date formats
+                  const itemDate = item.date ? new Date(item.date).getTime() : null
+                  if (requesterHistoryDialog.startDate && itemDate) {
+                    if (itemDate < new Date(requesterHistoryDialog.startDate).getTime()) keep = false;
                   }
-                  if (requesterHistoryDialog.endDate && item.date && item.date > requesterHistoryDialog.endDate) {
-                    keep = false;
+                  if (requesterHistoryDialog.endDate && itemDate) {
+                    if (itemDate > new Date(requesterHistoryDialog.endDate).getTime()) keep = false;
                   }
                   if (requesterHistoryDialog.textSearch) {
                     const query = requesterHistoryDialog.textSearch.toLowerCase();
@@ -1258,6 +1301,10 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                     )) {
                       keep = false;
                     }
+                  }
+                  
+                  if (requesterHistoryDialog.selectedTerms.length > 0) {
+                    if (!item.term_id || !requesterHistoryDialog.selectedTerms.includes(item.term_id)) keep = false;
                   }
 
                   return keep;
@@ -1414,6 +1461,30 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
         onConfirm={executeAction}
         isProcessing={isProcessing}
       />
+
+      {/* History Item Detail Dialog */}
+      <Dialog open={!!selectedHistoryItem} onOpenChange={(open) => !open && setSelectedHistoryItem(null)}>
+        <DialogContent className="sm:max-w-2xl w-[95vw] md:w-full z-[100] max-h-[90vh] overflow-y-auto" dir="rtl">
+          <DialogHeader>
+            <DialogTitle>تفاصيل الطلب (من السجل)</DialogTitle>
+          </DialogHeader>
+          <div className="p-1">
+            {historyLoading ? (
+              <div className="p-4 space-y-4">
+                <div className="h-4 bg-muted animate-pulse rounded w-1/4"></div>
+                <div className="h-32 bg-muted animate-pulse rounded"></div>
+              </div>
+            ) : selectedHistoryItem && selectedHistoryItem !== true ? (
+              <div className="mt-4">
+                <RequestDetail
+                  request={selectedHistoryItem}
+                  showHistory={true}
+                />
+              </div>
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <FilePreviewDialog
         open={!!filePreview?.open}

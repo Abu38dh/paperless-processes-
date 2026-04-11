@@ -44,9 +44,10 @@ export async function loginUser(username: string, password: string): Promise<Log
 
     // Get permissions - prioritize custom_permissions over role permissions
     let permissions: string[] = []
-    if ((user as any).custom_permissions) {
+    const customPerms = (user as { custom_permissions?: string }).custom_permissions
+    if (customPerms) {
       try {
-        permissions = JSON.parse((user as any).custom_permissions)
+        permissions = JSON.parse(customPerms)
       } catch (e) {
         console.error("Error parsing custom_permissions:", e)
       }

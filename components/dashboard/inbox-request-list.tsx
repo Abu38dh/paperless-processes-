@@ -38,7 +38,8 @@ export function InboxRequestList({ requests, selectedRequestId, onSelectRequest,
     }
 
     return (
-        <div className="w-full md:w-1/3 border border-border bg-card rounded-lg p-4 space-y-2 h-fit">
+        <div className="w-full md:w-1/3 relative min-h-[600px] md:min-h-0">
+            <div className="md:absolute md:inset-0 border border-border bg-card rounded-lg p-4 flex flex-col h-full w-full">
             <h3 className="font-semibold mb-4">صندوق الوارد ({filteredRequests.length})</h3>
 
             <div className="relative mb-4">
@@ -51,6 +52,7 @@ export function InboxRequestList({ requests, selectedRequestId, onSelectRequest,
                 />
             </div>
 
+            <div className="overflow-y-auto flex-1 space-y-2 pr-1">
             {filteredRequests.length > 0 ? (
                 filteredRequests.map((req) => (
                     <Card
@@ -94,6 +96,8 @@ export function InboxRequestList({ requests, selectedRequestId, onSelectRequest,
                     <p>لا توجد نتائج مطابقة للبحث</p>
                 </div>
             )}
+            </div>
+        </div>
         </div>
     )
 }

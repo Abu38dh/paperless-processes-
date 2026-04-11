@@ -32,8 +32,9 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                         if (passwordsMatch) {
                             // Get permissions logic
                             let permissions: string[] = []
-                            if ((user as any).custom_permissions) {
-                                try { permissions = JSON.parse((user as any).custom_permissions) } catch { }
+                            const customPerms = (user as { custom_permissions?: string }).custom_permissions
+                            if (customPerms) {
+                                try { permissions = JSON.parse(customPerms) } catch { }
                             }
 
                             // Safety check for role
