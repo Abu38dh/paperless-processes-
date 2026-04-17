@@ -56,6 +56,7 @@ model departments {
   colleges                               colleges? @relation(fields: [college_id], references: [college_id], onDelete: NoAction, onUpdate: NoAction)
   users_departments_manager_idTousers    users?   @relation("departments_manager_idTousers", fields: [manager_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
   users_users_department_idTodepartments users[]  @relation("users_department_idTodepartments")
+  levels                                 levels[]
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
@@ -180,6 +181,10 @@ model users {
   phone                                          String?           @db.VarChar
   department_id                                  Int?
   role_id                                        Int
+  level_id                                       Int?
+  current_term_id                                Int?              // current academic term within the level
+  user_status                                    String?           @default("active") @db.VarChar // active, graduated, archived
+  academic_year                                  String?           @db.VarChar // e.g. "2024-2025"
   is_active                                      Boolean?          @default(true)
   created_at                                     DateTime?         @default(now()) @db.Timestamp(6)
   custom_permissions                             String?           @db.Text
@@ -193,9 +198,12 @@ model users {
   requests                                       requests[]
   departments_users_department_idTodepartments   departments?      @relation("users_department_idTodepartments", fields: [department_id], references: [department_id], onDelete: NoAction, onUpdate: NoAction)
   roles                                          roles             @relation(fields: [role_id], references: [role_id], onDelete: NoAction, onUpdate: NoAction)
+  levels                                         levels?           @relation(fields: [level_id], references: [level_id], onDelete: NoAction, onUpdate: NoAction)
+  current_term                                   level_terms?      @relation("UserCurrentTerm", fields: [current_term_id], references: [term_id], onDelete: NoAction, onUpdate: NoAction)
   workflow_steps_approvals                       workflow_steps[]  @relation("WorkflowStepApprover")
   workflow_steps_escalations_user                workflow_steps[]  @relation("EscalationUser")
   audit_logs                                     audit_logs[]
+  absences                                       absences[]
 }
 
 model workflow_steps {
@@ -225,4 +233,79 @@ model workflows {
   is_active      Boolean?         @default(true)
   request_types  request_types[]
   workflow_steps workflow_steps[]
+}
+
+/// Academic levels (e.g., Level 1, Level 2, ...) — each level belongs to a department
+model levels {
+  level_id      Int          @id @default(autoincrement())
+  name          String       @db.VarChar
+  order         Int          @default(0) // for sorting within the department
+  department_id Int?         // which department this level belongs to
+  created_at    DateTime?    @default(now()) @db.Timestamp(6)
+  level_terms   level_terms[]
+  users         users[]
+  departments   departments? @relation(fields: [department_id], references: [department_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([department_id])
+}
+
+/// Academic terms per level
+model level_terms {
+  term_id       Int        @id @default(autoincrement())
+  level_id      Int
+  name          String     @db.VarChar
+  order         Int        @default(0)
+  created_at    DateTime?  @default(now()) @db.Timestamp(6)
+  levels        levels     @relation(fields: [level_id], references: [level_id], onDelete: Cascade, onUpdate: NoAction)
+  subjects      subjects[]
+  users_current_term users[] @relation("UserCurrentTerm")
+
+  @@index([level_id])
+}
+
+/// Subjects/courses belonging to each term
+model subjects {
+  subject_id   Int        @id @default(autoincrement())
+  term_id      Int
+  name         String     @db.VarChar
+  code         String?    @db.VarChar
+  created_at   DateTime?  @default(now()) @db.Timestamp(6)
+  level_terms  level_terms @relation(fields: [term_id], references: [term_id], onDelete: Cascade, onUpdate: NoAction)
+  absences     absences[]
+
+  @@index([term_id])
+}
+
+/// Absence counter — one record per (student, subject)
+model absences {
+  absence_id      Int              @id @default(autoincrement())
+  student_id      Int
+  subject_id      Int
+  total_absences  Int              @default(0) // computed from absence_records count
+  excused_count   Int              @default(0) // computed from excused absence_records count
+  created_at      DateTime?        @default(now()) @db.Timestamp(6)
+  updated_at      DateTime?        @updatedAt
+  users           users            @relation(fields: [student_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+  subjects        subjects         @relation(fields: [subject_id], references: [subject_id], onDelete: Cascade, onUpdate: NoAction)
+  absence_records absence_records[]
+
+  @@unique([student_id, subject_id])
+  @@index([student_id])
+  @@index([subject_id])
+}
+
+/// Individual absence entry with date and excuse status
+model absence_records {
+  record_id    Int       @id @default(autoincrement())
+  absence_id   Int
+  absence_date DateTime  @db.Date
+  is_excused   Boolean   @default(false)
+  request_id   Int?      // linked request if excuse was submitted through system
+  notes        String?   @db.Text
+  recorded_by  Int?      // employee who recorded it
+  created_at   DateTime? @default(now()) @db.Timestamp(6)
+  absences     absences  @relation(fields: [absence_id], references: [absence_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([absence_id])
+  @@index([absence_date])
 }

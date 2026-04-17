@@ -13,6 +13,7 @@ import AdminDepartmentsPage from "@/components/admin/admin-departments-page"
 import AdminCollegesPage from "@/components/admin/admin-colleges-page"
 import TermsManagementPage from "@/components/admin/terms-management"
 import EmployeeKpiDashboard from "@/components/admin/employee-kpi-dashboard"
+import LevelsSubjectsManager from "@/components/admin/levels-subjects-manager"
 import { DashboardSkeleton } from "@/components/ui/loading-skeleton"
 import { ErrorMessage } from "@/components/ui/error-message"
 import { getAdminStats } from "@/app/actions/admin"
@@ -266,6 +267,7 @@ export default function AdminDashboard({ onLogout, userData }: AdminDashboardPro
           {currentView === "departments" && <AdminDepartmentsPage onBack={() => setCurrentView("home")} currentUserId={userData?.university_id} />}
           {currentView === "colleges" && <AdminCollegesPage onBack={() => setCurrentView("home")} currentUserId={userData?.university_id} />}
           {currentView === "terms" && <TermsManagementPage onBack={() => setCurrentView("home")} currentUserId={userData?.university_id} />}
+          {currentView === "levels" && <LevelsSubjectsManager onBack={() => setCurrentView("home")} currentUserId={userData?.university_id} />}
           {currentView === "employee-kpis" && <EmployeeKpiDashboard onBack={() => setCurrentView("home")} currentUserId={userData?.university_id} />}
         </main>
       </div>

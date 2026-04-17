@@ -19,6 +19,7 @@ import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/
 import { Search, Sparkles, ChevronRight } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import AbsencesView from "@/components/student/absences-view"
 
 interface StudentDashboardProps {
   onLogout: () => void
@@ -31,7 +32,7 @@ interface StudentDashboardProps {
 
 export default function StudentDashboard({ onLogout, userData }: StudentDashboardProps) {
   const [selectedRequest, setSelectedRequest] = useState<string>("")
-  type ViewType = "requests" | "submit" | "settings"
+  type ViewType = "requests" | "submit" | "settings" | "absences"
   const [currentView, setCurrentView] = useState<ViewType>(() => {
     if (typeof window !== 'undefined') {
       const saved = window.sessionStorage.getItem('studentDashboardView')
@@ -512,6 +513,11 @@ export default function StudentDashboard({ onLogout, userData }: StudentDashboar
                 </CardContent>
               </Card>
             </div>
+          )}
+
+          {/* Absences View */}
+          {currentView === "absences" && (
+            <AbsencesView studentUniversityId={userData.university_id} />
           )}
         </main>
       </div>

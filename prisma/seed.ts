@@ -30,28 +30,12 @@ async function main() {
 
     // Fetch roles to get IDs
     const adminRole = await prisma.roles.findUnique({ where: { role_name: 'admin' } })
-    const studentRole = await prisma.roles.findUnique({ where: { role_name: 'student' } })
-    const employeeRole = await prisma.roles.findUnique({ where: { role_name: 'employee' } })
 
-    if (!adminRole || !studentRole || !employeeRole) {
+    if (!adminRole) {
         throw new Error('Roles not created successfully')
     }
 
-    // 2. Seed Colleges & Departments
-    const college = await prisma.colleges.upsert({
-        where: { name: 'كلية الحاسبات وتقنية المعلومات' },
-        update: {},
-        create: { name: 'كلية الحاسبات وتقنية المعلومات' },
-    })
-
-    const department = await prisma.departments.create({
-        data: {
-            dept_name: 'علوم الحاسب',
-            college_id: college.college_id,
-        },
-    })
-
-    // 3. Seed Users
+    // 2. Seed Users
     const passwordHash = await bcrypt.hash('123', 10)
 
     // Admin
@@ -65,40 +49,6 @@ async function main() {
             role_id: adminRole.role_id,
         },
     })
-
-    // Employee
-    await prisma.users.upsert({
-        where: { university_id: 'EMP001' },
-        update: {},
-        create: {
-            university_id: 'EMP001',
-            password_hash: passwordHash,
-            full_name: 'أحمد الموظف',
-            role_id: employeeRole.role_id,
-            department_id: department.department_id,
-        },
-    })
-
-    // Students
-    const students = [
-        { id: '20123456', name: 'محمد أحمد' },
-        { id: '20123457', name: 'خالد علي' },
-        { id: '20123458', name: 'ياسر محمود' },
-    ]
-
-    for (const student of students) {
-        await prisma.users.upsert({
-            where: { university_id: student.id },
-            update: {},
-            create: {
-                university_id: student.id,
-                password_hash: passwordHash,
-                full_name: student.name,
-                role_id: studentRole.role_id,
-                department_id: department.department_id,
-            },
-        })
-    }
 
     console.log('✅ Seeding finished.')
 }

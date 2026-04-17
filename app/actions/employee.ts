@@ -3,6 +3,7 @@
 import { db } from "@/lib/db"
 import { revalidatePath } from "next/cache"
 import { notifyRequestStatusChange, notifyApproverNewRequest, notifyUserApproverNewRequest } from "./notifications"
+import { markAbsenceExcusedByRequest } from "./absences"
 import { Prisma } from "@prisma/client"
 import fs from 'fs'
 import path from 'path'
@@ -520,7 +521,29 @@ export async function processRequest(requestId: string, action: 'approve' | 'rej
                 notifyStatus = 'in_progress';
             }
         }
-        console.log(`[ProcessRequest] Calling notifyRequestStatusChange. RequestID: ${request.request_id}, Status: ${notifyStatus}`)
+
+        if (notifyStatus === 'approved') {
+            // --- AUTOMATED ABSENCE LINKAGE ---
+            const schema = request.form_templates?.schema as any[]
+            if (schema && Array.isArray(schema)) {
+                const absenceField = schema.find(f => f.type === 'absence_picker')
+                if (absenceField) {
+                    const absenceData = (request.submission_data as any)?.[absenceField.key]
+                    if (absenceData && absenceData.subjectId && absenceData.date) {
+                        const studentUser = await db.users.findUnique({ where: { user_id: request.requester_id } })
+                        if (studentUser && studentUser.university_id) {
+                            await markAbsenceExcusedByRequest(
+                                studentUser.university_id,
+                                absenceData.subjectId,
+                                [absenceData.date],
+                                request.request_id
+                            ).catch(err => console.error("Auto Absence Linkage Error:", err))
+                        }
+                    }
+                }
+            }
+        }
+
         console.log(`[ProcessRequest] Calling notifyRequestStatusChange. RequestID: ${request.request_id}, Status: ${notifyStatus}`)
         // Run notification asynchronously to avoid blocking UI response (PDF generation is slow)
         notifyRequestStatusChange(request.request_id, notifyStatus, user.full_name).catch(err => console.error("Async Notification Error:", err));

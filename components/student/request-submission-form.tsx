@@ -22,6 +22,7 @@ interface RequestSubmissionFormProps {
 
 import { submitRequest, updateRequest } from "@/app/actions/student"
 import { getFormTemplate } from "@/app/actions/forms"
+import { getMyAbsences } from "@/app/actions/absences"
 
 export default function RequestSubmissionForm({
   requestType, // This is the formId
@@ -39,6 +40,8 @@ export default function RequestSubmissionForm({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [formName, setFormName] = useState("")
+  const [studentSubjects, setStudentSubjects] = useState<any[]>([])
+  const [fetchingSubjects, setFetchingSubjects] = useState(false)
 
   useEffect(() => {
     const fetchFormSchema = async () => {
@@ -53,6 +56,19 @@ export default function RequestSubmissionForm({
           if (isEditing && initialData) {
             setFormData(initialData)
           }
+
+          // Check if form has absence_picker and fetch subjects
+          const schemaArray = Array.isArray(result.data.schema) ? result.data.schema : (typeof result.data.schema === 'string' ? JSON.parse(result.data.schema) : []);
+          const hasAbsencePicker = schemaArray.some((f: any) => f.type === 'absence_picker')
+          if (hasAbsencePicker) {
+            setFetchingSubjects(true)
+            const absResult = await getMyAbsences(userId)
+            if (absResult.success) {
+              setStudentSubjects(absResult.subjects || [])
+            }
+            setFetchingSubjects(false)
+          }
+
         } else {
           setError("فشل في تحميل نموذج الطلب")
         }
@@ -342,6 +358,50 @@ export default function RequestSubmissionForm({
                               )}
                             </div>
                           </Label>
+                        </div>
+                      )}
+                      {field.type === "absence_picker" && (
+                        <div className="bg-emerald-50/50 border border-emerald-100 rounded-lg p-5 space-y-4">
+                          {fetchingSubjects ? (
+                            <div className="text-sm text-muted-foreground flex items-center gap-2">
+                              <span className="w-4 h-4 rounded-full border-2 border-primary border-t-transparent animate-spin inline-block"></span>
+                              جاري جلب المواد المسجلة...
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label className="text-sm font-semibold">المادة (التي فيها الغياب)</Label>
+                                <select
+                                  value={formData[field.key]?.subjectId || ""}
+                                  onChange={(e) => {
+                                    const selectedId = parseInt(e.target.value);
+                                    const subjectName = studentSubjects.find((s: any) => s.subject_id === selectedId)?.name || "";
+                                    handleInputChange(field.key, { ...formData[field.key], subjectId: selectedId, subjectName });
+                                  }}
+                                  className="w-full h-11 px-4 py-2 border border-input rounded-lg bg-background text-foreground text-right text-base focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                                  required={field.required}
+                                >
+                                  <option value="">اختر المادة...</option>
+                                  {studentSubjects.map((s: any) => (
+                                    <option key={s.subject_id} value={s.subject_id}>
+                                      {s.name} {s.code ? `(${s.code})` : ""}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="text-sm font-semibold">تاريخ الغياب</Label>
+                                <Input
+                                  type="date"
+                                  value={formData[field.key]?.date || ""}
+                                  onChange={(e) => handleInputChange(field.key, { ...formData[field.key], date: e.target.value })}
+                                  required={field.required}
+                                  className="text-right h-11 text-base"
+                                />
+                              </div>
+                            </div>
+                          )}
+                          <p className="text-xs text-emerald-700 font-medium">✨ النظام سيقوم بمعالجة غيابك آلياً عند قبول هذا الطلب</p>
                         </div>
                       )}
                     </>

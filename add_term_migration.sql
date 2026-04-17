@@ -1,0 +1,1 @@
+ALTER TABLE users ADD COLUMN IF NOT EXISTS current_term_id INTEGER REFERENCES level_terms(term_id) ON DELETE SET NULL;

@@ -10,53 +10,80 @@ import { logAuditAction } from "./audit"
  * Get all colleges with their deans
  */
 export async function getAllColleges() {
-    // ... (keep existing)
     try {
-        const colleges = await db.colleges.findMany({
-            include: {
-                users: true, // dean
-                departments: {
-                    include: {
-                        users_departments_manager_idTousers: true // manager
-                    }
-                }
-            },
-            orderBy: { name: 'asc' }
-        })
+        const collegesRaw = await db.$queryRaw<any[]>`
+            SELECT c.college_id, c.name, c.dean_id, u.full_name AS dean_name
+            FROM colleges c
+            LEFT JOIN users u ON u.user_id = c.dean_id
+            ORDER BY c.name ASC
+        `
+        const deptsRaw = await db.$queryRaw<any[]>`
+            SELECT d.department_id, d.dept_name, d.college_id, d.manager_id,
+                   m.full_name AS manager_name
+            FROM departments d
+            LEFT JOIN users m ON m.user_id = d.manager_id
+            ORDER BY d.dept_name ASC
+        `
 
-        return {
-            success: true,
-            data: colleges
-        }
+        const data = collegesRaw.map((c: any) => ({
+            college_id: Number(c.college_id),
+            name: c.name,
+            dean_id: c.dean_id ? Number(c.dean_id) : null,
+            users: c.dean_id ? { full_name: c.dean_name } : null,
+            departments: deptsRaw
+                .filter((d: any) => d.college_id && Number(d.college_id) === Number(c.college_id))
+                .map((d: any) => ({
+                    department_id: Number(d.department_id),
+                    dept_name: d.dept_name,
+                    college_id: Number(d.college_id),
+                    manager_id: d.manager_id ? Number(d.manager_id) : null,
+                    users_departments_manager_idTousers: d.manager_id ? { full_name: d.manager_name } : null,
+                }))
+        }))
+
+        return { success: true, data }
     } catch (error) {
         return { success: false, error: "فشل في تحميل الكليات" }
     }
 }
 
+
 /**
  * Get organization structure (lightweight for dropdowns)
+ * Uses raw SQL to avoid outdated Prisma client issues with the levels table.
  */
 export async function getOrganizationStructure() {
     try {
-        const colleges = await db.colleges.findMany({
-            select: {
-                college_id: true,
-                name: true,
-                departments: {
-                    select: {
-                        department_id: true,
-                        dept_name: true
-                    },
-                    orderBy: { dept_name: 'asc' }
-                }
-            },
-            orderBy: { name: 'asc' }
-        })
+        const collegesRaw = await db.$queryRaw<any[]>`
+            SELECT college_id, name FROM colleges ORDER BY name ASC
+        `
+        const deptsRaw = await db.$queryRaw<any[]>`
+            SELECT department_id, dept_name, college_id FROM departments ORDER BY dept_name ASC
+        `
+        const levelsRaw = await db.$queryRaw<any[]>`
+            SELECT level_id, name, "order", department_id FROM levels ORDER BY "order" ASC
+        `
 
-        return {
-            success: true,
-            data: colleges
-        }
+        const data = collegesRaw.map((c: any) => ({
+            college_id: c.college_id,
+            name: c.name,
+            departments: deptsRaw
+                .filter((d: any) => d.college_id === c.college_id)
+                .map((d: any) => ({
+                    department_id: d.department_id,
+                    dept_name: d.dept_name,
+                    college_id: d.college_id,
+                    levels: levelsRaw
+                        .filter((l: any) => l.department_id === d.department_id)
+                        .map((l: any) => ({
+                            level_id: l.level_id,
+                            name: l.name,
+                            order: Number(l.order)
+                        }))
+                }))
+        }))
+
+        return { success: true, data }
 
     } catch (error) {
         console.error("Get Organization Structure Error:", error)
@@ -163,22 +190,34 @@ export async function deleteCollege(collegeId: number, requesterId?: string) {
 }
 
 /**
- * Get all departments
+ * Get all departments — uses raw SQL to avoid outdated Prisma client issues
  */
 export async function getAllDepartments() {
     try {
-        const departments = await db.departments.findMany({
-            include: {
-                colleges: true,
-                users_departments_manager_idTousers: true
-            },
-            orderBy: { dept_name: 'asc' }
-        })
+        const rows = await db.$queryRaw<any[]>`
+            SELECT
+                d.department_id,
+                d.dept_name,
+                d.college_id,
+                d.manager_id,
+                c.name AS college_name,
+                u.full_name AS manager_name
+            FROM departments d
+            LEFT JOIN colleges c ON c.college_id = d.college_id
+            LEFT JOIN users u ON u.user_id = d.manager_id
+            ORDER BY d.dept_name ASC
+        `
 
-        return {
-            success: true,
-            data: departments
-        }
+        const data = rows.map((r: any) => ({
+            department_id: Number(r.department_id),
+            dept_name: r.dept_name,
+            college_id: r.college_id ? Number(r.college_id) : null,
+            manager_id: r.manager_id ? Number(r.manager_id) : null,
+            colleges: r.college_id ? { college_id: Number(r.college_id), name: r.college_name } : null,
+            users_departments_manager_idTousers: r.manager_id ? { full_name: r.manager_name } : null,
+        }))
+
+        return { success: true, data }
     } catch (error) {
         console.error("Get All Departments Error:", error)
         return { success: false, error: "فشل في تحميل الأقسام" }
@@ -266,6 +305,18 @@ export async function deleteDepartment(departmentId: number, requesterId?: strin
             return {
                 success: false,
                 error: "لا يمكن حذف القسم لأنه يحتوي على مستخدمين"
+            }
+        }
+
+        // Check if department has levels
+        const levels = await db.levels.findMany({
+            where: { department_id: departmentId }
+        })
+
+        if (levels.length > 0) {
+            return {
+                success: false,
+                error: "لا يمكن حذف القسم لأنه يحتوي على مستويات دراسية"
             }
         }
 

@@ -36,6 +36,9 @@ import WorkflowsEditor from "@/components/admin/workflows-editor"
 import AdminUsersPage from "@/components/admin/admin-users-page"
 import AdminReportsPage from "@/components/admin/admin-reports-page"
 import AdminDepartmentsPage from "@/components/admin/admin-departments-page"
+import AbsenceManager from "@/components/employee/absence-manager"
+import TermsManagement from "@/components/admin/terms-management"
+import LevelsSubjectsManager from "@/components/admin/levels-subjects-manager"
 
 import { RequestStats } from "@/components/dashboard/request-stats"
 import DelegationRequest from "@/components/dashboard/delegation-request"
@@ -56,7 +59,7 @@ interface EmployeeDashboardProps {
 }
 
 export default function EmployeeDashboard({ onLogout, permissions = [], userData }: EmployeeDashboardProps) {
-  type ViewType = "requests" | "inbox" | "submit" | "reviews" | "forms" | "users" | "departments" | "reports" | "workflows" | "delegation" | "settings" | "history"
+  type ViewType = "requests" | "inbox" | "submit" | "reviews" | "forms" | "users" | "departments" | "reports" | "workflows" | "delegation" | "settings" | "history" | "absences" | "terms" | "levels"
   const [currentView, setCurrentView] = useState<ViewType>(() => {
     if (typeof window !== 'undefined') {
       const saved = window.sessionStorage.getItem('employeeDashboardView')
@@ -717,7 +720,10 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                                                   return isNaN(d.getTime()) ? String(value) : d.toLocaleDateString('ar-EG')
                                                 } catch { return String(value) }
                                               })() :
-                                                String(value)}
+                                                field.type === 'absence_picker' && typeof value === 'object' && value !== null ? (
+                                                  `المادة: ${(value as any).subjectName || (value as any).subjectId}، التاريخ: ${(value as any).date}`
+                                                ) :
+                                                  typeof value === 'object' ? JSON.stringify(value) : String(value)}
                                         </span>
                                       </div>
                                     )
@@ -749,7 +755,7 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                                         delegated_types: "نماذج الطلبات المفوضة"
                                       }
 
-                                      let displayValue = String(value)
+                                      let displayValue = typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value)
                                       if (key === 'type' && value === 'SYSTEM_DELEGATION') displayValue = "طلب تفويض نظامي"
                                       else if (key.includes('date') && typeof value === 'string') {
                                         try { displayValue = new Date(value).toLocaleDateString('ar-SA') } catch(e) {}
@@ -1135,6 +1141,25 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                   </div>
                 </CardContent>
               </Card>
+            </div>
+          )}
+
+          {/* Absences Management View */}
+          {currentView === "absences" && hasPermission('can_manage_absences') && (
+            <AbsenceManager currentUserId={userData.university_id} />
+          )}
+
+          {/* Terms Management View */}
+          {currentView === "terms" && hasPermission('manage_terms') && (
+            <div className="p-6">
+              <TermsManagement onBack={() => setCurrentView("requests")} currentUserId={userData.university_id} />
+            </div>
+          )}
+
+          {/* Levels & Subjects Management View */}
+          {currentView === "levels" && hasPermission('manage_levels') && (
+            <div className="p-6">
+              <LevelsSubjectsManager onBack={() => setCurrentView("requests")} currentUserId={userData.university_id} />
             </div>
           )}
         </main>

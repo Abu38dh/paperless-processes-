@@ -61,7 +61,7 @@ interface FormField {
   id: string
   label: string
   key: string
-  type: "text" | "longtext" | "number" | "date" | "select" | "radio" | "checkbox" | "file" | "section"
+  type: "text" | "longtext" | "number" | "date" | "select" | "radio" | "checkbox" | "file" | "section" | "absence_picker"
   required: boolean
   placeholder?: string
   options?: { id: string; label: string }[]
@@ -82,6 +82,7 @@ const fieldTypes = [
   { id: "radio", label: "اختيار واحد", icon: CheckSquare, color: "bg-indigo-50 text-indigo-700" },
   { id: "checkbox", label: "اختيارات متعددة", icon: CheckSquare, color: "bg-pink-50 text-pink-700" },
   { id: "file", label: "رفع ملف", icon: Upload, color: "bg-red-50 text-red-700" },
+  { id: "absence_picker", label: "محدد الغياب (آلي)", icon: Calendar, color: "bg-emerald-50 text-emerald-700" },
   { id: "section", label: "عنوان قسم", icon: Heading3, color: "bg-gray-50 text-gray-700" },
 ]
 
@@ -760,10 +761,17 @@ export default function FormBuilderEditor({ formId, onBack, currentUserId }: For
                         )}
 
                         {/* Info Note */}
-                        <div className="mt-6 p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800 text-right">
-                          <p className="font-semibold mb-1">معلومة</p>
-                          <p>هذه الإعدادات تتحكم في كيفية ظهور هذا الحقل في نماذج الطلبات الخاصة بالطلاب والموظفين.</p>
-                        </div>
+                        {selectedField.type === "absence_picker" ? (
+                          <div className="mt-6 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800 text-right">
+                            <p className="font-semibold mb-1">حقل آلي ✨</p>
+                            <p>هذا الحقل سيقوم تلقائياً بجلب مواد الطالب واختيار تواريخ الغياب. وعند قبول هذا الطلب، سيتم خصم ورفع الغياب المنفذ آلياً من سجل الطالب.</p>
+                          </div>
+                        ) : (
+                          <div className="mt-6 p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800 text-right">
+                            <p className="font-semibold mb-1">معلومة</p>
+                            <p>هذه الإعدادات تتحكم في كيفية ظهور هذا الحقل في نماذج الطلبات الخاصة بالطلاب والموظفين.</p>
+                          </div>
+                        )}
 
                         {/* Field Actions */}
                         <div className="space-y-2 pt-4 border-t">

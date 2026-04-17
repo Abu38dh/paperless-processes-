@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Edit2, Trash2, Search, UserCheck, UserX, ArrowRight, ChevronDown, ChevronUp, Save, X, Shield, CheckCircle, XCircle, FileText, Building2, BarChart3, Workflow } from "lucide-react"
+import { Plus, Edit2, Trash2, Search, UserCheck, UserX, ArrowRight, ChevronDown, ChevronUp, Save, X, Shield, CheckCircle, XCircle, FileText, Building2, BarChart3, Workflow, BookOpen, CalendarDays, CalendarCheck } from "lucide-react"
 import { TableSkeleton } from "@/components/ui/loading-skeleton"
 import { ErrorMessage } from "@/components/ui/error-message"
 import { getUsers, createUser, updateUser, deleteUser, getAllRoles } from "@/app/actions/admin"
@@ -39,6 +39,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
   const [roles, setRoles] = useState<any[]>([])
   const [colleges, setColleges] = useState<any[]>([])
   const [departments, setDepartments] = useState<any[]>([])
+  const [levels, setLevels] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const { toast } = useToast()
@@ -84,23 +85,38 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
     // Initial static data load
     const loadStaticData = async () => {
       try {
-        const [rolesResult, orgResult] = await Promise.all([
+        const [rolesResult, orgResult, deptsResult] = await Promise.all([
           getAllRoles(),
-          import("@/app/actions/organizations").then(m => m.getOrganizationStructure())
+          import("@/app/actions/organizations").then(m => m.getOrganizationStructure()),
+          import("@/app/actions/organizations").then(m => m.getAllDepartments())
         ])
 
         if (rolesResult.success) setRoles(rolesResult.data as any[])
+
         if (orgResult.success) {
           setColleges(orgResult.data || [])
-          // Flatten departments for easy lookup
-          const allDepts = (orgResult.data || []).flatMap((c: any) =>
+        }
+
+        // Use getAllDepartments for a complete list (includes depts without a college)
+        if (deptsResult.success && deptsResult.data) {
+          setDepartments(deptsResult.data)
+          // Flatten levels from org structure
+          const orgDepts = (orgResult.success ? orgResult.data || [] : []).flatMap((c: any) =>
             (c.departments || []).map((d: any) => ({
               ...d,
               college_id: c.college_id
             }))
           )
-          setDepartments(allDepts)
+          const allLevels = orgDepts.flatMap((d: any) =>
+            (d.levels || []).map((l: any) => ({
+              ...l,
+              department_id: d.department_id,
+              dept_name: d.dept_name
+            }))
+          )
+          setLevels(allLevels)
         }
+
         setStaticDataLoaded(true)
       } catch (e) {
         console.error("Failed to load static data", e)
@@ -280,6 +296,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
         email: expandedUserData.email,
         role_id: expandedUserData.role_id,
         department_id: expandedUserData.department_id,
+        level_id: expandedUserData.level_id ?? null,
         is_active: expandedUserData.is_active,
         permissions: expandedUserData.permissions || [],
         password: expandedUserData.password
@@ -650,6 +667,26 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                         </select>
                       </div>
 
+                      {/* Level selector — only for students */}
+                      {roles.find(r => r.role_id === expandedUserData.role_id)?.role_name?.toLowerCase() === 'student' && (
+                        <div>
+                          <Label className="text-sm font-medium">المستوى الدراسي</Label>
+                          <select
+                            value={expandedUserData.level_id || ""}
+                            onChange={(e) => setExpandedUserData({ ...expandedUserData, level_id: e.target.value ? parseInt(e.target.value) : null })}
+                            className="w-full mt-1 px-3 py-2 border rounded-lg"
+                          >
+                            <option value="">بدون مستوى</option>
+                            {levels
+                              .filter((l: any) => !expandedUserData.department_id || l.department_id === expandedUserData.department_id)
+                              .sort((a: any, b: any) => a.order - b.order)
+                              .map((lvl: any) => (
+                                <option key={lvl.level_id} value={lvl.level_id}>{lvl.name}</option>
+                              ))}
+                          </select>
+                        </div>
+                      )}
+
                       <div>
                         <Label className="text-sm font-medium">تغيير كلمة المرور</Label>
                         <Input
@@ -948,6 +985,111 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                                 <input
                                   type="checkbox"
                                   checked={expandedUserData.permissions?.includes('audit_access') || false}
+                                  onChange={() => { }}
+                                  className="w-5 h-5 rounded border-gray-300 text-secondary focus:ring-secondary"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Can Manage Absences */}
+                            <div
+                              onClick={() => {
+                                const perms = expandedUserData.permissions || []
+                                const hasPerm = perms.includes('can_manage_absences')
+                                const newPerms = hasPerm
+                                  ? perms.filter((p: string) => p !== 'can_manage_absences')
+                                  : [...perms, 'can_manage_absences']
+                                setExpandedUserData({ ...expandedUserData, permissions: newPerms })
+                              }}
+                              className={`p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${expandedUserData.permissions?.includes('can_manage_absences')
+                                ? 'border-secondary bg-secondary/10 shadow-sm'
+                                : 'border-gray-200 hover:border-secondary/30 hover:bg-gray-50'
+                                }`}
+                            >
+                              <div className="flex items-start gap-3">
+                                <div className={`p-2 rounded-lg ${expandedUserData.permissions?.includes('can_manage_absences')
+                                  ? 'bg-secondary text-white'
+                                  : 'bg-gray-100 text-gray-600'
+                                  }`}>
+                                  <CalendarCheck className="w-5 h-5" />
+                                </div>
+                                <div className="flex-1">
+                                  <p className="font-medium text-sm">إدارة الغيابات</p>
+                                  <p className="text-xs text-muted-foreground mt-1">تسجيل وتعديل غيابات الطلاب في المواد الدراسية</p>
+                                </div>
+                                <input
+                                  type="checkbox"
+                                  checked={expandedUserData.permissions?.includes('can_manage_absences') || false}
+                                  onChange={() => { }}
+                                  className="w-5 h-5 rounded border-gray-300 text-secondary focus:ring-secondary"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Manage Terms */}
+                            <div
+                              onClick={() => {
+                                const perms = expandedUserData.permissions || []
+                                const hasPerm = perms.includes('manage_terms')
+                                const newPerms = hasPerm
+                                  ? perms.filter((p: string) => p !== 'manage_terms')
+                                  : [...perms, 'manage_terms']
+                                setExpandedUserData({ ...expandedUserData, permissions: newPerms })
+                              }}
+                              className={`p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${expandedUserData.permissions?.includes('manage_terms')
+                                ? 'border-secondary bg-secondary/10 shadow-sm'
+                                : 'border-gray-200 hover:border-secondary/30 hover:bg-gray-50'
+                                }`}
+                            >
+                              <div className="flex items-start gap-3">
+                                <div className={`p-2 rounded-lg ${expandedUserData.permissions?.includes('manage_terms')
+                                  ? 'bg-secondary text-white'
+                                  : 'bg-gray-100 text-gray-600'
+                                  }`}>
+                                  <CalendarDays className="w-5 h-5" />
+                                </div>
+                                <div className="flex-1">
+                                  <p className="font-medium text-sm">إدارة الأترام</p>
+                                  <p className="text-xs text-muted-foreground mt-1">إضافة وتعديل الأترام الدراسية في النظام</p>
+                                </div>
+                                <input
+                                  type="checkbox"
+                                  checked={expandedUserData.permissions?.includes('manage_terms') || false}
+                                  onChange={() => { }}
+                                  className="w-5 h-5 rounded border-gray-300 text-secondary focus:ring-secondary"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Manage Levels & Subjects */}
+                            <div
+                              onClick={() => {
+                                const perms = expandedUserData.permissions || []
+                                const hasPerm = perms.includes('manage_levels')
+                                const newPerms = hasPerm
+                                  ? perms.filter((p: string) => p !== 'manage_levels')
+                                  : [...perms, 'manage_levels']
+                                setExpandedUserData({ ...expandedUserData, permissions: newPerms })
+                              }}
+                              className={`p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${expandedUserData.permissions?.includes('manage_levels')
+                                ? 'border-secondary bg-secondary/10 shadow-sm'
+                                : 'border-gray-200 hover:border-secondary/30 hover:bg-gray-50'
+                                }`}
+                            >
+                              <div className="flex items-start gap-3">
+                                <div className={`p-2 rounded-lg ${expandedUserData.permissions?.includes('manage_levels')
+                                  ? 'bg-secondary text-white'
+                                  : 'bg-gray-100 text-gray-600'
+                                  }`}>
+                                  <BookOpen className="w-5 h-5" />
+                                </div>
+                                <div className="flex-1">
+                                  <p className="font-medium text-sm">إدارة المستويات والمواد</p>
+                                  <p className="text-xs text-muted-foreground mt-1">إضافة وتعديل المستويات الدراسية والمواد</p>
+                                </div>
+                                <input
+                                  type="checkbox"
+                                  checked={expandedUserData.permissions?.includes('manage_levels') || false}
                                   onChange={() => { }}
                                   className="w-5 h-5 rounded border-gray-300 text-secondary focus:ring-secondary"
                                 />

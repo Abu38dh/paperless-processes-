@@ -309,8 +309,15 @@ export default function RequestDetail({ request, onEdit, onBack, userId, showHis
       {/* Dynamic Request Details (submission data) */}
       {(() => {
         // Handle both type structures
-        const submissionData = request.submissionData || (request as any).submission_data;
-        const schema = request.formSchema || (request as any).form_templates?.schema;
+        let submissionData = request.submissionData || (request as any).submission_data;
+        let schema = request.formSchema || (request as any).form_templates?.schema;
+
+        if (typeof schema === 'string') {
+          try { schema = JSON.parse(schema); } catch (e) {}
+        }
+        if (typeof submissionData === 'string') {
+          try { submissionData = JSON.parse(submissionData); } catch (e) {}
+        }
 
         if (Array.isArray(schema) && submissionData && Object.keys(submissionData).length > 0) {
           return (
@@ -387,7 +394,10 @@ export default function RequestDetail({ request, onEdit, onBack, userId, showHis
                             })()
                           ) :
                             field.type === 'date' ? new Date(value).toLocaleDateString('ar-EG') :
-                              String(value)}
+                            field.type === 'absence_picker' && typeof value === 'object' && value !== null ? (
+                               `المادة: ${(value as any).subjectName || (value as any).subjectId}، التاريخ: ${(value as any).date}`
+                            ) :
+                              typeof value === 'object' ? JSON.stringify(value) : String(value)}
                       </span>
                     </div>
                   )
@@ -437,8 +447,10 @@ export default function RequestDetail({ request, onEdit, onBack, userId, showHis
                     // Skip raw field_XXXXX keys with no schema label
                     if (!displayLabel && key.startsWith('field_')) return null;
 
-                    let displayValue = String(value)
-                    if (key === 'type' && value === 'SYSTEM_DELEGATION') displayValue = "طلب تفويض نظامي"
+                    let displayValue = typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value);
+                    if (schemaField?.type === 'absence_picker' && typeof value === 'object' && value !== null) {
+                        displayValue = `المادة: ${(value as any).subjectName || (value as any).subjectId}، التاريخ: ${(value as any).date}`;
+                    } else if (key === 'type' && value === 'SYSTEM_DELEGATION') displayValue = "طلب تفويض نظامي"
                     else if (key.includes('date') && typeof value === 'string') {
                       try { displayValue = new Date(value).toLocaleDateString('ar-SA') } catch(e) {}
                     } else if (key === 'delegated_types') {

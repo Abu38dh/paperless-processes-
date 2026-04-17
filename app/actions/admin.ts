@@ -280,6 +280,7 @@ export async function createUser(data: any, requesterId?: string) {
                 email: data.email || null,
                 role_id: parseInt(data.role_id),
                 department_id: data.department_id ? parseInt(data.department_id) : null,
+                level_id: data.level_id ? parseInt(data.level_id) : null,
                 custom_permissions: customPermissions ? JSON.stringify(customPermissions) : null
             }
         })
@@ -313,6 +314,9 @@ export async function updateUser(userId: number, data: any, requesterId?: string
         if (data.role_id) updateData.role_id = parseInt(data.role_id)
         if (data.department_id !== undefined) {
             updateData.department_id = data.department_id ? parseInt(data.department_id) : null
+        }
+        if (data.level_id !== undefined) {
+            updateData.level_id = data.level_id ? parseInt(data.level_id) : null
         }
         if (data.is_active !== undefined) updateData.is_active = data.is_active
         if (data.permissions !== undefined) {

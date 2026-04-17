@@ -142,19 +142,19 @@ export default function TermsManagementPage({ onBack, currentUserId }: TermsMana
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <div className="flex items-center gap-3 mb-1">
-            <CalendarDays className="w-7 h-7 text-primary" />
-            <h1 className="text-3xl font-bold">إدارة الأترام الدراسية</h1>
+          <div className="flex items-center gap-4 mb-2">
+            <CalendarDays className="w-10 h-10 text-primary border-2 border-primary/10 rounded-xl p-1.5 shadow-sm" />
+            <h1 className="text-4xl font-black tracking-tight text-foreground">إدارة الأترام الدراسية</h1>
           </div>
-          <p className="text-muted-foreground text-sm">أضف وعدّل الفصول الدراسية لتنظيم الطلبات تلقائياً</p>
+          <p className="text-lg text-muted-foreground mt-2">أضف وعدّل الفصول الدراسية لتنظيم الجدول الأكاديمي والطلبات</p>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={openCreateDialog} className="gap-2">
-            <Plus className="w-4 h-4" />
+        <div className="flex gap-3">
+          <Button onClick={openCreateDialog} size="lg" className="gap-2 font-bold px-6 shadow-md transition-all hover:scale-105">
+            <Plus className="w-5 h-5" />
             إضافة ترم جديد
           </Button>
-          <Button onClick={onBack} variant="ghost" className="gap-2">
-            <ArrowRight className="w-4 h-4" />
+          <Button onClick={onBack} variant="secondary" size="lg" className="gap-2 font-semibold">
+            <ArrowRight className="w-5 h-5" />
             رجوع
           </Button>
         </div>

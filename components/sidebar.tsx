@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { FileText, Plus, Settings, BarChart3, Users, Zap, CheckCircle, Inbox, Building2, Share2, CalendarDays, UserCheck } from "lucide-react"
+import { FileText, Plus, Settings, BarChart3, Users, Zap, CheckCircle, Inbox, Building2, Share2, CalendarDays, UserCheck, CalendarMinus } from "lucide-react"
 
 interface SidebarProps {
   currentView: string
@@ -51,6 +51,21 @@ export default function Sidebar({ currentView, onViewChange, userRole = "student
       baseMenu.push({ id: "workflows", label: "مسارات العمل", icon: Zap })
     }
 
+    // Absences management
+    if (hasPermission("can_manage_absences")) {
+      baseMenu.push({ id: "absences", label: "إدارة الغيابات", icon: CalendarMinus })
+    }
+
+    // Terms management
+    if (hasPermission("manage_terms")) {
+      baseMenu.push({ id: "terms", label: "إدارة الأترام", icon: CalendarDays })
+    }
+
+    // Levels & Subjects management
+    if (hasPermission("manage_levels")) {
+      baseMenu.push({ id: "levels", label: "المستويات والمواد", icon: CalendarMinus })
+    }
+
     // Show history only if can review
     if (hasPermission("review_requests")) {
       baseMenu.push({ id: "history", label: "سجل الإجراءات", icon: CheckCircle })
@@ -67,6 +82,7 @@ export default function Sidebar({ currentView, onViewChange, userRole = "student
     student: [
       { id: "requests", label: "الطلبات", icon: FileText },
       { id: "submit", label: "طلب جديد", icon: Plus },
+      { id: "absences", label: "الغيابات", icon: CalendarMinus },
       { id: "settings", label: "الإعدادات", icon: Settings },
     ],
     admin: [
@@ -78,6 +94,7 @@ export default function Sidebar({ currentView, onViewChange, userRole = "student
       { id: "users", label: "إدارة المستخدمين", icon: Users },
       { id: "reports", label: "التقارير", icon: BarChart3 },
       { id: "terms", label: "إدارة الأترام", icon: CalendarDays },
+      { id: "levels", label: "المستويات والمواد", icon: CalendarMinus },
       { id: "employee-kpis", label: "أداء الموظفين", icon: UserCheck },
     ],
     employee: getEmployeeMenu(),
