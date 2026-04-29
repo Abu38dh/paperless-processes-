@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { Button } from "@/components/ui/button"
 import { LogOut, User } from "lucide-react"
@@ -39,7 +39,7 @@ export default function Header({ userType, userName, userId, onLogout, onMenuCli
         )}
         <Image src="/university-logo.png" alt="جامعة العرب" width={40} height={40} className="h-10 w-auto" priority />
         <div>
-          <h1 className="text-lg font-bold text-foreground hidden sm:block">نظام المراسلات</h1>
+          <h1 className="text-lg font-bold text-foreground hidden sm:block">مسار</h1>
           <p className="text-sm text-muted-foreground hidden sm:block">Al-Arab University</p>
         </div>
       </div>
@@ -61,3 +61,4 @@ export default function Header({ userType, userName, userId, onLogout, onMenuCli
     </header>
   )
 }
+

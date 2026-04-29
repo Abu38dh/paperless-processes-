@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -107,12 +107,12 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
 
   const handleSaveWorkflow = async () => {
     if (!workflowName) {
-      toast({ title: "❌ خطأ", description: "يرجى إدخال اسم مسار العمل", variant: "destructive" })
+      toast({ title: " خطأ", description: "يرجى إدخال اسم مسار العمل", variant: "destructive" })
       return
     }
 
     if (steps.length === 0) {
-      toast({ title: "❌ خطأ", description: "يرجى إضافة خطوة واحدة على الأقل", variant: "destructive" })
+      toast({ title: " خطأ", description: "يرجى إضافة خطوة واحدة على الأقل", variant: "destructive" })
       return
     }
 
@@ -137,9 +137,9 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
         })
 
         if (result.success) {
-          toast({ title: "✅ تم التحديث بنجاح" })
+          toast({ title: " تم التحديث بنجاح" })
         } else {
-          toast({ title: "❌ فشل التحديث", description: result.error, variant: "destructive" })
+          toast({ title: " فشل التحديث", description: result.error, variant: "destructive" })
           return
         }
       } else {
@@ -151,9 +151,9 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
         })
 
         if (result.success) {
-          toast({ title: "✅ تم الإضافة بنجاح" })
+          toast({ title: " تم الإضافة بنجاح" })
         } else {
-          toast({ title: "❌ فشلت الإضافة", description: result.error, variant: "destructive" })
+          toast({ title: " فشلت الإضافة", description: result.error, variant: "destructive" })
           return
         }
       }
@@ -161,7 +161,7 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
       resetForm()
       await fetchData()
     } catch (err) {
-      toast({ title: "❌ خطأ", description: "حدث خطأ غير متوقع", variant: "destructive" })
+      toast({ title: " خطأ", description: "حدث خطأ غير متوقع", variant: "destructive" })
     }
   }
 
@@ -201,15 +201,15 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
       const result = await deleteWorkflow(itemToDelete, currentUserId)
 
       if (result.success) {
-        toast({ title: "✅ تم الحذف بنجاح" })
+        toast({ title: " تم الحذف بنجاح" })
         await fetchData()
         setDeleteDialogOpen(false)
         setItemToDelete(null)
       } else {
-        toast({ title: "❌ فشل الحذف", description: result.error, variant: "destructive" })
+        toast({ title: " فشل الحذف", description: result.error, variant: "destructive" })
       }
     } catch (err) {
-      toast({ title: "❌ خطأ", description: "حدث خطأ غير متوقع", variant: "destructive" })
+      toast({ title: " خطأ", description: "حدث خطأ غير متوقع", variant: "destructive" })
     }
   }
 
@@ -1013,3 +1013,5 @@ function SortableStep({ step, index, editingStepIndex, onEdit, onDelete }: any) 
     </div>
   )
 }
+
+

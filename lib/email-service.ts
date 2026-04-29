@@ -1,4 +1,4 @@
-import nodemailer from 'nodemailer';
+﻿import nodemailer from 'nodemailer';
 
 // Create a reusable transporter object using SMTP transport
 // We configure this using environment variables.
@@ -23,12 +23,12 @@ const transporter = nodemailer.createTransport({
 export async function sendEmail(to: string, subject: string, text: string, html?: string): Promise<boolean> {
   // If SMTP is not configured or recipient email is missing, we fail gracefully
   if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    console.warn("⚠️ SMTP credentials are not configured in environment variables. Email will not be sent.");
+    console.warn(" SMTP credentials are not configured in environment variables. Email will not be sent.");
     return false;
   }
 
   if (!to) {
-     console.warn("⚠️ Attempted to send an email but recipient address is missing.");
+     console.warn(" Attempted to send an email but recipient address is missing.");
      return false;
   }
 
@@ -41,10 +41,11 @@ export async function sendEmail(to: string, subject: string, text: string, html?
       html: html || text, // Send HTML if provided, otherwise fallback to text
     });
 
-    console.log(`✅ Email sent successfully to ${to}. Message ID: ${info.messageId}`);
+    console.log(` Email sent successfully to ${to}. Message ID: ${info.messageId}`);
     return true;
   } catch (error) {
-    console.error(`❌ Failed to send email to ${to}:`, error);
+    console.error(` Failed to send email to ${to}:`, error);
     return false;
   }
 }
+

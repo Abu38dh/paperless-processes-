@@ -24,12 +24,13 @@ model attachments {
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model colleges {
-  college_id  Int           @id @default(autoincrement())
-  name        String        @unique @db.VarChar
-  dean_id     Int?
-  created_at  DateTime?     @default(now()) @db.Timestamp(6)
-  users       users?        @relation(fields: [dean_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
-  departments departments[]
+  college_id    Int           @id @default(autoincrement())
+  name          String        @unique @db.VarChar
+  dean_id       Int?
+  show_absences Boolean       @default(true)
+  created_at    DateTime?     @default(now()) @db.Timestamp(6)
+  users         users?        @relation(fields: [dean_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+  departments   departments[]
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
@@ -53,6 +54,8 @@ model departments {
   dept_name                              String   @db.VarChar
   college_id                             Int?
   manager_id                             Int?
+  is_academic                            Boolean? @default(true)
+  show_absences                          Boolean  @default(true)
   colleges                               colleges? @relation(fields: [college_id], references: [college_id], onDelete: NoAction, onUpdate: NoAction)
   users_departments_manager_idTousers    users?   @relation("departments_manager_idTousers", fields: [manager_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
   users_users_department_idTodepartments users[]  @relation("users_department_idTodepartments")
@@ -241,6 +244,7 @@ model levels {
   name          String       @db.VarChar
   order         Int          @default(0) // for sorting within the department
   department_id Int?         // which department this level belongs to
+  show_absences Boolean      @default(true)
   created_at    DateTime?    @default(now()) @db.Timestamp(6)
   level_terms   level_terms[]
   users         users[]

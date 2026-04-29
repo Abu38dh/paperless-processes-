@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -64,3 +64,4 @@ export function FilePreviewDialog({ open, onOpenChange, file }: FilePreviewDialo
         </Dialog>
     )
 }
+

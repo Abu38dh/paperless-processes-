@@ -1,4 +1,4 @@
-import type React from "react"
+﻿import type React from "react"
 import { RequestProvider } from "@/contexts/request-context"
 import { Toaster } from "@/components/ui/toaster"
 import { Toaster as SonnerToaster } from "@/components/ui/sonner"
@@ -9,8 +9,8 @@ import "./globals.css"
 const cairo = Cairo({ subsets: ["arabic"] })
 
 export const metadata: Metadata = {
-  title: "نظام المراسلات - Al-Arab University",
-  description: "University Correspondence System",
+  title: "مسار - جامعة العرب",
+  description: "نظام مسار للمراسلات الجامعية - جامعة العرب",
 
 }
 
@@ -32,3 +32,4 @@ export default function RootLayout({
     </html>
   )
 }
+

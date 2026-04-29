@@ -1,4 +1,4 @@
-'use server'
+﻿'use server'
 
 import { signIn, signOut } from '@/auth'
 import { AuthError } from 'next-auth'
@@ -25,3 +25,4 @@ export async function authenticate(
 export async function logout() {
     await signOut()
 }
+

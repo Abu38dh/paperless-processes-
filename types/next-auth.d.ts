@@ -1,4 +1,4 @@
-import NextAuth, { DefaultSession } from "next-auth"
+﻿import NextAuth, { DefaultSession } from "next-auth"
 
 declare module "next-auth" {
     /**
@@ -30,3 +30,4 @@ declare module "next-auth/jwt" {
         department_id?: number | null
     }
 }
+

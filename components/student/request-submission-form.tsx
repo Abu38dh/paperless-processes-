@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import type React from "react"
 
@@ -163,7 +163,7 @@ export default function RequestSubmissionForm({
 
             {error && (
               <div className="bg-destructive/10 border border-destructive/20 text-destructive p-4 rounded-lg text-sm flex items-start gap-3">
-                <span className="text-lg">⚠️</span>
+                <span className="text-lg"></span>
                 <span>{error}</span>
               </div>
             )}
@@ -344,7 +344,7 @@ export default function RequestSubmissionForm({
                             <div className="space-y-1">
                               <p className="text-base font-medium text-foreground">
                                 {formData[field.key] ? (
-                                  <span className="text-primary font-bold">تم رفع الملف بنجاح ✅</span>
+                                  <span className="text-primary font-bold">تم رفع الملف بنجاح </span>
                                 ) : "اضغط لرفع ملف"}
                               </p>
                               {!formData[field.key] && (
@@ -439,3 +439,4 @@ export default function RequestSubmissionForm({
     </div>
   )
 }
+

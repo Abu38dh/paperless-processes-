@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server"
+﻿import { NextRequest } from "next/server"
 import { auth } from "@/auth"
 import { firestore } from "@/lib/firebase-admin"
 
@@ -91,3 +91,4 @@ export async function GET(req: NextRequest) {
         },
     })
 }
+

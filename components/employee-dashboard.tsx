@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import type React from "react"
 import { useState, useEffect } from "react"
@@ -505,7 +505,7 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                   {inboxRequests.length === 0 ? (
                     <div className="p-6">
                       <EmptyState
-                        icon="✅"
+                        icon=""
                         title="لا توجد طلبات قيد الانتظار"
                         description="صندوق الوارد فارغ. سيتم عرض الطلبات الجديدة هنا."
                       />
@@ -773,7 +773,7 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                                     })
                                   })()
                                 ) : (
-                                  <p className="text-sm text-yellow-600 bg-yellow-50 p-3 rounded border border-yellow-200">⚠️ لم يتم العثور على بيانات لهذا الطلب (بيانات فارغة)</p>
+                                  <p className="text-sm text-yellow-600 bg-yellow-50 p-3 rounded border border-yellow-200"> لم يتم العثور على بيانات لهذا الطلب (بيانات فارغة)</p>
                                 )}
                               </CardContent>
                             </Card>
@@ -786,7 +786,7 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                               <CardContent className="space-y-4">
                                 {!hasPermission('review_requests') ? (
                                   <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg text-center">
-                                    <p className="text-yellow-800 font-medium">⚠️ ليس لديك صلاحية لمراجعة الطلبات</p>
+                                    <p className="text-yellow-800 font-medium"> ليس لديك صلاحية لمراجعة الطلبات</p>
                                     <p className="text-yellow-600 text-sm mt-1">يرجى التواصل مع المدير لمنحك الصلاحيات المطلوبة</p>
                                   </div>
                                 ) : (
@@ -1520,4 +1520,5 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
     </div>
   )
 }
+
 

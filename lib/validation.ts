@@ -1,4 +1,4 @@
-import { z } from "zod"
+﻿import { z } from "zod"
 
 /**
  * Validation schemas for backend operations
@@ -151,3 +151,4 @@ export function validateFile(file: File, maxSizeMB: number = 10, allowedTypes: s
 
     return { success: true }
 }
+

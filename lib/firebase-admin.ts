@@ -1,4 +1,4 @@
-import "server-only"
+﻿import "server-only"
 import admin from 'firebase-admin'
 import fs from 'fs'
 import path from 'path'
@@ -41,3 +41,4 @@ export const firestore = admin.apps.length ? admin.firestore() : {
         add: async () => { throw new Error("Firebase Admin not initialized") }
     })
 } as any
+

@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client'
+﻿import { PrismaClient } from '@prisma/client'
 import * as bcrypt from 'bcryptjs'
 
 // @ts-ignore
@@ -50,7 +50,7 @@ async function main() {
         },
     })
 
-    console.log('✅ Seeding finished.')
+    console.log(' Seeding finished.')
 }
 
 main()
@@ -62,3 +62,4 @@ main()
         await prisma.$disconnect()
         process.exit(1)
     })
+

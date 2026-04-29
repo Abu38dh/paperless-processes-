@@ -1,4 +1,4 @@
-"use server"
+﻿"use server"
 
 import { db } from "@/lib/db"
 import { revalidatePath } from "next/cache"
@@ -12,7 +12,7 @@ import { logAuditAction } from "./audit"
 export async function getAllColleges() {
     try {
         const collegesRaw = await db.$queryRaw<any[]>`
-            SELECT c.college_id, c.name, c.dean_id, u.full_name AS dean_name
+            SELECT c.college_id, c.name, c.dean_id, c.show_absences, u.full_name AS dean_name
             FROM colleges c
             LEFT JOIN users u ON u.user_id = c.dean_id
             ORDER BY c.name ASC
@@ -29,6 +29,7 @@ export async function getAllColleges() {
             college_id: Number(c.college_id),
             name: c.name,
             dean_id: c.dean_id ? Number(c.dean_id) : null,
+            show_absences: c.show_absences,
             users: c.dean_id ? { full_name: c.dean_name } : null,
             departments: deptsRaw
                 .filter((d: any) => d.college_id && Number(d.college_id) === Number(c.college_id))
@@ -44,6 +45,31 @@ export async function getAllColleges() {
         return { success: true, data }
     } catch (error) {
         return { success: false, error: "فشل في تحميل الكليات" }
+    }
+}
+
+/**
+ * Get all non-student active users as dean candidates
+ */
+export async function getDeanCandidates() {
+    try {
+        const users = await db.$queryRaw<any[]>`
+            SELECT u.user_id, u.full_name, u.university_id, r.role_name
+            FROM users u
+            JOIN roles r ON r.role_id = u.role_id
+            WHERE u.is_active = true
+              AND r.role_name != 'student'
+            ORDER BY u.full_name ASC
+        `
+        const data = users.map((u: any) => ({
+            user_id: Number(u.user_id),
+            full_name: u.full_name,
+            university_id: u.university_id,
+            roles: { role_name: u.role_name }
+        }))
+        return { success: true, data }
+    } catch (error) {
+        return { success: false, error: "فشل في تحميل قائمة المرشحين للعمادة" }
     }
 }
 
@@ -127,6 +153,7 @@ export async function updateCollege(
     data: {
         name?: string
         dean_id?: number | null
+        show_absences?: boolean
     },
     requesterId?: string
 ) {
@@ -134,6 +161,7 @@ export async function updateCollege(
         const updateData: any = {}
         if (data.name !== undefined) updateData.name = data.name
         if (data.dean_id !== undefined) updateData.dean_id = data.dean_id
+        if (data.show_absences !== undefined) updateData.show_absences = data.show_absences
 
         const college = await db.colleges.update({
             where: { college_id: collegeId },
@@ -200,6 +228,8 @@ export async function getAllDepartments() {
                 d.dept_name,
                 d.college_id,
                 d.manager_id,
+                d.is_academic,
+                d.show_absences,
                 c.name AS college_name,
                 u.full_name AS manager_name
             FROM departments d
@@ -213,6 +243,8 @@ export async function getAllDepartments() {
             dept_name: r.dept_name,
             college_id: r.college_id ? Number(r.college_id) : null,
             manager_id: r.manager_id ? Number(r.manager_id) : null,
+            is_academic: r.is_academic,
+            show_absences: r.show_absences,
             colleges: r.college_id ? { college_id: Number(r.college_id), name: r.college_name } : null,
             users_departments_manager_idTousers: r.manager_id ? { full_name: r.manager_name } : null,
         }))
@@ -232,13 +264,15 @@ export async function createDepartment(data: {
     dept_name: string
     college_id?: number | null
     manager_id?: number | null
+    is_academic?: boolean
 }, requesterId?: string) {
     try {
         const department = await db.departments.create({
             data: {
                 dept_name: data.dept_name,
                 college_id: data.college_id || null,
-                manager_id: data.manager_id || null
+                manager_id: data.manager_id || null,
+                is_academic: data.is_academic !== undefined ? data.is_academic : true
             }
         })
 
@@ -249,9 +283,9 @@ export async function createDepartment(data: {
 
         // revalidatePath('/admin')
         return { success: true, data: department }
-    } catch (error) {
+    } catch (error: any) {
         console.error("Create Department Error:", error)
-        return { success: false, error: "فشل في إنشاء القسم" }
+        return { success: false, error: "فشل في إنشاء القسم: " + (error.message || String(error)) }
     }
 }
 
@@ -264,6 +298,7 @@ export async function updateDepartment(
         dept_name?: string
         college_id?: number
         manager_id?: number | null
+        is_academic?: boolean
     },
     requesterId?: string
 ) {
@@ -272,6 +307,7 @@ export async function updateDepartment(
         if (data.dept_name !== undefined) updateData.dept_name = data.dept_name
         if (data.college_id !== undefined) updateData.college_id = data.college_id
         if (data.manager_id !== undefined) updateData.manager_id = data.manager_id
+        if (data.is_academic !== undefined) updateData.is_academic = data.is_academic
 
         const department = await db.departments.update({
             where: { department_id: departmentId },
@@ -373,3 +409,49 @@ export async function getEligibleManagers() {
         return { success: false, error: "فشل في تحميل المستخدمين المؤهلين" }
     }
 }
+
+/**
+ * Toggle absence visibility for a college
+ */
+export async function updateCollegeAbsenceVisibility(collegeId: number, showAbsences: boolean) {
+    try {
+        await db.$executeRaw`
+            UPDATE colleges SET show_absences = ${showAbsences} WHERE college_id = ${collegeId}
+        `
+        return { success: true }
+    } catch (error) {
+        console.error("Update College Absence Visibility Error:", error)
+        return { success: false, error: "فشل في تحديث إعداد الغيابات للكلية" }
+    }
+}
+
+/**
+ * Toggle absence visibility for a department
+ */
+export async function updateDepartmentAbsenceVisibility(departmentId: number, showAbsences: boolean) {
+    try {
+        await db.$executeRaw`
+            UPDATE departments SET show_absences = ${showAbsences} WHERE department_id = ${departmentId}
+        `
+        return { success: true }
+    } catch (error) {
+        console.error("Update Department Absence Visibility Error:", error)
+        return { success: false, error: "فشل في تحديث إعداد الغيابات للقسم" }
+    }
+}
+
+/**
+ * Toggle absence visibility for an academic level
+ */
+export async function updateLevelAbsenceVisibility(levelId: number, showAbsences: boolean) {
+    try {
+        await db.$executeRaw`
+            UPDATE levels SET show_absences = ${showAbsences} WHERE level_id = ${levelId}
+        `
+        return { success: true }
+    } catch (error) {
+        console.error("Update Level Absence Visibility Error:", error)
+        return { success: false, error: "فشل في تحديث إعداد الغيابات للمستوى" }
+    }
+}
+

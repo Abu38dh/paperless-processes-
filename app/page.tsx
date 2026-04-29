@@ -1,4 +1,4 @@
-import { auth } from "@/auth"
+﻿import { auth } from "@/auth"
 import LoginPage from "@/components/login-page"
 import StudentDashboard from "@/components/student-dashboard"
 import EmployeeDashboard from "@/components/employee-dashboard"
@@ -45,4 +45,5 @@ export default async function Home() {
       return <StudentDashboard userData={userData as any} onLogout={logout} />
   }
 }
+
 

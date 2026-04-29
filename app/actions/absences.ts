@@ -1,6 +1,7 @@
-"use server"
+﻿"use server"
 
 import { db } from "@/lib/db"
+import { Prisma } from "@prisma/client"
 import { revalidatePath } from "next/cache"
 
 // ============================================================
@@ -36,14 +37,14 @@ export async function getCollegesWithDepartments(employeeId?: string) {
         }
 
         const deptsRaw = await db.$queryRaw<any[]>`
-            SELECT department_id, dept_name, college_id FROM departments ORDER BY dept_name ASC
+            SELECT department_id, dept_name, college_id, show_absences FROM departments WHERE is_academic = true ORDER BY dept_name ASC
         `
         const levelsRaw = await db.$queryRaw<any[]>`
-            SELECT l.level_id, l.name, l."order", l.department_id,
+            SELECT l.level_id, l.name, l."order", l.department_id, l.show_absences,
                    COUNT(DISTINCT u.user_id)::int AS user_count
             FROM levels l
             LEFT JOIN users u ON u.level_id = l.level_id
-            GROUP BY l.level_id, l.name, l."order", l.department_id
+            GROUP BY l.level_id, l.name, l."order", l.department_id, l.show_absences
             ORDER BY l."order" ASC
         `
         const termsRaw = await db.$queryRaw<any[]>`
@@ -60,10 +61,12 @@ export async function getCollegesWithDepartments(employeeId?: string) {
                 .filter((d: any) => d.college_id === c.college_id)
                 .map((d: any) => ({
                     ...d,
+                    show_absences: d.show_absences,
                     levels: levelsRaw
                         .filter((l: any) => l.department_id === d.department_id)
                         .map((l: any) => ({
                             ...l,
+                            show_absences: l.show_absences,
                             order: Number(l.order),
                             _count: { users: Number(l.user_count) },
                             terms: termsRaw
@@ -115,7 +118,7 @@ export async function getLevels(employeeId?: string) {
                 LEFT JOIN departments d ON d.department_id = l.department_id
                 LEFT JOIN colleges c ON c.college_id = d.college_id
                 LEFT JOIN users u ON u.level_id = l.level_id
-                WHERE d.college_id = ${collegeFilter}
+                WHERE d.college_id = ${collegeFilter} AND d.is_academic = true
                 GROUP BY l.level_id, l.name, l."order", l.department_id, d.dept_name, d.college_id, c.name
                 ORDER BY l."order" ASC
             `
@@ -129,6 +132,7 @@ export async function getLevels(employeeId?: string) {
                 LEFT JOIN departments d ON d.department_id = l.department_id
                 LEFT JOIN colleges c ON c.college_id = d.college_id
                 LEFT JOIN users u ON u.level_id = l.level_id
+                WHERE d.is_academic = true
                 GROUP BY l.level_id, l.name, l."order", l.department_id, d.dept_name, d.college_id, c.name
                 ORDER BY l."order" ASC
             `
@@ -367,6 +371,27 @@ export async function getStudentAbsences(studentUniversityId: string) {
             records: s.absences[0]?.absence_records ?? []
         }))
 
+        // Check hierarchy: college → department → level
+        let isHidden = false;
+        if (levelInfo) {
+            const visibilityRows = await db.$queryRaw<any[]>`
+                SELECT
+                    c.show_absences AS college_show,
+                    d.show_absences AS dept_show,
+                    l.show_absences AS level_show
+                FROM levels l
+                LEFT JOIN departments d ON d.department_id = l.department_id
+                LEFT JOIN colleges c ON c.college_id = d.college_id
+                WHERE l.level_id = ${student.level_id}
+            `
+            if (visibilityRows.length > 0) {
+                const v = visibilityRows[0]
+                if (!v.college_show || !v.dept_show || !v.level_show) {
+                    isHidden = true
+                }
+            }
+        }
+
         return {
             success: true,
             student: {
@@ -383,7 +408,8 @@ export async function getStudentAbsences(studentUniversityId: string) {
                     } : null
                 } : null
             },
-            subjects: result
+            subjects: isHidden ? [] : result,
+            isHidden: isHidden
         }
     } catch (e) {
         console.error("getStudentAbsences error:", e)
@@ -426,18 +452,30 @@ export async function addAbsenceRecord(
         const existing = await db.absence_records.findFirst({
             where: { absence_id: absence.absence_id, absence_date: new Date(absenceDate) }
         })
-        if (existing) return { success: false, error: "يوجد غياب مسجل في هذا التاريخ بالفعل" }
-
-        // Create the record
-        await db.absence_records.create({
-            data: {
-                absence_id: absence.absence_id,
-                absence_date: new Date(absenceDate),
-                is_excused: isExcused,
-                notes: notes || null,
-                recorded_by: recorder?.user_id ?? null
+        
+        if (existing) {
+            // If it already exists and is excused (student submitted excuse before employee recorded it)
+            if (existing.is_excused) {
+                // Just update the recorded_by field, keep it excused
+                await db.absence_records.update({
+                    where: { record_id: existing.record_id },
+                    data: { recorded_by: recorder?.user_id ?? null }
+                })
+            } else {
+                return { success: false, error: "يوجد غياب مسجل في هذا التاريخ بالفعل" }
             }
-        })
+        } else {
+            // Create the record
+            await db.absence_records.create({
+                data: {
+                    absence_id: absence.absence_id,
+                    absence_date: new Date(absenceDate),
+                    is_excused: isExcused,
+                    notes: notes || null,
+                    recorded_by: recorder?.user_id ?? null
+                }
+            })
+        }
 
         // Recompute counts
         const [total, excused] = await Promise.all([
@@ -531,19 +569,36 @@ export async function markAbsenceExcusedByRequest(
         const student = await db.users.findUnique({ where: { university_id: studentUniversityId } })
         if (!student) return { success: false, error: "الطالب غير موجود" }
 
-        const absence = await db.absences.findUnique({
-            where: { student_id_subject_id: { student_id: student.user_id, subject_id: subjectId } }
+        const absence = await db.absences.upsert({
+            where: { student_id_subject_id: { student_id: student.user_id, subject_id: subjectId } },
+            create: { student_id: student.user_id, subject_id: subjectId, total_absences: 0, excused_count: 0 },
+            update: {}
         })
-        if (!absence) return { success: false, error: "لا يوجد سجل غياب لهذا الطالب في هذه المادة" }
 
-        // Update matching records
-        await db.absence_records.updateMany({
-            where: {
-                absence_id: absence.absence_id,
-                absence_date: { in: absenceDates.map(d => new Date(d)) }
-            },
-            data: { is_excused: true, request_id: requestId }
-        })
+        // Upsert matching records (auto-create absence if employee didn't add it yet)
+        for (const d of absenceDates) {
+            const dateObj = new Date(d)
+            const existing = await db.absence_records.findFirst({
+                where: { absence_id: absence.absence_id, absence_date: dateObj }
+            })
+
+            if (existing) {
+                await db.absence_records.update({
+                    where: { record_id: existing.record_id },
+                    data: { is_excused: true, request_id: requestId }
+                })
+            } else {
+                await db.absence_records.create({
+                    data: {
+                        absence_id: absence.absence_id,
+                        absence_date: dateObj,
+                        is_excused: true,
+                        request_id: requestId,
+                        notes: 'تم تسجيل العذر آلياً من النظام'
+                    }
+                })
+            }
+        }
 
         // Recompute
         const [total, excused] = await Promise.all([
@@ -567,18 +622,62 @@ export async function markAbsenceExcusedByRequest(
 // ============================================================
 
 /**
+ * Fetches all active students eligible for promotion within a given scope.
+ * Returns hierarchical info (college, dept, level) to allow grouping in the UI.
+ */
+export async function getStudentsForPromotion(scope: 'level' | 'department' | 'global', scopeId?: number) {
+    try {
+        let whereCondition = Prisma.sql`r.role_name = 'student' AND u.is_active = true AND u.user_status = 'active'`
+        if (scope === 'level' && scopeId) {
+            whereCondition = Prisma.sql`${whereCondition} AND u.level_id = ${scopeId}`
+        } else if (scope === 'department' && scopeId) {
+            whereCondition = Prisma.sql`${whereCondition} AND u.department_id = ${scopeId}`
+        }
+
+        const students = await db.$queryRaw<any[]>`
+            WITH RankedLevels AS (
+                SELECT level_id, department_id, "order",
+                       RANK() OVER(PARTITION BY department_id ORDER BY "order" DESC) as rnk
+                FROM levels
+                WHERE department_id IS NOT NULL
+            )
+            SELECT u.user_id, u.full_name, u.university_id,
+                   u.level_id, l.name AS level_name, l."order" AS level_order,
+                   u.department_id, d.dept_name,
+                   c.college_id, c.name AS college_name
+            FROM users u
+            JOIN roles r ON r.role_id = u.role_id
+            LEFT JOIN levels l ON l.level_id = u.level_id
+            LEFT JOIN departments d ON d.department_id = u.department_id
+            LEFT JOIN colleges c ON c.college_id = d.college_id
+            LEFT JOIN RankedLevels rl ON rl.level_id = u.level_id
+            WHERE ${whereCondition}
+              AND (rl.rnk > 1 OR rl.rnk IS NULL)
+            ORDER BY c.name ASC, d.dept_name ASC, l."order" ASC, u.full_name ASC
+        `
+        return { success: true, data: students }
+    } catch (e) {
+        console.error("getStudentsForPromotion error:", e)
+        return { success: false, error: "فشل جلب قائمة الطلاب للترقية" }
+    }
+}
+
+/**
  * Promote all students in a given level to the next level.
  * The nextLevelId must be provided by the caller.
  */
-export async function promoteStudentsToNextLevel(fromLevelId: number, toLevelId: number) {
+export async function promoteStudentsToNextLevel(fromLevelId: number, toLevelId: number, includedStudentIds: number[]) {
     try {
+        if (!includedStudentIds || includedStudentIds.length === 0) return { success: true, count: 0 }
+        
         const result = await db.users.updateMany({
             where: {
                 level_id: fromLevelId,
                 roles: { role_name: 'student' },
-                user_status: 'active'
+                user_status: 'active',
+                user_id: { in: includedStudentIds }
             },
-            data: { level_id: toLevelId }
+            data: { level_id: toLevelId, current_term_id: null }
         })
         return { success: true, count: result.count }
     } catch (e) {
@@ -592,8 +691,10 @@ export async function promoteStudentsToNextLevel(fromLevelId: number, toLevelId:
  * Processes from the highest level downward to avoid students being counted twice.
  * The last level students are skipped (they should be graduated separately).
  */
-export async function promoteAllLevelsInDepartment(departmentId: number) {
+export async function promoteAllLevelsInDepartment(departmentId: number, includedStudentIds: number[]) {
     try {
+        if (!includedStudentIds || includedStudentIds.length === 0) return { success: true, count: 0 }
+
         // Fetch all levels in this department ordered ascending
         const levels = await db.$queryRaw<{ level_id: number; order: number }[]>`
             SELECT level_id, "order"
@@ -609,18 +710,19 @@ export async function promoteAllLevelsInDepartment(departmentId: number) {
         let totalMoved = 0
 
         // Process from second-to-last going up → prevents double-counting
-        // e.g. levels = [L1, L2, L3, L4]
-        // Move L3→L4, then L2→L3, then L1→L2  (skip last level)
         for (let i = levels.length - 2; i >= 0; i--) {
             const fromLevel = levels[i]
             const toLevel = levels[i + 1]
-            const result = await db.$executeRaw`
-                UPDATE users
-                SET level_id = ${toLevel.level_id}, current_term_id = NULL
-                WHERE level_id = ${fromLevel.level_id}
-                  AND user_status = 'active'
-            `
-            totalMoved += result as number
+            
+            const result = await db.users.updateMany({
+                where: {
+                    level_id: fromLevel.level_id,
+                    user_status: 'active',
+                    user_id: { in: includedStudentIds }
+                },
+                data: { level_id: toLevel.level_id, current_term_id: null }
+            })
+            totalMoved += result.count
         }
 
         return { success: true, count: totalMoved }
@@ -635,8 +737,10 @@ export async function promoteAllLevelsInDepartment(departmentId: number) {
  * in a single pass. Processes levels from highest order to lowest to prevent
  * double-counting. Students in the last level of each dept are left alone.
  */
-export async function promoteAllStudentsGlobally() {
+export async function promoteAllStudentsGlobally(includedStudentIds: number[]) {
     try {
+        if (!includedStudentIds || includedStudentIds.length === 0) return { success: true, count: 0 }
+
         // Get all levels ordered by department + order descending
         // so we process highest levels first (prevents double-promote)
         const levels = await db.$queryRaw<{ level_id: number; department_id: number; order: number }[]>`
@@ -661,13 +765,16 @@ export async function promoteAllStudentsGlobally() {
             for (let i = deptLevels.length - 2; i >= 0; i--) {
                 const fromLevel = deptLevels[i]
                 const toLevel   = deptLevels[i + 1]
-                const result = await db.$executeRaw`
-                    UPDATE users
-                    SET level_id = ${toLevel.level_id}, current_term_id = NULL
-                    WHERE level_id    = ${fromLevel.level_id}
-                      AND user_status = 'active'
-                `
-                totalMoved += result as number
+                
+                const result = await db.users.updateMany({
+                    where: {
+                        level_id: fromLevel.level_id,
+                        user_status: 'active',
+                        user_id: { in: includedStudentIds }
+                    },
+                    data: { level_id: toLevel.level_id, current_term_id: null }
+                })
+                totalMoved += result.count
             }
         }
 
@@ -860,3 +967,4 @@ export async function assignStudentLevel(studentUniversityId: string, levelId: n
         return { success: false, error: "فشل تعيين المستوى" }
     }
 }
+

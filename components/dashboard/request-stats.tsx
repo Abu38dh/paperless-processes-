@@ -1,4 +1,4 @@
-import React from "react"
+﻿import React from "react"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 interface RequestStatsProps {
@@ -53,3 +53,4 @@ export function RequestStats({ stats, onStatClick }: RequestStatsProps) {
     </div>
   )
 }
+

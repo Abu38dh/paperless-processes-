@@ -1,4 +1,4 @@
-"use server"
+﻿"use server"
 
 import { db } from "@/lib/db"
 import { revalidatePath } from "next/cache"
@@ -813,3 +813,4 @@ export async function adminRevokeDelegation(delegationId: number, adminUserId: s
         return { success: false, error: "فشل إلغاء التفويض" };
     }
 }
+

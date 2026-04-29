@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
@@ -66,7 +66,7 @@ export default function AbsenceManager({ currentUserId }: AbsenceManagerProps) {
         try {
             const res = await searchStudents(query, currentUserId)
             if (res.success) setSearchResults(res.data ?? [])
-            else toast({ title: "❌ خطأ", description: res.error, variant: "destructive" })
+            else toast({ title: " خطأ", description: res.error, variant: "destructive" })
         } finally {
             setSearching(false)
         }
@@ -95,7 +95,7 @@ export default function AbsenceManager({ currentUserId }: AbsenceManagerProps) {
         try {
             const res = await getStudentAbsences(student.university_id)
             if (res.success) setSubjectData((res as any).subjects ?? [])
-            else toast({ title: "❌ خطأ", description: (res as any).error, variant: "destructive" })
+            else toast({ title: " خطأ", description: (res as any).error, variant: "destructive" })
         } finally {
             setLoadingAbsences(false)
         }
@@ -104,7 +104,7 @@ export default function AbsenceManager({ currentUserId }: AbsenceManagerProps) {
     // Add record
     const handleAddRecord = async (subjectId: number) => {
         if (!newDate) {
-            toast({ title: "❌ خطأ", description: "يرجى تحديد تاريخ الغياب", variant: "destructive" })
+            toast({ title: " خطأ", description: "يرجى تحديد تاريخ الغياب", variant: "destructive" })
             return
         }
         setSaving(true)
@@ -118,7 +118,7 @@ export default function AbsenceManager({ currentUserId }: AbsenceManagerProps) {
                 currentUserId
             )
             if (res.success) {
-                toast({ title: "✅ تم تسجيل الغياب" })
+                toast({ title: " تم تسجيل الغياب" })
                 setNewDate("")
                 setNewIsExcused(false)
                 setNewNotes("")
@@ -127,7 +127,7 @@ export default function AbsenceManager({ currentUserId }: AbsenceManagerProps) {
                 const updated = await getStudentAbsences(selectedStudent.university_id)
                 if (updated.success) setSubjectData((updated as any).subjects ?? [])
             } else {
-                toast({ title: "❌ خطأ", description: (res as any).error, variant: "destructive" })
+                toast({ title: " خطأ", description: (res as any).error, variant: "destructive" })
             }
         } finally {
             setSaving(false)
@@ -141,10 +141,10 @@ export default function AbsenceManager({ currentUserId }: AbsenceManagerProps) {
             if (res.success) {
                 const updated = await getStudentAbsences(selectedStudent.university_id)
                 if (updated.success) setSubjectData((updated as any).subjects ?? [])
-                toast({ title: currentExcused ? "⚠️ تم إلغاء العذر" : "✅ تم التأشير بعذر" })
+                toast({ title: currentExcused ? " تم إلغاء العذر" : " تم التأشير بعذر" })
             }
         } catch {
-            toast({ title: "❌ خطأ", description: "تعذر التحديث", variant: "destructive" })
+            toast({ title: " خطأ", description: "تعذر التحديث", variant: "destructive" })
         }
     }
 
@@ -155,12 +155,12 @@ export default function AbsenceManager({ currentUserId }: AbsenceManagerProps) {
         try {
             const res = await deleteAbsenceRecord(deleteRecordId)
             if (res.success) {
-                toast({ title: "✅ تم حذف السجل" })
+                toast({ title: " تم حذف السجل" })
                 setDeleteRecordId(null)
                 const updated = await getStudentAbsences(selectedStudent.university_id)
                 if (updated.success) setSubjectData((updated as any).subjects ?? [])
             } else {
-                toast({ title: "❌ خطأ", description: (res as any).error, variant: "destructive" })
+                toast({ title: " خطأ", description: (res as any).error, variant: "destructive" })
             }
         } finally {
             setDeleting(false)
@@ -654,3 +654,4 @@ export default function AbsenceManager({ currentUserId }: AbsenceManagerProps) {
         </div>
     )
 }
+

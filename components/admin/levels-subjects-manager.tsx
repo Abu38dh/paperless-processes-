@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast"
 import {
     Plus, Trash2, Edit2, Save, X, BookOpen, Layers,
     GraduationCap, Users, Loader2, Building2, School,
-    CalendarCheck, ArrowLeftRight, ChevronLeft
+    CalendarCheck, ArrowLeftRight, ChevronLeft, Eye, EyeOff
 } from "lucide-react"
 import {
     getCollegesWithDepartments, createLevel, updateLevel, deleteLevel,
@@ -21,10 +21,16 @@ import {
     promoteAllLevelsInDepartment, promoteAllStudentsGlobally
 } from "@/app/actions/absences"
 import {
+    updateCollegeAbsenceVisibility,
+    updateDepartmentAbsenceVisibility,
+    updateLevelAbsenceVisibility
+} from "@/app/actions/organizations"
+import {
     AlertDialog, AlertDialogAction, AlertDialogCancel,
     AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
     AlertDialogHeader, AlertDialogTitle
 } from "@/components/ui/alert-dialog"
+import { PromoteStudentsDialog, PromotionScope } from "./promote-students-dialog"
 
 interface LevelsSubjectsManagerProps {
     onBack: () => void
@@ -73,10 +79,6 @@ export default function LevelsSubjectsManager({ currentUserId }: LevelsSubjectsM
     const [editSubjectName, setEditSubjectName] = useState("")
     const [editSubjectCode, setEditSubjectCode] = useState("")
 
-    // Dialogs
-    const [promoteDialog, setPromoteDialog] = useState<{
-        fromLevelId: number; toLevelId: number; fromName: string; toName: string
-    } | null>(null)
     const [graduateDialog, setGraduateDialog] = useState<{
         levelId: number; levelName: string
     } | null>(null)
@@ -96,10 +98,19 @@ export default function LevelsSubjectsManager({ currentUserId }: LevelsSubjectsM
     const [deleteLevel_, setDeleteLevel_] = useState<number | null>(null)
     const [deleteTerm_, setDeleteTerm_] = useState<number | null>(null)
     const [deleteSubject_, setDeleteSubject_] = useState<number | null>(null)
-    const [bulkPromoteDialog, setBulkPromoteDialog] = useState<{
-        deptId: number; deptName: string; levelCount: number
-    } | null>(null)
-    const [globalPromoteDialog, setGlobalPromoteDialog] = useState(false)
+    
+    const [selectivePromoteDialog, setSelectivePromoteDialog] = useState<{
+        isOpen: boolean;
+        scope: PromotionScope;
+        scopeId?: number;
+        title: string;
+        fromLevelId?: number;
+        toLevelId?: number;
+    }>({
+        isOpen: false,
+        scope: 'global',
+        title: ''
+    })
 
     const load = async () => {
         setLoading(true)
@@ -139,105 +150,121 @@ export default function LevelsSubjectsManager({ currentUserId }: LevelsSubjectsM
 
     // CRUD handlers
     const handleAddLevel = async () => {
-        if (!newLevelName.trim()) return toast({ title: "❌ اسم المستوى مطلوب", variant: "destructive" })
+        if (!newLevelName.trim()) return toast({ title: "اسم المستوى مطلوب", variant: "destructive" })
         setSavingLevel(true)
         const res = await createLevel(newLevelName.trim(), newLevelOrder, selectedDept.department_id)
         setSavingLevel(false)
         if (res.success) {
-            toast({ title: "✅ تم إضافة المستوى" })
-            setNewLevelName(""); setNewLevelOrder(1); setAddingLevel(false)
+            toast({ title: "تم إضافة المستوى بنجاح" })
+            setNewLevelName(""); 
+            setAddingLevel(false);
+            setNewLevelOrder((selectedDept.levels?.length ?? 0) + 2); // Set for next one
             load()
-        } else toast({ title: "❌ خطأ", description: (res as any).error, variant: "destructive" })
+        } else {
+            toast({ title: "خطأ", description: (res as any).error, variant: "destructive" })
+        }
     }
 
     const handleUpdateLevel = async (levelId: number) => {
         const res = await updateLevel(levelId, editLevelName, editLevelOrder)
         if (res.success) {
-            toast({ title: "✅ تم التحديث" })
+            toast({ title: "تم التحديث" })
             setEditingLevelId(null)
             load()
-        } else toast({ title: "❌ خطأ", description: (res as any).error, variant: "destructive" })
+        } else toast({ title: "خطأ", description: (res as any).error, variant: "destructive" })
     }
 
     const handleDeleteLevel = async () => {
         if (!deleteLevel_) return
         const res = await deleteLevel(deleteLevel_)
         if (res.success) {
-            toast({ title: "✅ تم حذف المستوى" })
+            toast({ title: "تم حذف المستوى" })
             setDeleteLevel_(null)
             load()
-        } else toast({ title: "❌ خطأ", description: (res as any).error, variant: "destructive" })
+        } else toast({ title: "خطأ", description: (res as any).error, variant: "destructive" })
     }
 
     const handleAddTerm = async () => {
-        if (!newTermName.trim()) return toast({ title: "❌ اسم الفصل مطلوب", variant: "destructive" })
+        if (!newTermName.trim()) return toast({ title: "اسم الفصل مطلوب", variant: "destructive" })
         setSavingTerm(true)
         const res = await createLevelTerm(newTermName.trim(), newTermOrder, selectedLevel.level_id)
         setSavingTerm(false)
         if (res.success) {
-            toast({ title: "✅ تم إضافة الفصل الدراسي" })
+            toast({ title: "تم إضافة الفصل الدراسي" })
             setNewTermName(""); setNewTermOrder(1); setAddingTerm(false)
             load()
-        } else toast({ title: "❌ خطأ", description: (res as any).error, variant: "destructive" })
+        } else toast({ title: "خطأ", description: (res as any).error, variant: "destructive" })
     }
 
     const handleUpdateTerm = async (termId: number) => {
         const res = await updateLevelTerm(termId, editTermName, editTermOrder)
         if (res.success) {
-            toast({ title: "✅ تم التحديث" })
+            toast({ title: "تم التحديث" })
             setEditingTermId(null)
             load()
-        } else toast({ title: "❌ خطأ", description: (res as any).error, variant: "destructive" })
+        } else toast({ title: "خطأ", description: (res as any).error, variant: "destructive" })
     }
 
     const handleDeleteTerm = async () => {
         if (!deleteTerm_) return
         const res = await deleteLevelTerm(deleteTerm_)
         if (res.success) {
-            toast({ title: "✅ تم حذف الفصل الدراسي" })
+            toast({ title: "تم حذف الفصل الدراسي" })
             setDeleteTerm_(null)
             load()
-        } else toast({ title: "❌ خطأ", description: (res as any).error, variant: "destructive" })
+        } else toast({ title: "خطأ", description: (res as any).error, variant: "destructive" })
     }
 
     const handleAddSubject = async () => {
-        if (!newSubjectName.trim()) return toast({ title: "❌ اسم المادة مطلوب", variant: "destructive" })
+        if (!newSubjectName.trim()) return toast({ title: "اسم المادة مطلوب", variant: "destructive" })
         const res = await createSubject(selectedTerm.term_id, newSubjectName.trim(), newSubjectCode.trim() || undefined)
         if (res.success) {
-            toast({ title: "✅ تم إضافة المادة" })
+            toast({ title: "تم إضافة المادة" })
             setNewSubjectName(""); setNewSubjectCode(""); setAddingSubject(false)
             load()
-        } else toast({ title: "❌ خطأ", description: (res as any).error, variant: "destructive" })
+        } else toast({ title: "خطأ", description: (res as any).error, variant: "destructive" })
     }
 
     const handleUpdateSubject = async (subjectId: number) => {
         const res = await updateSubject(subjectId, editSubjectName, editSubjectCode || undefined)
         if (res.success) {
-            toast({ title: "✅ تم تحديث المادة" })
+            toast({ title: "تم تحديث المادة" })
             setEditingSubjectId(null)
             load()
-        } else toast({ title: "❌ خطأ", description: (res as any).error, variant: "destructive" })
+        } else toast({ title: "خطأ", description: (res as any).error, variant: "destructive" })
     }
 
     const handleDeleteSubject = async () => {
         if (!deleteSubject_) return
         const res = await deleteSubject(deleteSubject_)
         if (res.success) {
-            toast({ title: "✅ تم حذف المادة" })
+            toast({ title: "تم حذف المادة" })
             setDeleteSubject_(null)
             load()
-        } else toast({ title: "❌ خطأ", description: (res as any).error, variant: "destructive" })
+        } else toast({ title: "خطأ", description: (res as any).error, variant: "destructive" })
     }
 
-    const handlePromote = async () => {
-        if (!promoteDialog) return
-        setMigrating(true)
-        const res = await promoteStudentsToNextLevel(promoteDialog.fromLevelId, promoteDialog.toLevelId)
-        setMigrating(false)
-        if (res.success) {
-            toast({ title: `✅ تم ترقية ${(res as any).count} طالب` })
-            setPromoteDialog(null)
-        } else toast({ title: "❌ خطأ", description: (res as any).error, variant: "destructive" })
+    const handlePromoteConfirmation = async (selectedIds: number[]) => {
+        if (selectivePromoteDialog.scope === 'level') {
+            if (!selectivePromoteDialog.fromLevelId || !selectivePromoteDialog.toLevelId) return
+            const res = await promoteStudentsToNextLevel(selectivePromoteDialog.fromLevelId, selectivePromoteDialog.toLevelId, selectedIds)
+            if (res.success) {
+                toast({ title: `تم ترقية ${(res as any).count} طالب` })
+            } else toast({ title: "خطأ", description: (res as any).error, variant: "destructive" })
+        } else if (selectivePromoteDialog.scope === 'department') {
+            if (!selectivePromoteDialog.scopeId) return
+            const res = await promoteAllLevelsInDepartment(selectivePromoteDialog.scopeId, selectedIds)
+            if (res.success) {
+                toast({ title: `تمت الترقية الجماعية — ${(res as any).count} طالب انتقل لمستوى أعلى` })
+            } else toast({ title: "خطأ", description: (res as any).error, variant: "destructive" })
+        } else if (selectivePromoteDialog.scope === 'global') {
+            const res = await promoteAllStudentsGlobally(selectedIds)
+            if (res.success) {
+                toast({ title: `اكتملت الترقية الشاملة — ${(res as any).count} طالب انتقل لمستوى أعلى` })
+            } else toast({ title: "خطأ", description: (res as any).error, variant: "destructive" })
+        }
+        setSelectivePromoteDialog(prev => ({ ...prev, isOpen: false }))
+        load()
     }
 
     const handleGraduate = async () => {
@@ -246,9 +273,9 @@ export default function LevelsSubjectsManager({ currentUserId }: LevelsSubjectsM
         const res = await graduateStudents(graduateDialog.levelId, academicYear)
         setMigrating(false)
         if (res.success) {
-            toast({ title: `✅ تم تخريج ${(res as any).count} طالب` })
+            toast({ title: `تم تخريج ${(res as any).count} طالب` })
             setGraduateDialog(null)
-        } else toast({ title: "❌ خطأ", description: (res as any).error, variant: "destructive" })
+        } else toast({ title: "خطأ", description: (res as any).error, variant: "destructive" })
     }
 
     const handlePromoteTerm = async () => {
@@ -257,9 +284,9 @@ export default function LevelsSubjectsManager({ currentUserId }: LevelsSubjectsM
         const res = await promoteStudentsToNextTerm(promoteTermDialog.fromTermId, promoteTermDialog.toTermId)
         setMigrating(false)
         if (res.success) {
-            toast({ title: `✅ تم نقل ${(res as any).count} طالب إلى ${promoteTermDialog.toName}` })
+            toast({ title: `تم نقل ${(res as any).count} طالب إلى ${promoteTermDialog.toName}` })
             setPromoteTermDialog(null)
-        } else toast({ title: "❌ خطأ", description: (res as any).error, variant: "destructive" })
+        } else toast({ title: "خطأ", description: (res as any).error, variant: "destructive" })
     }
 
     const handleAssignTerm = async () => {
@@ -268,34 +295,13 @@ export default function LevelsSubjectsManager({ currentUserId }: LevelsSubjectsM
         const res = await assignStudentsToTerm(assignTermDialog.levelId, assignTermId)
         setMigrating(false)
         if (res.success) {
-            toast({ title: `✅ تم تعيين الفصل الدراسي لـ ${(res as any).count} طالب` })
+            toast({ title: `تم تعيين الفصل الدراسي لـ ${(res as any).count} طالب` })
             setAssignTermDialog(null)
             setAssignTermId(null)
-        } else toast({ title: "❌ خطأ", description: (res as any).error, variant: "destructive" })
+        } else toast({ title: "خطأ", description: (res as any).error, variant: "destructive" })
     }
 
-    const handleBulkPromote = async () => {
-        if (!bulkPromoteDialog) return
-        setMigrating(true)
-        const res = await promoteAllLevelsInDepartment(bulkPromoteDialog.deptId)
-        setMigrating(false)
-        if (res.success) {
-            toast({ title: `✅ تمت الترقية الجماعية — ${(res as any).count} طالب انتقل لمستوى أعلى` })
-            setBulkPromoteDialog(null)
-            load()
-        } else toast({ title: "❌ خطأ", description: (res as any).error, variant: "destructive" })
-    }
 
-    const handleGlobalPromote = async () => {
-        setMigrating(true)
-        const res = await promoteAllStudentsGlobally()
-        setMigrating(false)
-        if (res.success) {
-            toast({ title: `✅ اكتملت الترقية الشاملة — ${(res as any).count} طالب انتقل لمستوى أعلى` })
-            setGlobalPromoteDialog(false)
-            load()
-        } else toast({ title: "❌ خطأ", description: (res as any).error, variant: "destructive" })
-    }
 
     // Breadcrumb items based on current view
     const breadcrumbs = [
@@ -328,7 +334,11 @@ export default function LevelsSubjectsManager({ currentUserId }: LevelsSubjectsM
                     <Button
                         variant="outline"
                         className="gap-2 border-red-300 text-red-700 hover:bg-red-50 shrink-0 mt-1"
-                        onClick={() => setGlobalPromoteDialog(true)}
+                        onClick={() => setSelectivePromoteDialog({
+                            isOpen: true,
+                            scope: 'global',
+                            title: `ترقية شاملة لكل الجامعة`
+                        })}
                     >
                         <GraduationCap className="w-4 h-4" />
                         ترقية كل الجامعة
@@ -381,26 +391,51 @@ export default function LevelsSubjectsManager({ currentUserId }: LevelsSubjectsM
                                     </CardContent>
                                 </Card>
                             ) : colleges.map((college: any) => (
-                                <button
-                                    key={college.college_id}
-                                    onClick={() => { setSelectedCollege(college); setView("departments") }}
-                                    className="w-full text-right"
-                                >
-                                    <Card className="border-0 shadow-sm hover:shadow-md transition-all group cursor-pointer">
-                                        <CardContent className="p-5 flex items-center gap-4">
-                                            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/20 transition-colors">
-                                                <Building2 className="w-6 h-6 text-primary" />
-                                            </div>
-                                            <div className="flex-1">
-                                                <p className="text-lg font-bold text-foreground group-hover:text-primary transition-colors">{college.name}</p>
-                                                <p className="text-sm text-muted-foreground mt-0.5">{college.departments?.length ?? 0} قسم أكاديمي</p>
-                                            </div>
-                                            <div className="text-sm text-muted-foreground group-hover:text-primary transition-colors font-medium">
-                                                فتح الأقسام ←
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                </button>
+                                <Card key={college.college_id} className="border-0 shadow-sm hover:shadow-md transition-all">
+                                    <CardContent className="p-5 flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                                            <Building2 className="w-6 h-6 text-primary" />
+                                        </div>
+                                        <button
+                                            className="flex-1 text-right"
+                                            onClick={() => { setSelectedCollege(college); setView("departments") }}
+                                        >
+                                            <p className="text-lg font-bold text-foreground hover:text-primary transition-colors">{college.name}</p>
+                                            <p className="text-sm text-muted-foreground mt-0.5">{college.departments?.length ?? 0} قسم أكاديمي</p>
+                                        </button>
+                                        <button
+                                            onClick={async (e) => {
+                                                e.stopPropagation()
+                                                const newVal = !college.show_absences
+                                                // Optimistic update
+                                                setColleges(prev => prev.map(c => 
+                                                    c.college_id === college.college_id ? { ...c, show_absences: newVal } : c
+                                                ))
+                                                if (selectedCollege?.college_id === college.college_id) {
+                                                    setSelectedCollege((prev: any) => prev ? { ...prev, show_absences: newVal } : null)
+                                                }
+                                                
+                                                await updateCollegeAbsenceVisibility(college.college_id, newVal)
+                                                toast({ title: newVal ? "تم إظهار الغيابات للكلية" : "تم إخفاء الغيابات عن الكلية" })
+                                            }}
+                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                                                college.show_absences
+                                                    ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
+                                                    : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+                                            }`}
+                                            title={college.show_absences ? 'إخفاء الغيابات عن طلاب الكلية' : 'إظهار الغيابات لطلاب الكلية'}
+                                        >
+                                            {college.show_absences ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                                            {college.show_absences ? 'ظاهر' : 'مخفي'}
+                                        </button>
+                                        <button
+                                            onClick={() => { setSelectedCollege(college); setView("departments") }}
+                                            className="text-sm text-muted-foreground hover:text-primary transition-colors font-medium shrink-0"
+                                        >
+                                            فتح الأقسام ←
+                                        </button>
+                                    </CardContent>
+                                </Card>
                             ))}
                         </div>
                     )}
@@ -422,26 +457,53 @@ export default function LevelsSubjectsManager({ currentUserId }: LevelsSubjectsM
                                     </CardContent>
                                 </Card>
                             ) : (selectedCollege.departments ?? []).map((dept: any) => (
-                                <button
-                                    key={dept.department_id}
-                                    onClick={() => { setSelectedDept(dept); setView("levels") }}
-                                    className="w-full text-right"
-                                >
-                                    <Card className="border-0 shadow-sm hover:shadow-md transition-all group cursor-pointer">
-                                        <CardContent className="p-5 flex items-center gap-4">
-                                            <div className="w-11 h-11 rounded-xl bg-violet-100 flex items-center justify-center shrink-0 group-hover:bg-violet-200 transition-colors">
-                                                <School className="w-5 h-5 text-violet-600" />
-                                            </div>
-                                            <div className="flex-1">
-                                                <p className="text-base font-bold text-foreground group-hover:text-violet-700 transition-colors">{dept.dept_name}</p>
-                                                <p className="text-sm text-muted-foreground mt-0.5">{dept.levels?.length ?? 0} مستوى دراسي</p>
-                                            </div>
-                                            <div className="text-sm text-muted-foreground group-hover:text-violet-600 transition-colors font-medium">
-                                                فتح المستويات ←
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                </button>
+                                <Card key={dept.department_id} className="border-0 shadow-sm hover:shadow-md transition-all">
+                                    <CardContent className="p-5 flex items-center gap-4">
+                                        <div className="w-11 h-11 rounded-xl bg-violet-100 flex items-center justify-center shrink-0">
+                                            <School className="w-5 h-5 text-violet-600" />
+                                        </div>
+                                        <button className="flex-1 text-right" onClick={() => { setSelectedDept(dept); setView("levels") }}>
+                                            <p className="text-base font-bold text-foreground hover:text-violet-700 transition-colors">{dept.dept_name}</p>
+                                            <p className="text-sm text-muted-foreground mt-0.5">{dept.levels?.length ?? 0} مستوى دراسي</p>
+                                        </button>
+                                        {!selectedCollege.show_absences && (
+                                            <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-1 rounded-full">الكلية مخفية</span>
+                                        )}
+                                        <button
+                                            onClick={async (e) => {
+                                                e.stopPropagation()
+                                                const newVal = !dept.show_absences
+                                                // Optimistic update
+                                                setColleges(prev => prev.map(c => 
+                                                    c.college_id === selectedCollege.college_id
+                                                    ? { ...c, departments: c.departments.map((d: any) => d.department_id === dept.department_id ? { ...d, show_absences: newVal } : d) }
+                                                    : c
+                                                ))
+                                                setSelectedCollege((prev: any) => prev ? {
+                                                    ...prev,
+                                                    departments: prev.departments.map((d: any) => d.department_id === dept.department_id ? { ...d, show_absences: newVal } : d)
+                                                } : null)
+                                                if (selectedDept?.department_id === dept.department_id) {
+                                                    setSelectedDept((prev: any) => prev ? { ...prev, show_absences: newVal } : null)
+                                                }
+                                                
+                                                await updateDepartmentAbsenceVisibility(dept.department_id, newVal)
+                                                toast({ title: newVal ? "تم إظهار الغيابات للقسم" : "تم إخفاء الغيابات عن القسم" })
+                                            }}
+                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                                                dept.show_absences
+                                                    ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
+                                                    : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+                                            }`}
+                                        >
+                                            {dept.show_absences ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                                            {dept.show_absences ? 'ظاهر' : 'مخفي'}
+                                        </button>
+                                        <button onClick={() => { setSelectedDept(dept); setView("levels") }} className="text-sm text-muted-foreground hover:text-violet-600 transition-colors font-medium shrink-0">
+                                            فتح المستويات ←
+                                        </button>
+                                    </CardContent>
+                                </Card>
                             ))}
                         </div>
                     )}
@@ -459,10 +521,11 @@ export default function LevelsSubjectsManager({ currentUserId }: LevelsSubjectsM
                                         <Button
                                             variant="outline"
                                             className="gap-2 border-orange-300 text-orange-700 hover:bg-orange-50"
-                                            onClick={() => setBulkPromoteDialog({
-                                                deptId: selectedDept.department_id,
-                                                deptName: selectedDept.dept_name,
-                                                levelCount: selectedDept.levels.length
+                                            onClick={() => setSelectivePromoteDialog({
+                                                isOpen: true,
+                                                scope: 'department',
+                                                scopeId: selectedDept.department_id,
+                                                title: `ترقية جميع مستويات قسم ${selectedDept.dept_name}`
                                             })}
                                         >
                                             <GraduationCap className="w-4 h-4" />
@@ -470,7 +533,10 @@ export default function LevelsSubjectsManager({ currentUserId }: LevelsSubjectsM
                                         </Button>
                                     )}
                                     <Button
-                                        onClick={() => setAddingLevel(true)}
+                                        onClick={() => {
+                                            setAddingLevel(true);
+                                            setNewLevelOrder((selectedDept.levels?.length ?? 0) + 1);
+                                        }}
                                         className="gap-2"
                                         disabled={addingLevel}
                                     >
@@ -558,19 +624,71 @@ export default function LevelsSubjectsManager({ currentUserId }: LevelsSubjectsM
                                                         <Badge variant="outline" className="text-xs gap-1 border-blue-200 text-blue-700">
                                                             <Users className="w-3 h-3" /> {level._count?.users ?? 0} طالب
                                                         </Badge>
+                                                        {(!selectedCollege?.show_absences || !selectedDept?.show_absences) && (
+                                                            <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-1 rounded-full">
+                                                                {!selectedCollege?.show_absences ? 'الكلية مخفية' : 'القسم مخفي'}
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center gap-2">
+                                                    <button
+                                                        onClick={async (e) => {
+                                                            e.stopPropagation()
+                                                            const newVal = !level.show_absences
+                                                            // Optimistic update
+                                                            setColleges(prev => prev.map(c => 
+                                                                c.college_id === selectedCollege.college_id
+                                                                ? {
+                                                                    ...c,
+                                                                    departments: c.departments.map((d: any) => 
+                                                                        d.department_id === selectedDept.department_id 
+                                                                        ? { ...d, levels: d.levels.map((l: any) => l.level_id === level.level_id ? { ...l, show_absences: newVal } : l) }
+                                                                        : d
+                                                                    )
+                                                                  }
+                                                                : c
+                                                            ))
+                                                            setSelectedCollege((prev: any) => prev ? {
+                                                                ...prev,
+                                                                departments: prev.departments.map((d: any) => 
+                                                                    d.department_id === selectedDept.department_id 
+                                                                    ? { ...d, levels: d.levels.map((l: any) => l.level_id === level.level_id ? { ...l, show_absences: newVal } : l) }
+                                                                    : d
+                                                                )
+                                                            } : null)
+                                                            setSelectedDept((prev: any) => prev ? {
+                                                                ...prev,
+                                                                levels: prev.levels.map((l: any) => l.level_id === level.level_id ? { ...l, show_absences: newVal } : l)
+                                                            } : null)
+                                                            if (selectedLevel?.level_id === level.level_id) {
+                                                                setSelectedLevel((prev: any) => prev ? { ...prev, show_absences: newVal } : null)
+                                                            }
+                                                            
+                                                            await updateLevelAbsenceVisibility(level.level_id, newVal)
+                                                            toast({ title: newVal ? "تم إظهار الغيابات للمستوى" : "تم إخفاء الغيابات عن المستوى" })
+                                                        }}
+                                                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all ${
+                                                            level.show_absences
+                                                                ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
+                                                                : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+                                                        }`}
+                                                    >
+                                                        {level.show_absences ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                                                        {level.show_absences ? 'ظاهر' : 'مخفي'}
+                                                    </button>
                                                     {idx < (selectedDept.levels ?? []).length - 1 && (
                                                         <Button
                                                             size="sm"
                                                             variant="outline"
                                                             className="gap-1.5 text-xs border-amber-300 text-amber-700 hover:bg-amber-50"
-                                                            onClick={() => setPromoteDialog({
+                                                            onClick={() => setSelectivePromoteDialog({
+                                                                isOpen: true,
+                                                                scope: 'level',
+                                                                scopeId: level.level_id,
+                                                                title: `ترقية طلاب ${level.name} إلى ${selectedDept.levels[idx + 1].name}`,
                                                                 fromLevelId: level.level_id,
-                                                                toLevelId: selectedDept.levels[idx + 1].level_id,
-                                                                fromName: level.name,
-                                                                toName: selectedDept.levels[idx + 1].name
+                                                                toLevelId: selectedDept.levels[idx + 1].level_id
                                                             })}
                                                         >
                                                             <ArrowLeftRight className="w-3 h-3" /> ترقية الطلاب
@@ -868,27 +986,14 @@ export default function LevelsSubjectsManager({ currentUserId }: LevelsSubjectsM
             )}
 
             {/* ====== DIALOGS ====== */}
-            <AlertDialog open={!!promoteDialog} onOpenChange={(open) => !open && setPromoteDialog(null)}>
-                <AlertDialogContent dir="rtl">
-                    <AlertDialogHeader>
-                        <AlertDialogTitle className="flex items-center gap-2">
-                            <ArrowLeftRight className="w-5 h-5 text-amber-600" />
-                            ترقية الطلاب إلى المستوى التالي
-                        </AlertDialogTitle>
-                        <AlertDialogDescription>
-                            سيتم نقل جميع الطلاب من <strong>{promoteDialog?.fromName}</strong> إلى <strong>{promoteDialog?.toName}</strong>.
-                            <br /><span className="text-red-600 text-xs font-medium">⚠️ هذا الإجراء لا يمكن التراجع عنه.</span>
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                        <AlertDialogAction onClick={handlePromote} disabled={migrating} className="bg-amber-600 hover:bg-amber-700">
-                            {migrating ? <Loader2 className="w-4 h-4 animate-spin ml-1" /> : null}
-                            تأكيد الترقية
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <PromoteStudentsDialog 
+                isOpen={selectivePromoteDialog.isOpen}
+                onClose={() => setSelectivePromoteDialog(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={handlePromoteConfirmation}
+                scope={selectivePromoteDialog.scope}
+                scopeId={selectivePromoteDialog.scopeId}
+                title={selectivePromoteDialog.title}
+            />
 
             <AlertDialog open={!!graduateDialog} onOpenChange={(open) => !open && setGraduateDialog(null)}>
                 <AlertDialogContent dir="rtl">
@@ -954,49 +1059,7 @@ export default function LevelsSubjectsManager({ currentUserId }: LevelsSubjectsM
                 </AlertDialogContent>
             </AlertDialog>
 
-            {/* ====== Bulk Promote ALL levels dialog ====== */}
-            <AlertDialog open={!!bulkPromoteDialog} onOpenChange={(open) => !open && setBulkPromoteDialog(null)}>
-                <AlertDialogContent dir="rtl">
-                    <AlertDialogHeader>
-                        <AlertDialogTitle className="flex items-center gap-2">
-                            <GraduationCap className="w-5 h-5 text-orange-600" />
-                            ترقية جميع المستويات دفعة واحدة
-                        </AlertDialogTitle>
-                        <AlertDialogDescription asChild>
-                            <div className="space-y-3">
-                                <p>سيتم ترقية جميع طلاب قسم <strong>{bulkPromoteDialog?.deptName}</strong> دفعةً واحدة:</p>
-                                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 space-y-1 text-sm">
-                                    <p className="font-semibold text-orange-800 mb-2">ما الذي سيحدث؟</p>
-                                    <p className="text-orange-700">• طلاب المستوى الأول ← ينتقلون للمستوى الثاني</p>
-                                    <p className="text-orange-700">• طلاب المستوى الثاني ← ينتقلون للمستوى الثالث</p>
-                                    <p className="text-orange-700">• وهكذا لكل المستويات...</p>
-                                    <p className="text-slate-600 mt-2 text-xs">
-                                        ⚠️ طلاب المستوى الأخير لن يُرقَّوا تلقائياً — يجب تخريجهم يدوياً.
-                                    </p>
-                                    <p className="text-slate-600 text-xs">
-                                        🔄 سيتم إعادة تعيين الفصل الدراسي لجميع الطلاب المُرقَّين.
-                                    </p>
-                                </div>
-                                <p className="text-red-600 text-sm font-bold">هذا الإجراء لا يمكن التراجع عنه.</p>
-                            </div>
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                        <AlertDialogAction
-                            onClick={handleBulkPromote}
-                            disabled={migrating}
-                            className="bg-orange-600 hover:bg-orange-700"
-                        >
-                            {migrating ? <Loader2 className="w-4 h-4 animate-spin ml-1" /> : null}
-                            تأكيد — ترقية الجميع
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-
             {/* ====== Promote students to next TERM dialog ====== */}
-
             <AlertDialog open={!!promoteTermDialog} onOpenChange={(open) => !open && setPromoteTermDialog(null)}>
                 <AlertDialogContent dir="rtl">
                     <AlertDialogHeader>
@@ -1010,7 +1073,7 @@ export default function LevelsSubjectsManager({ currentUserId }: LevelsSubjectsM
                             إلى <strong>{promoteTermDialog?.toName}</strong>.
                             <br />
                             <span className="text-amber-700 text-xs font-medium mt-2 block">
-                                ⚠️ يؤثر هذا فقط على الطلاب الذين تم تعيين فصل دراسي لهم مسبقاً.
+                                 يؤثر هذا فقط على الطلاب الذين تم تعيين فصل دراسي لهم مسبقاً.
                             </span>
                         </AlertDialogDescription>
                     </AlertDialogHeader>
@@ -1075,45 +1138,48 @@ export default function LevelsSubjectsManager({ currentUserId }: LevelsSubjectsM
                 </AlertDialogContent>
             </AlertDialog>
 
-            {/* ====== GLOBAL UNIVERSITY-WIDE PROMOTION ====== */}
-            <AlertDialog open={globalPromoteDialog} onOpenChange={setGlobalPromoteDialog}>
-                <AlertDialogContent dir="rtl" className="max-w-lg">
+            <AlertDialog open={!!deleteLevel_} onOpenChange={(open) => !open && setDeleteLevel_(null)}>
+                <AlertDialogContent dir="rtl">
                     <AlertDialogHeader>
-                        <AlertDialogTitle className="flex items-center gap-2 text-red-700">
-                            <GraduationCap className="w-6 h-6 text-red-600" />
-                            ترقية شاملة لكل الجامعة
-                        </AlertDialogTitle>
-                        <AlertDialogDescription asChild>
-                            <div className="space-y-3">
-                                <p className="text-slate-700">
-                                    ستُرقَّى <strong>جميع الطلاب النشطين في كل أقسام الجامعة</strong> دفعة واحدة.
-                                </p>
-                                <div className="bg-red-50 border border-red-200 rounded-lg p-4 space-y-2 text-sm">
-                                    <p className="font-bold text-red-800">⚠️ هذا الإجراء يؤثر على الجامعة كاملة</p>
-                                    <p className="text-red-700">• كل طالب في مستوى سيُنقل للمستوى التالي في قسمه</p>
-                                    <p className="text-red-700">• يشمل هذا جميع الكليات وجميع الأقسام</p>
-                                    <p className="text-red-700">• طلاب المستوى الأخير في كل قسم سيبقون (يجب تخريجهم يدوياً)</p>
-                                    <p className="text-red-700">• سيتم إعادة تعيين الفصل الدراسي لجميع المُرقَّين</p>
-                                </div>
-                                <p className="text-red-700 font-bold text-sm border border-red-300 bg-red-50 px-3 py-2 rounded-lg">
-                                    🚫 هذا الإجراء لا يمكن التراجع عنه تحت أي ظرف. تأكد من صحة القرار.
-                                </p>
-                            </div>
-                        </AlertDialogDescription>
+                        <AlertDialogTitle>تأكيد حذف المستوى</AlertDialogTitle>
+                        <AlertDialogDescription>سيتم حذف المستوى وجميع فصوله ومواده. لا يمكن التراجع عن هذا الإجراء.</AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>إلغاء — الرجوع</AlertDialogCancel>
-                        <AlertDialogAction
-                            onClick={handleGlobalPromote}
-                            disabled={migrating}
-                            className="bg-red-600 hover:bg-red-700"
-                        >
-                            {migrating ? <Loader2 className="w-4 h-4 animate-spin ml-1" /> : null}
-                            نعم — ترقية كل الجامعة
-                        </AlertDialogAction>
+                        <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDeleteLevel} className="bg-destructive hover:bg-destructive/90">حذف المستوى</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            <AlertDialog open={!!deleteTerm_} onOpenChange={(open) => !open && setDeleteTerm_(null)}>
+                <AlertDialogContent dir="rtl">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>تأكيد حذف الفصل الدراسي</AlertDialogTitle>
+                        <AlertDialogDescription>سيتم حذف الفصل وجميع مواده. لا يمكن التراجع عن هذا الإجراء.</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDeleteTerm} className="bg-destructive hover:bg-destructive/90">حذف الفصل</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog open={!!deleteSubject_} onOpenChange={(open) => !open && setDeleteSubject_(null)}>
+                <AlertDialogContent dir="rtl">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>تأكيد حذف المادة الدراسية</AlertDialogTitle>
+                        <AlertDialogDescription>سيتم حذف المادة وجميع سجلات الغيابات المرتبطة بها. لا يمكن التراجع عن هذا الإجراء.</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDeleteSubject} className="bg-destructive hover:bg-destructive/90">حذف المادة</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+
         </div>
     )
 }
+
+

@@ -1,4 +1,4 @@
-import { Loader2 } from "lucide-react"
+﻿import { Loader2 } from "lucide-react"
 import { Card, CardContent, CardHeader } from "./card"
 import { Skeleton } from "./skeleton"
 
@@ -47,3 +47,4 @@ export function ListSkeleton({ items = 5 }: { items?: number }) {
 export function CardSkelet() {
     return <CenteredSpinner />
 }
+

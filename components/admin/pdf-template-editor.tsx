@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useRef, useEffect, FormEvent } from "react"
 import { Button } from "@/components/ui/button"
@@ -353,7 +353,7 @@ export default function PdfTemplateEditor({
                     onClick={() => setShowPreview(true)}
                     className="text-slate-500 hover:text-[#1b9d91] hover:bg-[#1b9d91]/10 gap-2 h-8"
                   >
-                    <span className="text-lg">👁️</span>
+                    <span className="text-lg"></span>
                     <span className="text-xs font-bold">معاينة الوثيقة</span>
                   </Button>
                   
@@ -682,7 +682,7 @@ function AssetsToolbar({
                           className="w-full text-xs flex items-center justify-center gap-1.5 bg-[#1b9d91] text-white hover:bg-[#15877c] py-2 rounded-md transition-colors font-medium cursor-pointer shadow-sm active:scale-[0.98]"
                           onMouseDown={(e) => e.preventDefault()}
                       >
-                          <span>⬇️</span>
+                          <span></span>
                           إدراج في الخطاب
                       </button>
                   </div>
@@ -730,7 +730,7 @@ function AssetsToolbar({
                           className="w-full text-xs flex items-center justify-center gap-1.5 bg-[#1b9d91] text-white hover:bg-[#15877c] py-2 rounded-md transition-colors font-medium cursor-pointer shadow-sm active:scale-[0.98]"
                           onMouseDown={(e) => e.preventDefault()}
                       >
-                          <span>⬇️</span>
+                          <span></span>
                           إدراج في الخطاب
                       </button>
                   </div>
@@ -749,3 +749,5 @@ function AssetsToolbar({
     </div>
   )
 }
+
+

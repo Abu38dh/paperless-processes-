@@ -1,4 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
+﻿const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 async function main() {
     const req = await prisma.requests.findFirst({
@@ -10,3 +10,4 @@ async function main() {
     console.log("TYPE:", typeof req.submission_data);
 }
 main().finally(() => prisma.$disconnect());
+

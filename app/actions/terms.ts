@@ -1,4 +1,4 @@
-"use server"
+﻿"use server"
 
 import { db } from "@/lib/db"
 
@@ -123,3 +123,4 @@ export async function deleteTerm(termId: number): Promise<{ success: boolean; er
         return { success: false, error: "فشل في حذف الترم" }
     }
 }
+

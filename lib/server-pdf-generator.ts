@@ -1,4 +1,4 @@
-import puppeteer from 'puppeteer';
+﻿import puppeteer from 'puppeteer';
 
 interface GeneratePdfOptions {
   htmlContent: string;
@@ -79,4 +79,5 @@ export async function generatePdfServer({ htmlContent, landscape = false }: Gene
     }
   }
 }
+
 

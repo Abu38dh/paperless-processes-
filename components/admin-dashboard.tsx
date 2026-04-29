@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -172,7 +172,7 @@ export default function AdminDashboard({ onLogout, userData }: AdminDashboardPro
                     <h2 className="text-3xl font-bold text-foreground">لوحة التحكم</h2>
 
                   </div>
-                  <p className="text-muted-foreground">إدارة شاملة لنظام المراسلات الجامعية</p>
+                  <p className="text-muted-foreground">إدارة شاملة لنظام مسار الجامعي</p>
                 </div>
               </div>
 
@@ -274,3 +274,4 @@ export default function AdminDashboard({ onLogout, userData }: AdminDashboardPro
     </div>
   )
 }
+

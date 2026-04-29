@@ -1,4 +1,4 @@
-const { Client, LocalAuth } = require('whatsapp-web.js');
+﻿const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const admin = require('firebase-admin');
 const serviceAccount = require('./serviceAccountKey.json');
@@ -48,7 +48,7 @@ client.on('qr', (qr) => {
 });
 
 client.on('ready', () => {
-    console.log('✅ WhatsApp Client is ready!');
+    console.log(' WhatsApp Client is ready!');
     isClientReady = true;
     testConnection();
 });
@@ -58,12 +58,12 @@ client.on('authenticated', () => {
 });
 
 client.on('auth_failure', msg => {
-    console.error('❌ AUTHENTICATION FAILURE', msg);
+    console.error(' AUTHENTICATION FAILURE', msg);
     isClientReady = false;
 });
 
 client.on('disconnected', (reason) => {
-    console.warn('⚠️ WhatsApp disconnected:', reason);
+    console.warn(' WhatsApp disconnected:', reason);
     isClientReady = false;
     console.log('🔄 Attempting to reinitialize...');
     setTimeout(() => {
@@ -78,11 +78,11 @@ async function testConnection() {
     try {
         console.log(`Testing Firestore connection for Project: ${serviceAccount.project_id}...`);
         const collections = await db.listCollections();
-        console.log('✅ Connected to Firestore! Collections:', collections.map(c => c.id).join(', ') || '(Empty)');
+        console.log(' Connected to Firestore! Collections:', collections.map(c => c.id).join(', ') || '(Empty)');
         startListening();
         startRetryLoop();
     } catch (error) {
-        console.error('❌ FATAL: Could not connect to Firestore.');
+        console.error(' FATAL: Could not connect to Firestore.');
         console.error('Error details:', error.message);
     }
 }
@@ -114,12 +114,12 @@ async function sendWhatsAppMessage(phone, message, mediaPath) {
                 await client.sendMessage(chatId, media, { caption: message });
                 return;
             } catch (mediaError) {
-                console.error(`⚠️ Media send failed for ${mediaPath}, falling back to text.`, mediaError.message);
+                console.error(` Media send failed for ${mediaPath}, falling back to text.`, mediaError.message);
                 await client.sendMessage(chatId, message + "\n\n(عذراً، فشل إرسال الملف المرفق)");
                 return;
             }
         } else {
-            console.warn(`⚠️ PDF file not found at path: ${mediaPath} – sending text only`);
+            console.warn(` PDF file not found at path: ${mediaPath} – sending text only`);
         }
     }
 
@@ -133,7 +133,7 @@ async function processQueueDoc(doc) {
 
     // Skip if already being processed or not pending
     if (data.status !== 'pending') {
-        console.log(`⏭️ Skipping doc ${doc.id} – status is '${data.status}'`);
+        console.log(` Skipping doc ${doc.id} – status is '${data.status}'`);
         return;
     }
 
@@ -143,7 +143,7 @@ async function processQueueDoc(doc) {
     try {
         await doc.ref.update({ status: 'processing' });
     } catch (updateErr) {
-        console.error(`⚠️ Could not mark doc ${doc.id} as processing:`, updateErr.message);
+        console.error(` Could not mark doc ${doc.id} as processing:`, updateErr.message);
         return; // Skip if we can't lock it
     }
 
@@ -156,10 +156,10 @@ async function processQueueDoc(doc) {
             retries: retries
         });
 
-        console.log(`✅ Message sent to ${data.phoneNumber} | Retries used: ${retries}`);
+        console.log(` Message sent to ${data.phoneNumber} | Retries used: ${retries}`);
 
     } catch (error) {
-        console.error(`❌ Failed to send to ${data.phoneNumber}:`, error.message);
+        console.error(` Failed to send to ${data.phoneNumber}:`, error.message);
 
         const newRetries = retries + 1;
 
@@ -206,15 +206,15 @@ function startListening() {
 
                 console.log(`📬 ${addedDocs.length} new pending message(s) detected`);
 
-                // ✅ Process sequentially with for...of (correctly awaits each)
+                //  Process sequentially with for...of (correctly awaits each)
                 for (const doc of addedDocs) {
                     await processQueueDoc(doc);
                 }
             } catch (error) {
-                console.error('❌ Firestore listener error during processing:', error);
+                console.error(' Firestore listener error during processing:', error);
             }
         }, error => {
-            console.error('❌ Firestore listener error:', error);
+            console.error(' Firestore listener error:', error);
         });
 }
 
@@ -238,7 +238,7 @@ function startRetryLoop() {
 
             console.log(`🔄 Found ${snapshot.size} message(s) ready for retry.`);
 
-            // ✅ Process sequentially, mark pending first to let the listener pick up
+            //  Process sequentially, mark pending first to let the listener pick up
             for (const doc of snapshot.docs) {
                 // Re-fetch to ensure status hasn't changed
                 const freshDoc = await doc.ref.get();
@@ -253,7 +253,8 @@ function startRetryLoop() {
             }
 
         } catch (err) {
-            console.error('❌ Retry loop error:', err.message);
+            console.error(' Retry loop error:', err.message);
         }
     }, RETRY_POLL_INTERVAL_MS);
 }
+

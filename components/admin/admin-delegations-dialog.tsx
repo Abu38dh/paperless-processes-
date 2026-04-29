@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -79,7 +79,7 @@ export function AdminDelegationsDialog({ user, currentUserId, isOpen, onClose }:
 
   const handleCreate = async () => {
     if (!newDelegation.granteeId || !newDelegation.startDate || !newDelegation.endDate || !newDelegation.reason) {
-      toast({ title: "❌ خطأ", description: "يرجى ملء جميع الحقول المطلوبة (المفوض إليه، التواريخ، السبب)", variant: "destructive" })
+      toast({ title: " خطأ", description: "يرجى ملء جميع الحقول المطلوبة (المفوض إليه، التواريخ، السبب)", variant: "destructive" })
       return
     }
 
@@ -90,7 +90,7 @@ export function AdminDelegationsDialog({ user, currentUserId, isOpen, onClose }:
     today.setHours(0, 0, 0, 0)
 
     if (end < start) {
-        toast({ title: "❌ خطأ", description: "تاريخ النهاية يجب أن يكون بعد تاريخ البداية", variant: "destructive" })
+        toast({ title: " خطأ", description: "تاريخ النهاية يجب أن يكون بعد تاريخ البداية", variant: "destructive" })
         return
     }
 
@@ -106,15 +106,15 @@ export function AdminDelegationsDialog({ user, currentUserId, isOpen, onClose }:
       )
 
       if (res.success) {
-        toast({ title: "✅ تم إنشاء التفويض بنجاح" })
+        toast({ title: " تم إنشاء التفويض بنجاح" })
         setIsCreating(false)
         setNewDelegation({ granteeId: "", startDate: "", endDate: "", reason: "", selectedTypes: [] })
         loadData()
       } else {
-        toast({ title: "❌ خطأ", description: res.error, variant: "destructive" })
+        toast({ title: " خطأ", description: res.error, variant: "destructive" })
       }
     } catch (err) {
-      toast({ title: "❌ خطأ", description: "حدث خطأ غير متوقع", variant: "destructive" })
+      toast({ title: " خطأ", description: "حدث خطأ غير متوقع", variant: "destructive" })
     }
   }
 
@@ -122,13 +122,13 @@ export function AdminDelegationsDialog({ user, currentUserId, isOpen, onClose }:
     try {
       const res = await adminRevokeDelegation(delegationId, currentUserId)
       if (res.success) {
-        toast({ title: "✅ تم إلغاء التفويض بنجاح" })
+        toast({ title: " تم إلغاء التفويض بنجاح" })
         loadData()
       } else {
-         toast({ title: "❌ خطأ", description: res.error, variant: "destructive" })
+         toast({ title: " خطأ", description: res.error, variant: "destructive" })
       }
     } catch (err) {
-       toast({ title: "❌ خطأ", description: "حدث خطأ غير متوقع", variant: "destructive" })
+       toast({ title: " خطأ", description: "حدث خطأ غير متوقع", variant: "destructive" })
     }
   }
 
@@ -281,3 +281,5 @@ export function AdminDelegationsDialog({ user, currentUserId, isOpen, onClose }:
     </Dialog>
   )
 }
+
+

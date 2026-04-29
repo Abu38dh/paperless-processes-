@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 // Force rebuild
 
 import { useState, useEffect, useRef } from "react"
@@ -204,7 +204,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
 
   const addNewUser = async () => {
     if (!newUserName || !newUserUniversityId || !newUserRoleId) {
-      toast({ title: "❌ خطأ", description: "يرجى ملء جميع الحقول المطلوبة", variant: "destructive" })
+      toast({ title: " خطأ", description: "يرجى ملء جميع الحقول المطلوبة", variant: "destructive" })
       return
     }
 
@@ -231,7 +231,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
       const result = await createUser(newUser, currentUserId)
 
       if (result.success) {
-        toast({ title: "✅ تم إضافة المستخدم بنجاح" })
+        toast({ title: " تم إضافة المستخدم بنجاح" })
         setNewUserName("")
         setNewUserEmail("")
         setNewUserUniversityId("")
@@ -250,10 +250,10 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
         setPage(1)
         fetchUsers()
       } else {
-        toast({ title: "❌ فشل الإضافة", description: result.error, variant: "destructive" })
+        toast({ title: " فشل الإضافة", description: result.error, variant: "destructive" })
       }
     } catch (err) {
-      toast({ title: "❌ خطأ", description: "حدث خطأ غير متوقع", variant: "destructive" })
+      toast({ title: " خطأ", description: "حدث خطأ غير متوقع", variant: "destructive" })
     }
   }
 
@@ -269,7 +269,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
       const result = await deleteUser(itemToDelete, currentUserId)
 
       if (result.success) {
-        toast({ title: "✅ تم الحذف بنجاح" })
+        toast({ title: " تم الحذف بنجاح" })
 
         // PERSISTENCE: Remove from local state
         setUsers(prev => prev.filter(u => u.user_id !== itemToDelete))
@@ -280,10 +280,10 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
         setDeleteDialogOpen(false)
         setItemToDelete(null)
       } else {
-        toast({ title: "❌ فشل الحذف", description: result.error, variant: "destructive" })
+        toast({ title: " فشل الحذف", description: result.error, variant: "destructive" })
       }
     } catch (err) {
-      toast({ title: "❌ خطأ", description: "حدث خطأ غير متوقع", variant: "destructive" })
+      toast({ title: " خطأ", description: "حدث خطأ غير متوقع", variant: "destructive" })
     }
   }
 
@@ -303,7 +303,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
       }, currentUserId)
 
       if (result.success) {
-        toast({ title: "✅ تم التحديث بنجاح" })
+        toast({ title: " تم التحديث بنجاح" })
 
         // PERSISTENCE: Update local state without fetching
         setUsers(prev => prev.map(u =>
@@ -315,10 +315,10 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
         setExpandedUserId(null)
         setExpandedUserData({})
       } else {
-        toast({ title: "❌ فشل التحديث", description: result.error, variant: "destructive" })
+        toast({ title: " فشل التحديث", description: result.error, variant: "destructive" })
       }
     } catch (err) {
-      toast({ title: "❌ خطأ", description: "حدث خطأ غير متوقع", variant: "destructive" })
+      toast({ title: " خطأ", description: "حدث خطأ غير متوقع", variant: "destructive" })
     }
   }
 
@@ -327,7 +327,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
     try {
       const result = await updateUser(userId, { is_active: !currentStatus }, currentUserId)
       if (result.success) {
-        toast({ title: currentStatus ? "⛔ تم تعطيل المستخدم" : "✅ تم تفعيل المستخدم" })
+        toast({ title: currentStatus ? " تم تعطيل المستخدم" : " تم تفعيل المستخدم" })
 
         // PERSISTENCE: Update local state
         setUsers(prev => prev.map(u =>
@@ -335,10 +335,10 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
         ))
 
       } else {
-        toast({ title: "❌ فشل التحديث", description: result.error, variant: "destructive" })
+        toast({ title: " فشل التحديث", description: result.error, variant: "destructive" })
       }
     } catch (err) {
-      toast({ title: "❌ خطأ", description: "حدث خطأ غير متوقع", variant: "destructive" })
+      toast({ title: " خطأ", description: "حدث خطأ غير متوقع", variant: "destructive" })
     }
   }
 
@@ -606,13 +606,15 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                           dir="ltr"
                         />
                       </div>
-                      <Button variant="ghost" size="icon" onClick={(e) => {
-                          e.stopPropagation();
-                          setDelegationsUser(user);
-                          setDelegationsDialogOpen(true);
-                        }} className="text-muted-foreground hover:text-primary">
-                        <ArrowRightLeft className="w-4 h-4" />
-                      </Button>
+                      {user.roles?.role_name?.toLowerCase() !== 'student' && (
+                        <Button variant="ghost" size="icon" onClick={(e) => {
+                            e.stopPropagation();
+                            setDelegationsUser(user);
+                            setDelegationsDialogOpen(true);
+                          }} className="text-muted-foreground hover:text-primary">
+                          <ArrowRightLeft className="w-4 h-4" />
+                        </Button>
+                      )}
                       <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleDeleteUser(user.user_id); }} className="text-destructive">
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -1153,3 +1155,5 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
     </div >
   )
 }
+
+

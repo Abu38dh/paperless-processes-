@@ -1,4 +1,4 @@
-"use server"
+﻿"use server"
 
 import { db } from "@/lib/db"
 import { revalidatePath } from "next/cache"
@@ -175,3 +175,4 @@ export function validateFile(file: File, maxSizeMB: number = 10): { success: boo
 
     return { success: true }
 }
+

@@ -1,16 +1,15 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Plus, Edit2, Trash2, ArrowRight, Save, X } from "lucide-react"
+import { Plus, Edit2, Trash2, Save, X } from "lucide-react"
 import { TableSkeleton } from "@/components/ui/loading-skeleton"
 import { ErrorMessage } from "@/components/ui/error-message"
 import { EmptyState } from "@/components/ui/empty-state"
-import { getAllColleges, createCollege, updateCollege, deleteCollege } from "@/app/actions/organizations"
-import { getUsers } from "@/app/actions/admin"
+import { getAllColleges, createCollege, updateCollege, deleteCollege, getDeanCandidates } from "@/app/actions/organizations"
 import { useToast } from "@/hooks/use-toast"
 import {
     AlertDialog,
@@ -39,10 +38,9 @@ export default function AdminCollegesPage({ onBack, currentUserId }: AdminColleg
     const [itemToDelete, setItemToDelete] = useState<number | null>(null)
     const { toast } = useToast()
 
-    // Form state
     const [formData, setFormData] = useState({
         name: "",
-        dean_id: null as number | null
+        dean_id: null as number | null,
     })
 
     useEffect(() => {
@@ -53,9 +51,9 @@ export default function AdminCollegesPage({ onBack, currentUserId }: AdminColleg
         setError(null)
 
         try {
-            const [collegesResult, usersResult] = await Promise.all([
+            const [collegesResult, deansResult] = await Promise.all([
                 getAllColleges(),
-                getUsers()
+                getDeanCandidates()
             ])
 
             if (collegesResult.success && collegesResult.data) {
@@ -64,14 +62,8 @@ export default function AdminCollegesPage({ onBack, currentUserId }: AdminColleg
                 setError(collegesResult.error || "فشل في تحميل الكليات")
             }
 
-            if (usersResult.success && usersResult.data) {
-                // Filter eligible users (employees and admins can be deans)
-                const eligibleUsers = usersResult.data.filter((u: any) =>
-                    u.roles?.role_name === 'dean' ||
-                    u.roles?.role_name === 'employee' ||
-                    u.roles?.role_name === 'admin'
-                )
-                setDeans(eligibleUsers)
+            if (deansResult.success && deansResult.data) {
+                setDeans(deansResult.data)
             }
         } catch (err) {
             console.error("Failed to fetch data:", err)
@@ -83,7 +75,7 @@ export default function AdminCollegesPage({ onBack, currentUserId }: AdminColleg
 
     const handleSubmit = async () => {
         if (!formData.name) {
-            toast({ title: "❌ خطأ", description: "يرجى إدخال اسم الكلية", variant: "destructive" })
+            toast({ title: "خطأ", description: "يرجى إدخال اسم الكلية", variant: "destructive" })
             return
         }
 
@@ -91,24 +83,24 @@ export default function AdminCollegesPage({ onBack, currentUserId }: AdminColleg
             const result = editingId
                 ? await updateCollege(editingId, {
                     name: formData.name,
-                    dean_id: formData.dean_id === null ? undefined : formData.dean_id
+                    dean_id: formData.dean_id === null ? undefined : formData.dean_id,
                 }, currentUserId)
                 : await createCollege({
                     name: formData.name,
-                    dean_id: formData.dean_id === null ? undefined : formData.dean_id
+                    dean_id: formData.dean_id === null ? undefined : formData.dean_id,
                 }, currentUserId)
 
             if (result.success) {
-                toast({ title: `✅ تم ${editingId ? 'التحديث' : 'الإضافة'} بنجاح` })
+                toast({ title: `تم ${editingId ? 'التحديث' : 'الإضافة'} بنجاح` })
                 setFormData({ name: "", dean_id: null })
                 setShowAddForm(false)
                 setEditingId(null)
                 await fetchData()
             } else {
-                toast({ title: "❌ فشلت العملية", description: result.error, variant: "destructive" })
+                toast({ title: "فشلت العملية", description: result.error, variant: "destructive" })
             }
         } catch (err) {
-            toast({ title: "❌ خطأ", description: "حدث خطأ غير متوقع", variant: "destructive" })
+            toast({ title: "خطأ", description: "حدث خطأ غير متوقع", variant: "destructive" })
         }
     }
 
@@ -116,7 +108,7 @@ export default function AdminCollegesPage({ onBack, currentUserId }: AdminColleg
         setEditingId(college.college_id)
         setFormData({
             name: college.name,
-            dean_id: college.dean_id
+            dean_id: college.dean_id,
         })
         setShowAddForm(true)
     }
@@ -133,15 +125,15 @@ export default function AdminCollegesPage({ onBack, currentUserId }: AdminColleg
             const result = await deleteCollege(itemToDelete, currentUserId)
 
             if (result.success) {
-                toast({ title: "✅ تم الحذف بنجاح" })
+                toast({ title: "تم الحذف بنجاح" })
                 await fetchData()
                 setDeleteDialogOpen(false)
                 setItemToDelete(null)
             } else {
-                toast({ title: "❌ فشل الحذف", description: result.error, variant: "destructive" })
+                toast({ title: "فشل الحذف", description: result.error, variant: "destructive" })
             }
         } catch (err) {
-            toast({ title: "❌ خطأ", description: "حدث خطأ غير متوقع", variant: "destructive" })
+            toast({ title: "خطأ", description: "حدث خطأ غير متوقع", variant: "destructive" })
         }
     }
 
@@ -233,7 +225,7 @@ export default function AdminCollegesPage({ onBack, currentUserId }: AdminColleg
             {/* Colleges List */}
             {colleges.length === 0 ? (
                 <EmptyState
-                    icon="🏫"
+                    icon=""
                     title="لا توجد كليات"
                     description="لا توجد كليات في النظام. قم بإضافة كلية جديدة."
                     action={{
@@ -300,3 +292,5 @@ export default function AdminCollegesPage({ onBack, currentUserId }: AdminColleg
         </div>
     )
 }
+
+

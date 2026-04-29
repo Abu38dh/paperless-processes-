@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { Button } from "@/components/ui/button"
 import { FileText, Plus, Settings, BarChart3, Users, Zap, CheckCircle, Inbox, Building2, Share2, CalendarDays, UserCheck, CalendarMinus } from "lucide-react"
@@ -139,3 +139,4 @@ export default function Sidebar({ currentView, onViewChange, userRole = "student
     </aside>
   )
 }
+

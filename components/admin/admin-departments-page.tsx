@@ -1,10 +1,12 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
+import { Badge } from "@/components/ui/badge"
 import { Plus, Edit2, Trash2, ArrowRight, Save, X } from "lucide-react"
 import { TableSkeleton } from "@/components/ui/loading-skeleton"
 import { ErrorMessage } from "@/components/ui/error-message"
@@ -45,7 +47,8 @@ export default function AdminDepartmentsPage({ onBack, currentUserId }: AdminDep
     const [formData, setFormData] = useState({
         dept_name: "",
         college_id: null as number | null,
-        manager_id: null as number | null
+        manager_id: null as number | null,
+        is_academic: true
     })
 
     useEffect(() => {
@@ -90,7 +93,7 @@ export default function AdminDepartmentsPage({ onBack, currentUserId }: AdminDep
 
     const handleSubmit = async () => {
         if (!formData.dept_name) {
-            toast({ title: "❌ خطأ", description: "يرجى إدخال اسم القسم", variant: "destructive" })
+            toast({ title: "خطأ", description: "يرجى إدخال اسم القسم", variant: "destructive" })
             return
         }
 
@@ -104,16 +107,16 @@ export default function AdminDepartmentsPage({ onBack, currentUserId }: AdminDep
                 : await createDepartment({ ...formData, college_id: collegeIdValue || null, manager_id: formData.manager_id || null }, currentUserId)
 
             if (result.success) {
-                toast({ title: `✅ تم ${editingId ? 'التحديث' : 'الإضافة'} بنجاح` })
-                setFormData({ dept_name: "", college_id: null, manager_id: null })
+                toast({ title: `تم ${editingId ? 'التحديث' : 'الإضافة'} بنجاح` })
+                setFormData({ dept_name: "", college_id: null, manager_id: null, is_academic: true })
                 setShowAddForm(false)
                 setEditingId(null)
                 await fetchData()
             } else {
-                toast({ title: "❌ فشلت العملية", description: result.error, variant: "destructive" })
+                toast({ title: "فشلت العملية", description: result.error, variant: "destructive" })
             }
         } catch (err) {
-            toast({ title: "❌ خطأ", description: "حدث خطأ غير متوقع", variant: "destructive" })
+            toast({ title: "خطأ", description: "حدث خطأ غير متوقع", variant: "destructive" })
         }
     }
 
@@ -122,7 +125,8 @@ export default function AdminDepartmentsPage({ onBack, currentUserId }: AdminDep
         setFormData({
             dept_name: dept.dept_name,
             college_id: dept.college_id,
-            manager_id: dept.manager_id
+            manager_id: dept.manager_id,
+            is_academic: dept.is_academic !== false
         })
         setShowAddForm(true)
     }
@@ -139,20 +143,20 @@ export default function AdminDepartmentsPage({ onBack, currentUserId }: AdminDep
             const result = await deleteDepartment(itemToDelete, currentUserId)
 
             if (result.success) {
-                toast({ title: "✅ تم الحذف بنجاح" })
+                toast({ title: "تم الحذف بنجاح" })
                 await fetchData()
                 setDeleteDialogOpen(false)
                 setItemToDelete(null)
             } else {
-                toast({ title: "❌ فشل الحذف", description: result.error, variant: "destructive" })
+                toast({ title: "فشل الحذف", description: result.error, variant: "destructive" })
             }
         } catch (err) {
-            toast({ title: "❌ خطأ", description: "حدث خطأ غير متوقع", variant: "destructive" })
+            toast({ title: "خطأ", description: "حدث خطأ غير متوقع", variant: "destructive" })
         }
     }
 
     const cancelForm = () => {
-        setFormData({ dept_name: "", college_id: null, manager_id: null })
+        setFormData({ dept_name: "", college_id: null, manager_id: null, is_academic: true })
         setShowAddForm(false)
         setEditingId(null)
     }
@@ -259,13 +263,25 @@ export default function AdminDepartmentsPage({ onBack, currentUserId }: AdminDep
                                 ))}
                             </select>
                         </div>
+                        <div>
+                            <div className="flex items-center gap-3">
+                                <Switch 
+                                    id="is-academic" 
+                                    checked={formData.is_academic} 
+                                    onCheckedChange={(checked) => setFormData({ ...formData, is_academic: checked })}
+                                />
+                                <Label htmlFor="is-academic" className="text-sm font-medium cursor-pointer leading-none">
+                                    قسم أكاديمي (مؤهل لإنشاء المستويات والمواد الدراسية)
+                                </Label>
+                            </div>
+                        </div>
                         <div className="flex gap-2 justify-end">
-                            <Button variant="outline" onClick={cancelForm}>
-                                <X className="w-4 h-4 mr-2" />
+                            <Button variant="outline" onClick={cancelForm} className="gap-2">
+                                <X className="w-4 h-4" />
                                 إلغاء
                             </Button>
-                            <Button onClick={handleSubmit}>
-                                <Save className="w-4 h-4 mr-2" />
+                            <Button onClick={handleSubmit} className="gap-2">
+                                <Save className="w-4 h-4" />
                                 {editingId ? 'تحديث' : 'إضافة'}
                             </Button>
                         </div>
@@ -276,7 +292,7 @@ export default function AdminDepartmentsPage({ onBack, currentUserId }: AdminDep
             {/* Departments List */}
             {filteredDepartments.length === 0 ? (
                 <EmptyState
-                    icon="📚"
+                    icon=""
                     title="لا توجد أقسام"
                     description="لا توجد أقسام في النظام. قم بإضافة قسم جديد."
                     action={{
@@ -291,7 +307,12 @@ export default function AdminDepartmentsPage({ onBack, currentUserId }: AdminDep
                             <CardHeader>
                                 <div className="flex justify-between items-start">
                                     <div>
-                                        <CardTitle className="text-lg">{dept.dept_name}</CardTitle>
+                                        <CardTitle className="text-lg flex items-center gap-2">
+                                            {dept.dept_name}
+                                            <Badge variant={dept.is_academic !== false ? "default" : "secondary"} className="text-xs">
+                                                {dept.is_academic !== false ? "أكاديمي" : "إداري"}
+                                            </Badge>
+                                        </CardTitle>
                                         <CardDescription className="mt-1">
                                             {colleges.find((c: any) => c.college_id === dept.college_id)?.name || "غير محدد"}
                                         </CardDescription>
@@ -343,3 +364,5 @@ export default function AdminDepartmentsPage({ onBack, currentUserId }: AdminDep
         </div>
     )
 }
+
+

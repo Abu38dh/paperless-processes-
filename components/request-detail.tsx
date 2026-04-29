@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
@@ -548,7 +548,7 @@ export default function RequestDetail({ request, onEdit, onBack, userId, showHis
                   >
                     <div className="flex items-center gap-2 overflow-hidden">
                       <span className="bg-slate-100 p-1.5 rounded text-slate-500">
-                        {isPdf ? '📄' : '🖼️'}
+                        {isPdf ? '' : ''}
                       </span>
                       <div className="truncate text-sm font-medium">{fileName}</div>
                     </div>
@@ -653,3 +653,4 @@ export default function RequestDetail({ request, onEdit, onBack, userId, showHis
     </div >
   )
 }
+

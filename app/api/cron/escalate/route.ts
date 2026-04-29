@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+﻿import { NextResponse } from 'next/server'
 import { db } from "@/lib/db"
 import { notifyRequestStatusChange } from "@/app/actions/notifications"
 
@@ -202,3 +202,4 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: "Internal Server Error", details: error.message }, { status: 500 })
     }
 }
+

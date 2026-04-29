@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useActionState, useState } from "react"
 import Image from "next/image"
@@ -22,8 +22,8 @@ export default function LoginPage() {
           <div className="flex justify-center mb-4">
             <Image src="/university-logo.png" alt="جامعة العرب" width={128} height={128} className="h-32 w-auto" priority />
           </div>
-          <h1 className="text-3xl font-bold text-foreground">نظام المراسلات</h1>
-          <p className="text-muted-foreground text-sm mt-2">Correspondence System</p>
+          <h1 className="text-3xl font-bold text-foreground">مسار</h1>
+          <p className="text-muted-foreground text-sm mt-2">Masar System</p>
         </div>
 
         {/* Login Card */}
@@ -93,3 +93,4 @@ export default function LoginPage() {
     </div>
   )
 }
+

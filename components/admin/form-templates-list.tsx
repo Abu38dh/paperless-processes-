@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -103,15 +103,15 @@ export default function FormTemplatesList({ onEditForm, onCreateNewForm, onBack,
       const result = await deleteFormTemplate(itemToDelete, currentUserId)
 
       if (result.success) {
-        toast({ title: result.message || "✅ تم الحذف بنجاح" })
+        toast({ title: result.message || " تم الحذف بنجاح" })
         await fetchForms()
         setDeleteDialogOpen(false)
         setItemToDelete(null)
       } else {
-        toast({ title: "❌ فشل الحذف", description: result.error, variant: "destructive" })
+        toast({ title: " فشل الحذف", description: result.error, variant: "destructive" })
       }
     } catch (err) {
-      toast({ title: "❌ خطأ", description: "حدث خطأ غير متوقع", variant: "destructive" })
+      toast({ title: " خطأ", description: "حدث خطأ غير متوقع", variant: "destructive" })
     }
   }
 
@@ -179,7 +179,7 @@ export default function FormTemplatesList({ onEditForm, onCreateNewForm, onBack,
 
       if (result.success) {
         toast({
-          title: "✅ تم إلغاء النشر",
+          title: " تم إلغاء النشر",
           description: "تم تعطيل النموذج بنجاح"
         })
         setUnpublishDialogOpen(false)
@@ -187,14 +187,14 @@ export default function FormTemplatesList({ onEditForm, onCreateNewForm, onBack,
         await fetchForms()
       } else {
         toast({
-          title: "❌ فشل إلغاء النشر",
+          title: " فشل إلغاء النشر",
           description: result.error,
           variant: "destructive"
         })
       }
     } catch (err) {
       toast({
-        title: "❌ خطأ",
+        title: " خطأ",
         description: "حدث خطأ غير متوقع",
         variant: "destructive"
       })
@@ -272,16 +272,16 @@ export default function FormTemplatesList({ onEditForm, onCreateNewForm, onBack,
       const result = await publishFormTemplate(pendingFormId!, audienceConfig, workflowData)
 
       if (result.success) {
-        toast({ title: "✅ تم النشر بنجاح" })
+        toast({ title: " تم النشر بنجاح" })
         setPublishDialogOpen(false)
         setShowAudienceChangeWarning(false)
         setPendingFormId(null)
         await fetchForms()
       } else {
-        toast({ title: "❌ فشل النشر", description: result.error, variant: "destructive" })
+        toast({ title: " فشل النشر", description: result.error, variant: "destructive" })
       }
     } catch (err) {
-      toast({ title: "❌ خطأ", description: "حدث خطأ غير متوقع", variant: "destructive" })
+      toast({ title: " خطأ", description: "حدث خطأ غير متوقع", variant: "destructive" })
     }
   }
 
@@ -450,7 +450,7 @@ export default function FormTemplatesList({ onEditForm, onCreateNewForm, onBack,
         <DialogContent dir="rtl" className="sm:max-w-md gap-4">
           <DialogHeader className="space-y-2">
             <DialogTitle>
-              {showAudienceChangeWarning ? '⚠️ تغيير الجمهور المستهدف' : 'تحديد جمهور النموذج'}
+              {showAudienceChangeWarning ? ' تغيير الجمهور المستهدف' : 'تحديد جمهور النموذج'}
             </DialogTitle>
             <DialogDescription>
               {showAudienceChangeWarning
@@ -633,7 +633,7 @@ export default function FormTemplatesList({ onEditForm, onCreateNewForm, onBack,
           <div className="py-2">
             <div className="bg-orange-50 border border-orange-200 rounded-md p-3 text-sm text-orange-900">
               <div className="flex gap-2 items-start">
-                <span className="text-lg">⚠️</span>
+                <span className="text-lg"></span>
                 <div className="space-y-1">
                   <p className="font-semibold">تنبيه هام</p>
                   <p className="text-xs text-orange-800 leading-relaxed">
@@ -679,3 +679,5 @@ export default function FormTemplatesList({ onEditForm, onCreateNewForm, onBack,
     </div>
   )
 }
+
+

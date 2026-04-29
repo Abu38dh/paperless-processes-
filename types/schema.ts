@@ -1,4 +1,4 @@
-export interface User {
+﻿export interface User {
     id: string
     university_id: string
     full_name: string
@@ -56,3 +56,4 @@ export interface RequestStats {
     rejected: number
     pending: number
 }
+

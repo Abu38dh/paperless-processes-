@@ -1,4 +1,4 @@
-import { AlertCircle, WifiOff, ServerCrash, RefreshCw } from "lucide-react"
+﻿import { AlertCircle, WifiOff, ServerCrash, RefreshCw } from "lucide-react"
 import { Button } from "./button"
 import { Alert, AlertDescription, AlertTitle } from "./alert"
 import { Card, CardContent } from "./card"
@@ -87,3 +87,4 @@ export function ErrorMessage({
         </Alert>
     )
 }
+

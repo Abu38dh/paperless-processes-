@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState } from "react"
 import FormTemplatesList from "@/components/admin/form-templates-list"
@@ -34,3 +34,5 @@ export default function AdminFormsPage({ onBack, currentUserId }: AdminFormsPage
     <FormBuilderEditor formId={editingFormId!} onBack={handleBackToList} currentUserId={currentUserId} />
   )
 }
+
+

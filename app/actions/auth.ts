@@ -1,4 +1,4 @@
-"use server"
+﻿"use server"
 
 import { db } from "@/lib/db"
 import * as bcrypt from "bcryptjs"
@@ -73,3 +73,4 @@ export async function loginUser(username: string, password: string): Promise<Log
     return { success: false, error: "حدث خطأ في النظام" }
   }
 }
+

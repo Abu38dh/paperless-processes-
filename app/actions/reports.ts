@@ -1,4 +1,4 @@
-"use server"
+﻿"use server"
 
 import { db } from "@/lib/db"
 
@@ -375,3 +375,4 @@ export async function getAllEmployeesKPIs(termId?: number) {
         return { success: false, error: "فشل في تحميل إحصائيات الموظفين" }
     }
 }
+

@@ -1,4 +1,4 @@
-
+﻿
 export const roleTranslations: Record<string, string> = {
     admin: "مسؤول النظام",
     dean: "عميد",
@@ -17,3 +17,4 @@ export function translateRole(roleName: string | undefined | null): string {
     const lowerRole = roleName.toLowerCase()
     return roleTranslations[lowerRole] || roleName
 }
+

@@ -1,4 +1,4 @@
-import type React from "react"
+﻿import type React from "react"
 import { Card, CardContent } from "./card"
 import { Button } from "./button"
 
@@ -44,3 +44,4 @@ export function EmptyState({ icon, title, description, action }: EmptyStateProps
         </Card>
     )
 }
+

@@ -1,4 +1,4 @@
-import { firestore } from "./firebase-admin"
+﻿import { firestore } from "./firebase-admin"
 
 export async function queueWhatsAppMessage(phoneNumber: string, message: string, mediaPath?: string | null) {
     try {
@@ -17,7 +17,7 @@ export async function queueWhatsAppMessage(phoneNumber: string, message: string,
             retries: 0
         })
 
-        console.log(`[Queue] ✅ Successfully queued message ID: ${docRef.id} for ${phoneNumber}`)
+        console.log(`[Queue]  Successfully queued message ID: ${docRef.id} for ${phoneNumber}`)
         return { success: true, id: docRef.id }
     } catch (error) {
         console.error("Queue WhatsApp Error:", error)
@@ -25,3 +25,4 @@ export async function queueWhatsAppMessage(phoneNumber: string, message: string,
         return { success: false, error: "Failed to queue message" }
     }
 }
+

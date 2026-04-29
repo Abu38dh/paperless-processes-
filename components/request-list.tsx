@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -80,3 +80,4 @@ export default function RequestList({ requests, selectedId, onSelect, loading }:
     </div>
   )
 }
+

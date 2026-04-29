@@ -1,4 +1,4 @@
-# **Comprehensive System Prompt: Student Request System (نظام المراسلات الجامعي)**
+# **Comprehensive System Prompt: Masar System (نظام مسار الجامعي)**
 
 ## **1. Project Identity & Goal**
 
