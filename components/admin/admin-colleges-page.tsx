@@ -1,296 +1,312 @@
-﻿"use client"
+"use client"
 
 import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Plus, Edit2, Trash2, Save, X } from "lucide-react"
+import {
+  Plus, Edit2, Trash2, Save, X,
+  GraduationCap, User, ChevronDown, Building2
+} from "lucide-react"
 import { TableSkeleton } from "@/components/ui/loading-skeleton"
 import { ErrorMessage } from "@/components/ui/error-message"
-import { EmptyState } from "@/components/ui/empty-state"
-import { getAllColleges, createCollege, updateCollege, deleteCollege, getDeanCandidates } from "@/app/actions/organizations"
+import {
+  getAllColleges, createCollege, updateCollege,
+  deleteCollege, getDeanCandidates,
+} from "@/app/actions/organizations"
 import { useToast } from "@/hooks/use-toast"
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
 interface AdminCollegesPageProps {
-    onBack: () => void
-    currentUserId?: string
+  onBack: () => void
+  currentUserId?: string
 }
 
 export default function AdminCollegesPage({ onBack, currentUserId }: AdminCollegesPageProps) {
-    const [colleges, setColleges] = useState<any[]>([])
-    const [deans, setDeans] = useState<any[]>([])
-    const [loading, setLoading] = useState(true)
-    const [error, setError] = useState<string | null>(null)
-    const [showAddForm, setShowAddForm] = useState(false)
-    const [editingId, setEditingId] = useState<number | null>(null)
-    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-    const [itemToDelete, setItemToDelete] = useState<number | null>(null)
-    const { toast } = useToast()
+  const [colleges, setColleges]     = useState<any[]>([])
+  const [deans, setDeans]           = useState<any[]>([])
+  const [loading, setLoading]       = useState(true)
+  const [error, setError]           = useState<string | null>(null)
+  const [showForm, setShowForm]     = useState(false)
+  const [editingId, setEditingId]   = useState<number | null>(null)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [toDelete, setToDelete]     = useState<number | null>(null)
+  const { toast } = useToast()
 
-    const [formData, setFormData] = useState({
-        name: "",
-        dean_id: null as number | null,
-    })
+  const [form, setForm] = useState({ name: "", dean_id: null as number | null })
 
-    useEffect(() => {
-        fetchData()
-    }, [])
+  useEffect(() => { fetchData() }, [])
 
-    const fetchData = async () => {
-        setError(null)
+  const fetchData = async () => {
+    setError(null)
+    try {
+      const [cRes, dRes] = await Promise.all([getAllColleges(), getDeanCandidates()])
+      if (cRes.success && cRes.data) setColleges(cRes.data)
+      else setError(cRes.error || "فشل في تحميل الكليات")
+      if (dRes.success && dRes.data) setDeans(dRes.data)
+    } catch { setError("حدث خطأ في الاتصال بقاعدة البيانات") }
+    finally { setLoading(false) }
+  }
 
-        try {
-            const [collegesResult, deansResult] = await Promise.all([
-                getAllColleges(),
-                getDeanCandidates()
-            ])
-
-            if (collegesResult.success && collegesResult.data) {
-                setColleges(collegesResult.data)
-            } else {
-                setError(collegesResult.error || "فشل في تحميل الكليات")
-            }
-
-            if (deansResult.success && deansResult.data) {
-                setDeans(deansResult.data)
-            }
-        } catch (err) {
-            console.error("Failed to fetch data:", err)
-            setError("حدث خطأ في الاتصال بقاعدة البيانات")
-        } finally {
-            setLoading(false)
-        }
+  const handleSubmit = async () => {
+    if (!form.name.trim()) {
+      toast({ title: "خطأ", description: "يرجى إدخال اسم الكلية", variant: "destructive" })
+      return
     }
+    try {
+      const payload = { name: form.name, dean_id: form.dean_id ?? undefined }
+      const result  = editingId
+        ? await updateCollege(editingId, payload, currentUserId)
+        : await createCollege(payload, currentUserId)
+      if (result.success) {
+        toast({ title: editingId ? "تم التحديث بنجاح" : "تمت الإضافة بنجاح" })
+        cancelForm(); await fetchData()
+      } else {
+        toast({ title: "فشلت العملية", description: result.error, variant: "destructive" })
+      }
+    } catch { toast({ title: "خطأ", description: "حدث خطأ غير متوقع", variant: "destructive" }) }
+  }
 
-    const handleSubmit = async () => {
-        if (!formData.name) {
-            toast({ title: "خطأ", description: "يرجى إدخال اسم الكلية", variant: "destructive" })
-            return
-        }
+  const handleEdit = (c: any) => {
+    setEditingId(c.college_id)
+    setForm({ name: c.name, dean_id: c.dean_id })
+    setShowForm(true)
+  }
 
-        try {
-            const result = editingId
-                ? await updateCollege(editingId, {
-                    name: formData.name,
-                    dean_id: formData.dean_id === null ? undefined : formData.dean_id,
-                }, currentUserId)
-                : await createCollege({
-                    name: formData.name,
-                    dean_id: formData.dean_id === null ? undefined : formData.dean_id,
-                }, currentUserId)
+  const handleDelete = (id: number) => { setToDelete(id); setDeleteOpen(true) }
 
-            if (result.success) {
-                toast({ title: `تم ${editingId ? 'التحديث' : 'الإضافة'} بنجاح` })
-                setFormData({ name: "", dean_id: null })
-                setShowAddForm(false)
-                setEditingId(null)
-                await fetchData()
-            } else {
-                toast({ title: "فشلت العملية", description: result.error, variant: "destructive" })
-            }
-        } catch (err) {
-            toast({ title: "خطأ", description: "حدث خطأ غير متوقع", variant: "destructive" })
-        }
-    }
+  const executeDelete = async () => {
+    if (!toDelete) return
+    try {
+      const result = await deleteCollege(toDelete, currentUserId)
+      if (result.success) {
+        toast({ title: "تم الحذف بنجاح" })
+        setDeleteOpen(false); setToDelete(null); await fetchData()
+      } else {
+        toast({ title: "فشل الحذف", description: result.error, variant: "destructive" })
+      }
+    } catch { toast({ title: "خطأ", description: "حدث خطأ غير متوقع", variant: "destructive" }) }
+  }
 
-    const handleEdit = (college: any) => {
-        setEditingId(college.college_id)
-        setFormData({
-            name: college.name,
-            dean_id: college.dean_id,
-        })
-        setShowAddForm(true)
-    }
+  const cancelForm = () => {
+    setForm({ name: "", dean_id: null })
+    setShowForm(false)
+    setEditingId(null)
+  }
 
-    const handleDelete = (id: number) => {
-        setItemToDelete(id)
-        setDeleteDialogOpen(true)
-    }
+  const selectCls = `
+    w-full px-3 py-2.5 text-sm rounded-xl border border-[#E2EDEC]
+    bg-white text-[#1C2E2D] focus:outline-none focus:ring-2
+    focus:ring-[#00A89D]/30 focus:border-[#00A89D]
+    transition-all duration-150 appearance-none cursor-pointer
+  `
 
-    const executeDelete = async () => {
-        if (!itemToDelete) return
+  if (loading) return <div className="p-8" dir="rtl"><h1 className="text-2xl font-bold mb-6">إدارة الكليات</h1><TableSkeleton /></div>
+  if (error)   return <div className="p-8" dir="rtl"><h1 className="text-2xl font-bold mb-6">إدارة الكليات</h1><ErrorMessage error={error} onRetry={fetchData} /></div>
 
-        try {
-            const result = await deleteCollege(itemToDelete, currentUserId)
+  return (
+    <div dir="rtl" className="min-h-full bg-white">
 
-            if (result.success) {
-                toast({ title: "تم الحذف بنجاح" })
-                await fetchData()
-                setDeleteDialogOpen(false)
-                setItemToDelete(null)
-            } else {
-                toast({ title: "فشل الحذف", description: result.error, variant: "destructive" })
-            }
-        } catch (err) {
-            toast({ title: "خطأ", description: "حدث خطأ غير متوقع", variant: "destructive" })
-        }
-    }
-
-    const cancelForm = () => {
-        setFormData({ name: "", dean_id: null })
-        setShowAddForm(false)
-        setEditingId(null)
-    }
-
-    if (loading) {
-        return (
-            <div className="space-y-6 p-6" dir="rtl">
-                <h1 className="text-3xl font-bold">إدارة الكليات</h1>
-                <TableSkeleton />
+      {/* ══ Page Header ══ */}
+      <div className="bg-white border-b border-[#E2EDEC] px-8 py-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#E6F7F6] flex items-center justify-center shrink-0">
+              <GraduationCap className="w-5 h-5 text-[#00A89D]" />
             </div>
-        )
-    }
-
-    if (error) {
-        return (
-            <div className="space-y-6 p-6" dir="rtl">
-                <h1 className="text-3xl font-bold">إدارة الكليات</h1>
-                <ErrorMessage error={error} onRetry={fetchData} />
+            <div>
+              <h1 className="text-xl font-bold text-[#1C2E2D] leading-tight">إدارة الكليات</h1>
+              <p className="text-sm text-[#6B8F8E] mt-0.5">{colleges.length} كلية في النظام</p>
             </div>
-        )
-    }
-
-    return (
-        <div className="space-y-6 p-6" dir="rtl">
-            {/* Header */}
-            <div className="flex justify-between items-center">
-                <div>
-                    <h1 className="text-3xl font-bold">إدارة الكليات</h1>
-                    <p className="text-sm text-muted-foreground mt-1">{colleges.length} كلية في النظام</p>
-                </div>
-                <div className="flex gap-2">
-                    <Button onClick={() => setShowAddForm(true)} className="bg-primary gap-2">
-                        <Plus className="w-4 h-4" />
-                        كلية جديدة
-                    </Button>
-                </div>
-            </div>
-
-            {/* Add/Edit Form */}
-            {showAddForm && (
-                <Card className="border-primary/50 bg-primary/5">
-                    <CardHeader>
-                        <CardTitle>{editingId ? 'تعديل كلية' : 'إضافة كلية جديدة'}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div>
-                            <Label className="text-sm font-medium" required>اسم الكلية</Label>
-                            <Input
-                                placeholder="مثال: كلية الهندسة"
-                                value={formData.name}
-                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                className="mt-1"
-                            />
-                        </div>
-                        <div>
-                            <Label className="text-sm font-medium">العميد (اختياري)</Label>
-                            <select
-                                value={formData.dean_id || ""}
-                                onChange={(e) => setFormData({ ...formData, dean_id: e.target.value ? parseInt(e.target.value) : null })}
-                                className="w-full mt-1 px-3 py-2 border rounded-lg"
-                            >
-                                <option value="">بدون عميد</option>
-                                {deans.map((dean: any) => (
-                                    <option key={dean.user_id} value={dean.user_id}>
-                                        {dean.full_name} ({dean.roles?.role_name || 'غير محدد'})
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                        <div className="flex gap-2 justify-end">
-                            <Button variant="outline" onClick={cancelForm}>
-                                <X className="w-4 h-4 mr-2" />
-                                إلغاء
-                            </Button>
-                            <Button onClick={handleSubmit}>
-                                <Save className="w-4 h-4 mr-2" />
-                                {editingId ? 'تحديث' : 'إضافة'}
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
-            )}
-
-            {/* Colleges List */}
-            {colleges.length === 0 ? (
-                <EmptyState
-                    icon=""
-                    title="لا توجد كليات"
-                    description="لا توجد كليات في النظام. قم بإضافة كلية جديدة."
-                    action={{
-                        label: "إضافة كلية",
-                        onClick: () => setShowAddForm(true)
-                    }}
-                />
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {colleges.map((college: any) => (
-                        <Card key={college.college_id} className="hover:shadow-md transition-shadow">
-                            <CardHeader>
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <CardTitle className="text-lg">{college.name}</CardTitle>
-                                        <CardDescription className="mt-1">
-                                            العميد: {college.users?.full_name || "غير محدد"}
-                                        </CardDescription>
-                                        <CardDescription className="mt-1">
-                                            {college.departments?.length || 0} قسم
-                                        </CardDescription>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            onClick={() => handleEdit(college)}
-                                            className="text-primary"
-                                        >
-                                            <Edit2 className="w-4 h-4" />
-                                        </Button>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            onClick={() => handleDelete(college.college_id)}
-                                            className="text-destructive"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </Button>
-                                    </div>
-                                </div>
-                            </CardHeader>
-                        </Card>
-                    ))}
-                </div>
-            )}
-
-            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-                <AlertDialogContent dir="rtl">
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>هل أنت متأكد من حذف هذه الكلية؟</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            لا يمكن التراجع عن هذا الإجراء. سيتم حذف الكلية وجميع الأقسام التابعة لها.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                        <AlertDialogAction onClick={executeDelete} className="bg-destructive hover:bg-destructive/90">
-                            حذف
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+          </div>
+          <button
+            onClick={() => { setShowForm(true); setEditingId(null) }}
+            className="
+              flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold
+              bg-[#00A89D] text-white hover:bg-[#008A80] active:scale-95
+              transition-all duration-150 shadow-sm shadow-[#00A89D]/20
+            "
+          >
+            <Plus className="w-4 h-4" />
+            كلية جديدة
+          </button>
         </div>
-    )
+      </div>
+
+      {/* ══ Body ══ */}
+      <div className="px-8 py-6 space-y-5">
+
+        {/* ── Add / Edit Form ── */}
+        {showForm && (
+          <div className="bg-white border border-[#B3E8E5] rounded-2xl shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 bg-[#E6F7F6] border-b border-[#B3E8E5]">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-[#00A89D] flex items-center justify-center">
+                  {editingId ? <Edit2 className="w-3.5 h-3.5 text-white" /> : <Plus className="w-3.5 h-3.5 text-white" />}
+                </div>
+                <h2 className="text-sm font-semibold text-[#008A80]">
+                  {editingId ? "تعديل بيانات الكلية" : "إضافة كلية جديدة"}
+                </h2>
+              </div>
+              <button
+                onClick={cancelForm}
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-[#6B8F8E] hover:bg-[#B3E8E5] hover:text-[#008A80] transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="px-6 py-5 grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="md:col-span-2">
+                <Label className="text-xs font-semibold text-[#2D4847] mb-1.5 block">
+                  اسم الكلية <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  placeholder="مثال: كلية الهندسة"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className="h-10 rounded-xl border-[#E2EDEC] text-sm focus:border-[#00A89D] focus:ring-[#00A89D]/20"
+                />
+              </div>
+              <div className="md:col-span-2 relative">
+                <Label className="text-xs font-semibold text-[#2D4847] mb-1.5 block">العميد (اختياري)</Label>
+                <select
+                  value={form.dean_id || ""}
+                  onChange={(e) => setForm({ ...form, dean_id: e.target.value ? parseInt(e.target.value) : null })}
+                  className={selectCls}
+                >
+                  <option value="">بدون عميد</option>
+                  {deans.map((d: any) => (
+                    <option key={d.user_id} value={d.user_id}>
+                      {d.full_name} ({d.roles?.role_name || "غير محدد"})
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute left-3 top-[2.2rem] w-4 h-4 text-[#6B8F8E] pointer-events-none" />
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-[#E2EDEC] flex items-center justify-end gap-3">
+              <button
+                onClick={cancelForm}
+                className="px-4 py-2 rounded-xl text-sm font-medium border border-[#E2EDEC] text-[#2D4847] hover:bg-[#F4F8F8] transition-colors"
+              >إلغاء</button>
+              <button
+                onClick={handleSubmit}
+                className="
+                  flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold
+                  bg-[#00A89D] text-white hover:bg-[#008A80] active:scale-95
+                  transition-all duration-150 shadow-sm shadow-[#00A89D]/20
+                "
+              >
+                <Save className="w-4 h-4" />
+                {editingId ? "تحديث" : "إضافة"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Colleges ── */}
+        {colleges.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-[#E2EDEC] py-16 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-[#E6F7F6] flex items-center justify-center mx-auto mb-4">
+              <GraduationCap className="w-7 h-7 text-[#00A89D]" />
+            </div>
+            <p className="text-[#2D4847] font-semibold">لا توجد كليات</p>
+            <p className="text-sm text-[#6B8F8E] mt-1">قم بإضافة كلية جديدة للبدء</p>
+            <button
+              onClick={() => setShowForm(true)}
+              className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-[#00A89D] text-white hover:bg-[#008A80] transition-colors"
+            >
+              <Plus className="w-4 h-4" /> إضافة كلية
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {colleges.map((college: any) => {
+              const deptCount = college.departments?.length || 0
+              const deanName  = college.users?.full_name
+
+              return (
+                <div
+                  key={college.college_id}
+                  className="
+                    group bg-white rounded-xl border border-[#E2EDEC]
+                    hover:border-[#B3E8E5] hover:shadow-sm hover:shadow-[#00A89D]/10
+                    transition-all duration-200
+                  "
+                >
+                  <div className="p-4">
+                    {/* Name + actions row */}
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-7 h-7 rounded-lg bg-[#E6F7F6] flex items-center justify-center shrink-0">
+                          <GraduationCap className="w-3.5 h-3.5 text-[#00A89D]" />
+                        </div>
+                        <h3 className="text-sm font-bold text-[#1C2E2D] truncate leading-tight">
+                          {college.name}
+                        </h3>
+                      </div>
+                      <div className="flex items-center gap-0.5 shrink-0">
+                        <button
+                          onClick={() => handleEdit(college)}
+                          className="w-7 h-7 rounded-lg flex items-center justify-center text-[#6B8F8E] hover:bg-[#E6F7F6] hover:text-[#00A89D] transition-colors"
+                          title="تعديل"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(college.college_id)}
+                          className="w-7 h-7 rounded-lg flex items-center justify-center text-[#6B8F8E] hover:bg-red-50 hover:text-red-500 transition-colors"
+                          title="حذف"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Meta info */}
+                    <div className="space-y-1 mt-2">
+                      <div className="flex items-center gap-1.5 text-xs text-[#6B8F8E]">
+                        <User className="w-3 h-3 shrink-0" />
+                        <span className="truncate">
+                          {deanName || <span className="text-[#9BB5B4]">العميد: غير محدد</span>}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-xs text-[#6B8F8E]">
+                        <Building2 className="w-3 h-3 shrink-0 text-[#00A89D]" />
+                        <span className="font-medium text-[#2D4847]">{deptCount}</span>
+                        <span>أقسام تابعة</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ── Delete Dialog ── */}
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent dir="rtl" className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-[#1C2E2D]">هل أنت متأكد من حذف هذه الكلية؟</AlertDialogTitle>
+            <AlertDialogDescription className="text-[#6B8F8E]">
+              لا يمكن التراجع عن هذا الإجراء. سيتم حذف الكلية وجميع الأقسام التابعة لها.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl">إلغاء</AlertDialogCancel>
+            <AlertDialogAction onClick={executeDelete} className="rounded-xl bg-red-500 hover:bg-red-600 text-white">
+              حذف
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  )
 }
-
-

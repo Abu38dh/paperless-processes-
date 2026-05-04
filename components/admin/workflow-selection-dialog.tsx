@@ -266,7 +266,7 @@ export function WorkflowSelectionDialog({
                                 <select
                                     value={selectedWorkflowId || ""}
                                     onChange={(e) => setSelectedWorkflowId(parseInt(e.target.value))}
-                                    className="w-full h-14 px-4 rounded-lg border-2 bg-white text-lg focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all"
+                                    className="select-field"
                                 >
                                     <option value="">-- انقر للاختيار --</option>
                                     {workflows.map((workflow) => (
@@ -394,7 +394,7 @@ export function WorkflowSelectionDialog({
                                                 <select
                                                     value={currentStep.approverId}
                                                     onChange={(e) => handleFieldChange('approverId', e.target.value)}
-                                                    className="w-full flex h-10 rounded-md border border-input bg-gray-50 px-3 py-2 text-sm ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-sans"
+                                                    className="select-field"
                                                 >
                                                     <option value="">-- اختر المسؤول --</option>
                                                     <optgroup label="الأدوار الوظيفية">
@@ -427,7 +427,7 @@ export function WorkflowSelectionDialog({
                                                     <select
                                                         value={currentStep.slaUnit}
                                                         onChange={(e) => handleFieldChange('slaUnit', e.target.value)}
-                                                        className="w-24 rounded-md border border-input bg-gray-50 px-3 py-2 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                                                        className="select-field"
                                                     >
                                                         <option value="hours">ساعة</option>
                                                         <option value="days">يوم</option>
@@ -440,7 +440,7 @@ export function WorkflowSelectionDialog({
                                                 <select
                                                     value={currentStep.escalationRoleId}
                                                     onChange={(e) => handleFieldChange('escalationRoleId', e.target.value)}
-                                                    className="w-full flex h-10 rounded-md border border-input bg-gray-50 px-3 py-2 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-sans"
+                                                    className="select-field"
                                                 >
                                                     <option value="">رئيس القسم (تلقائي)</option>
                                                     {roles.map((role: any) => (

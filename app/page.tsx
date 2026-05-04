@@ -1,4 +1,4 @@
-﻿import { auth } from "@/auth"
+import { auth } from "@/auth"
 import LoginPage from "@/components/login-page"
 import StudentDashboard from "@/components/student-dashboard"
 import EmployeeDashboard from "@/components/employee-dashboard"
@@ -13,36 +13,43 @@ export default async function Home() {
   }
 
   const { user } = session
-  const role = user.role?.toLowerCase()
+  const role = user.role?.toLowerCase() || ""
 
-  // Prepare userData object compatible with existing components
-  const userData = {
-    university_id: user.university_id,
+  // Prepare userData object strictly compatible with dashboard prop types
+  const dashboardUserData = {
+    university_id: user.university_id || "",
     full_name: user.name || "",
-    role: user.role,
-    permissions: user.permissions || [],
-    department_id: user.department_id,
+    role: user.role || "",
   }
 
   switch (true) {
     case role === "student":
-      return <StudentDashboard userData={userData as any} onLogout={logout} />
+      return <StudentDashboard userData={dashboardUserData} onLogout={logout} />
 
     case role === "employee":
     case role === "dean":
     case role === "head_of_department":
     case role === "manager":
     case role === "vice_dean":
-      return <EmployeeDashboard permissions={userData.permissions} userData={userData as any} onLogout={logout} />
+      return <EmployeeDashboard permissions={user.permissions || []} userData={dashboardUserData} onLogout={logout} />
 
     case role === "admin":
-      return <AdminDashboard userData={userData as any} onLogout={logout} />
+      return <AdminDashboard userData={dashboardUserData} onLogout={logout} />
 
     default:
-      if (userData.permissions && userData.permissions.length > 0) {
-        return <EmployeeDashboard permissions={userData.permissions} userData={userData as any} onLogout={logout} />
+      if (user.permissions && user.permissions.length > 0) {
+        return <EmployeeDashboard permissions={user.permissions} userData={dashboardUserData} onLogout={logout} />
       }
-      return <StudentDashboard userData={userData as any} onLogout={logout} />
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-background flex-col gap-4" dir="rtl">
+          <div className="text-xl text-destructive font-bold">عذراً، هذا الحساب ليس لديه صلاحيات للدخول أو دوره غير معروف.</div>
+          <form action={logout}>
+            <button type="submit" className="px-6 py-2 bg-primary text-primary-foreground font-semibold rounded-lg hover:bg-primary/90 transition-colors">
+              العودة وتسجيل الخروج
+            </button>
+          </form>
+        </div>
+      )
   }
 }
 

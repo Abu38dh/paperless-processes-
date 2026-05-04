@@ -237,7 +237,7 @@ export default function RequestSubmissionForm({
                         <select
                           value={formData[field.key] || ""}
                           onChange={(e) => handleInputChange(field.key, e.target.value)}
-                          className="w-full h-11 px-4 py-2 border border-input rounded-lg bg-background text-foreground text-right text-base focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                          className="select-field"
                           required={field.required}
                         >
                           <option value="">اختر...</option>
@@ -378,7 +378,7 @@ export default function RequestSubmissionForm({
                                     const subjectName = studentSubjects.find((s: any) => s.subject_id === selectedId)?.name || "";
                                     handleInputChange(field.key, { ...formData[field.key], subjectId: selectedId, subjectName });
                                   }}
-                                  className="w-full h-11 px-4 py-2 border border-input rounded-lg bg-background text-foreground text-right text-base focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                                  className="select-field"
                                   required={field.required}
                                 >
                                   <option value="">اختر المادة...</option>

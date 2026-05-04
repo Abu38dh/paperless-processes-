@@ -1,7 +1,7 @@
-﻿"use client"
+"use client"
 // Force rebuild
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
@@ -28,6 +28,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import {
+  Select, SelectContent, SelectItem,
+  SelectTrigger, SelectValue,
+} from "@/components/ui/select"
 
 interface AdminUserPageProps {
   onBack: () => void
@@ -126,11 +130,9 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
   }, [])
 
   useEffect(() => {
-    // Fetch users when filters or page change, but wait for static data to be ready (optional, but good for consistent UI)
-    if (page === 1) {
-      fetchUsers()
-    }
-  }, [page, searchTerm, selectedCollegeId, selectedDeptId, currentUserId])
+    // Only re-fetch when the current user identity changes, NOT on filter changes
+    fetchUsers()
+  }, [currentUserId])
 
   const fetchUsers = async () => {
     setError(null)
@@ -163,7 +165,8 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
         }
       }
 
-      const usersResult = await getUsers(page, 50, currentUserId, searchTerm, selectedCollegeId, selectedDeptId)
+      // Fetch ALL users once — filtering is done client-side
+      const usersResult = await getUsers(1, 1000, currentUserId, "", "", "")
 
       if (usersResult.success && usersResult.data) {
         if (page === 1) {
@@ -199,8 +202,35 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
     ? filteredDepartments.filter((d: any) => d.department_id.toString() === selectedDeptId)
     : filteredDepartments
 
-  // Server side filtering is now active, so filteredUsers is just users
-  const filteredUsers = users
+  // ── Client-side filtering (instant, no loading) ──────────────────────
+  const filteredUsers = useMemo(() => {
+    let result = users
+
+    // Filter by college (match via department's college_id)
+    if (selectedCollegeId && selectedCollegeId !== "__all__") {
+      result = result.filter((u: any) => {
+        const dept = departments.find((d: any) => d.department_id === u.department_id)
+        return dept && dept.college_id?.toString() === selectedCollegeId
+      })
+    }
+
+    // Filter by department
+    if (selectedDeptId && selectedDeptId !== "__all__") {
+      result = result.filter((u: any) => u.department_id?.toString() === selectedDeptId)
+    }
+
+    // Search by name, university_id, or email
+    if (searchTerm.trim()) {
+      const term = searchTerm.trim().toLowerCase()
+      result = result.filter((u: any) =>
+        u.full_name?.toLowerCase().includes(term) ||
+        u.university_id?.toLowerCase().includes(term) ||
+        u.email?.toLowerCase().includes(term)
+      )
+    }
+
+    return result
+  }, [users, selectedCollegeId, selectedDeptId, searchTerm, departments])
 
   const addNewUser = async () => {
     if (!newUserName || !newUserUniversityId || !newUserRoleId) {
@@ -366,7 +396,11 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-foreground">إدارة المستخدمين</h1>
-          <p className="text-sm text-muted-foreground mt-1">{users.length} مستخدمين في النظام</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {filteredUsers.length !== users.length
+              ? `عرض ${filteredUsers.length} من ${users.length} مستخدم`
+              : `${users.length} مستخدمين في النظام`}
+          </p>
         </div>
         <div className="flex gap-2">
           <Button onClick={() => setShowAddUser(true)} className="bg-primary hover:bg-primary/90 gap-2">
@@ -380,31 +414,41 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
       <Card>
         <CardContent className="pt-6 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <select
-              value={selectedCollegeId}
-              onChange={(e) => {
-                setSelectedCollegeId(e.target.value)
+            <Select
+              value={selectedCollegeId === "" ? "__all__" : selectedCollegeId}
+              onValueChange={(val) => {
+                setSelectedCollegeId(val === "__all__" ? "" : val)
                 setSelectedDeptId("")
               }}
               disabled={isCollegeDisabled}
-              className={`w-full px-3 py-2 border rounded-lg text-right bg-background ${isCollegeDisabled ? 'opacity-50 cursor-not-allowed bg-muted' : ''}`}
+              dir="rtl"
             >
-              {!isCollegeDisabled && <option value="">جميع الكليات</option>}
-              {availableColleges.map((college: any) => (
-                <option key={`college-${college.college_id}`} value={college.college_id}>{college.name}</option>
-              ))}
-            </select>
-            <select
-              value={selectedDeptId}
-              onChange={(e) => setSelectedDeptId(e.target.value)}
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="جميع الكليات" />
+              </SelectTrigger>
+              <SelectContent dir="rtl">
+                {!isCollegeDisabled && <SelectItem value="__all__">جميع الكليات</SelectItem>}
+                {availableColleges.map((college: any) => (
+                  <SelectItem key={`college-${college.college_id}`} value={college.college_id.toString()}>{college.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={selectedDeptId === "" ? "__all__" : selectedDeptId}
+              onValueChange={(val) => setSelectedDeptId(val === "__all__" ? "" : val)}
               disabled={isDeptDisabled}
-              className={`w-full px-3 py-2 border rounded-lg text-right bg-background ${isDeptDisabled ? 'opacity-50 cursor-not-allowed bg-muted' : ''}`}
+              dir="rtl"
             >
-              {!isDeptDisabled && <option value="">جميع الأقسام</option>}
-              {availableDepartments.map((dept: any) => (
-                <option key={`dept-${dept.department_id}`} value={dept.department_id}>{dept.dept_name}</option>
-              ))}
-            </select>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="جميع الأقسام" />
+              </SelectTrigger>
+              <SelectContent dir="rtl">
+                {!isDeptDisabled && <SelectItem value="__all__">جميع الأقسام</SelectItem>}
+                {availableDepartments.map((dept: any) => (
+                  <SelectItem key={`dept-${dept.department_id}`} value={dept.department_id.toString()}>{dept.dept_name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <div className="relative">
               <Search className="w-4 h-4 absolute right-3 top-3 text-muted-foreground" />
               <Input
@@ -453,30 +497,28 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
               </div>
               <div>
                 <Label className="text-sm font-medium mb-2 block" required>نوع المستخدم (الدور)</Label>
-                <select
-                  value={newUserRoleId}
-                  onChange={(e) => setNewUserRoleId(parseInt(e.target.value))}
-                  className="w-full px-3 py-1.5 h-9 text-sm border rounded-lg bg-transparent border-input shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] transition-[color,box-shadow] outline-none"
+                <Select
+                  value={newUserRoleId?.toString() ?? ""}
+                  onValueChange={(val) => setNewUserRoleId(parseInt(val))}
+                  dir="rtl"
                 >
-                  {roles
-                    .filter(role => {
-                      if (!currentUserScope.role || currentUserScope.role === 'admin') return true;
-
-                      const rName = role.role_name.toLowerCase();
-                      if (currentUserScope.role === 'dean') {
-                        // Dean can create: Head, Manager, Employee, Student (Not Admin or another Dean)
-                        return ['head', 'manager', 'head_of_department', 'employee', 'student'].includes(rName);
-                      }
-                      if (currentUserScope.role === 'head' || currentUserScope.role === 'manager' || currentUserScope.role === 'head_of_department') {
-                        // Head can create: Only Student
-                        return rName === 'student';
-                      }
-                      return false;
-                    })
-                    .map((role: any) => (
-                      <option key={role.role_id} value={role.role_id}>{translateRole(role.role_name)}</option>
-                    ))}
-                </select>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="اختر الدور" />
+                  </SelectTrigger>
+                  <SelectContent dir="rtl">
+                    {roles
+                      .filter(role => {
+                        if (!currentUserScope.role || currentUserScope.role === 'admin') return true;
+                        const rName = role.role_name.toLowerCase();
+                        if (currentUserScope.role === 'dean') return ['head', 'manager', 'head_of_department', 'employee', 'student'].includes(rName);
+                        if (['head', 'manager', 'head_of_department'].includes(currentUserScope.role)) return rName === 'student';
+                        return false;
+                      })
+                      .map((role: any) => (
+                        <SelectItem key={role.role_id} value={role.role_id.toString()}>{translateRole(role.role_name)}</SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* حقل ديناميكي: القسم للطالب أو الكلية لأي دور آخر (موظف، عميد، مدير، إلخ) */}
@@ -493,55 +535,59 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                     {!isStudent && (
                       <div>
                         <Label className="text-sm font-medium mb-2 block">الكلية (اختياري)</Label>
-                        <select
-                          value={isRestrictedCollege ? (currentUserScope.collegeId ?? "") : newUserCollegeId}
-                          onChange={(e) => {
+                        <Select
+                          value={isRestrictedCollege ? (currentUserScope.collegeId?.toString() ?? "") : (newUserCollegeId === "" ? "__all__" : newUserCollegeId)}
+                          onValueChange={(val) => {
                             if (!isRestrictedCollege) {
-                              setNewUserCollegeId(e.target.value)
+                              setNewUserCollegeId(val === "__all__" ? "" : val)
                               setNewUserDeptId("")
                             }
                           }}
                           disabled={isRestrictedCollege}
-                          className={`w-full px-3 py-1.5 h-9 text-sm border rounded-lg bg-transparent border-input shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] transition-[color,box-shadow] outline-none ${isRestrictedCollege ? 'opacity-50 cursor-not-allowed bg-muted' : ''}`}
+                          dir="rtl"
                         >
-                          {!isRestrictedCollege && <option value="">اختر الكلية (اختياري للفلترة)</option>}
-                          {colleges
-                            .filter((c: any) => isRestrictedCollege ? c.college_id === currentUserScope.collegeId : true)
-                            .map((college: any) => (
-                              <option key={college.college_id} value={college.college_id}>{college.name}</option>
-                            ))}
-                        </select>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="اختر الكلية (اختياري)" />
+                          </SelectTrigger>
+                          <SelectContent dir="rtl">
+                            {!isRestrictedCollege && <SelectItem value="__all__">اختر الكلية (اختياري للفلترة)</SelectItem>}
+                            {colleges
+                              .filter((c: any) => isRestrictedCollege ? c.college_id === currentUserScope.collegeId : true)
+                              .map((college: any) => (
+                                <SelectItem key={college.college_id} value={college.college_id.toString()}>{college.name}</SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                     )}
 
                     <div>
                       <Label className="text-sm font-medium mb-2 block" required>القسم</Label>
-                      <select
-                        value={isRestrictedDept ? (currentUserScope.departmentId ?? "") : newUserDeptId}
-                        onChange={(e) => {
-                          if (!isRestrictedDept) setNewUserDeptId(e.target.value)
+                      <Select
+                        value={isRestrictedDept ? (currentUserScope.departmentId?.toString() ?? "") : (newUserDeptId === "" ? "__none__" : newUserDeptId)}
+                        onValueChange={(val) => {
+                          if (!isRestrictedDept) setNewUserDeptId(val === "__none__" ? "" : val)
                         }}
                         disabled={isRestrictedDept}
-                        className={`w-full px-3 py-1.5 h-9 text-sm border rounded-lg bg-transparent border-input shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] transition-[color,box-shadow] outline-none ${isRestrictedDept ? 'opacity-50 cursor-not-allowed bg-muted' : ''}`}
+                        dir="rtl"
                       >
-                        {!isRestrictedDept && <option value="">اختر القسم</option>}
-                        {departments
-                          .filter((d: any) => {
-                            // If exact restricted department
-                            if (isRestrictedDept) return d.department_id === currentUserScope.departmentId;
-
-                            // If restricted to college
-                            if (isRestrictedCollege) return d.college_id === currentUserScope.collegeId;
-
-                            // If user selected a college in the form
-                            if (newUserCollegeId) return d.college_id === parseInt(newUserCollegeId);
-
-                            return true;
-                          })
-                          .map((dept: any) => (
-                            <option key={dept.department_id} value={dept.department_id}>{dept.dept_name}</option>
-                          ))}
-                      </select>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="اختر القسم" />
+                        </SelectTrigger>
+                        <SelectContent dir="rtl">
+                          {!isRestrictedDept && <SelectItem value="__none__">اختر القسم</SelectItem>}
+                          {departments
+                            .filter((d: any) => {
+                              if (isRestrictedDept) return d.department_id === currentUserScope.departmentId;
+                              if (isRestrictedCollege) return d.college_id === currentUserScope.collegeId;
+                              if (newUserCollegeId) return d.college_id === parseInt(newUserCollegeId);
+                              return true;
+                            })
+                            .map((dept: any) => (
+                              <SelectItem key={dept.department_id} value={dept.department_id.toString()}>{dept.dept_name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </>
                 );
@@ -645,47 +691,62 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                       </div>
                       <div>
                         <Label className="text-sm font-medium">الدور</Label>
-                        <select
-                          value={expandedUserData.role_id || ""}
-                          onChange={(e) => setExpandedUserData({ ...expandedUserData, role_id: parseInt(e.target.value) })}
-                          className="w-full mt-1 px-3 py-2 border rounded-lg"
+                        <Select
+                          value={expandedUserData.role_id?.toString() ?? ""}
+                          onValueChange={(val) => setExpandedUserData({ ...expandedUserData, role_id: parseInt(val) })}
+                          dir="rtl"
                         >
-                          {roles.map((role: any) => (
-                            <option key={role.role_id} value={role.role_id}>{translateRole(role.role_name)}</option>
-                          ))}
-                        </select>
+                          <SelectTrigger className="w-full mt-1">
+                            <SelectValue placeholder="اختر الدور" />
+                          </SelectTrigger>
+                          <SelectContent dir="rtl">
+                            {roles.map((role: any) => (
+                              <SelectItem key={role.role_id} value={role.role_id.toString()}>{translateRole(role.role_name)}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div>
                         <Label className="text-sm font-medium">القسم</Label>
-                        <select
-                          value={expandedUserData.department_id || ""}
-                          onChange={(e) => setExpandedUserData({ ...expandedUserData, department_id: e.target.value ? parseInt(e.target.value) : null })}
-                          className="w-full mt-1 px-3 py-2 border rounded-lg"
+                        <Select
+                          value={expandedUserData.department_id != null ? expandedUserData.department_id.toString() : "__none__"}
+                          onValueChange={(val) => setExpandedUserData({ ...expandedUserData, department_id: val === "__none__" ? null : parseInt(val) })}
+                          dir="rtl"
                         >
-                          <option value="">بدون قسم</option>
-                          {departments.map((dept: any) => (
-                            <option key={dept.department_id} value={dept.department_id}>{dept.dept_name}</option>
-                          ))}
-                        </select>
+                          <SelectTrigger className="w-full mt-1">
+                            <SelectValue placeholder="بدون قسم" />
+                          </SelectTrigger>
+                          <SelectContent dir="rtl">
+                            <SelectItem value="__none__">بدون قسم</SelectItem>
+                            {departments.map((dept: any) => (
+                              <SelectItem key={dept.department_id} value={dept.department_id.toString()}>{dept.dept_name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
 
                       {/* Level selector — only for students */}
                       {roles.find(r => r.role_id === expandedUserData.role_id)?.role_name?.toLowerCase() === 'student' && (
                         <div>
                           <Label className="text-sm font-medium">المستوى الدراسي</Label>
-                          <select
-                            value={expandedUserData.level_id || ""}
-                            onChange={(e) => setExpandedUserData({ ...expandedUserData, level_id: e.target.value ? parseInt(e.target.value) : null })}
-                            className="w-full mt-1 px-3 py-2 border rounded-lg"
+                          <Select
+                            value={expandedUserData.level_id != null ? expandedUserData.level_id.toString() : "__none__"}
+                            onValueChange={(val) => setExpandedUserData({ ...expandedUserData, level_id: val === "__none__" ? null : parseInt(val) })}
+                            dir="rtl"
                           >
-                            <option value="">بدون مستوى</option>
-                            {levels
-                              .filter((l: any) => !expandedUserData.department_id || l.department_id === expandedUserData.department_id)
-                              .sort((a: any, b: any) => a.order - b.order)
-                              .map((lvl: any) => (
-                                <option key={lvl.level_id} value={lvl.level_id}>{lvl.name}</option>
-                              ))}
-                          </select>
+                            <SelectTrigger className="w-full mt-1">
+                              <SelectValue placeholder="بدون مستوى" />
+                            </SelectTrigger>
+                            <SelectContent dir="rtl">
+                              <SelectItem value="__none__">بدون مستوى</SelectItem>
+                              {levels
+                                .filter((l: any) => !expandedUserData.department_id || l.department_id === expandedUserData.department_id)
+                                .sort((a: any, b: any) => a.order - b.order)
+                                .map((lvl: any) => (
+                                  <SelectItem key={lvl.level_id} value={lvl.level_id.toString()}>{lvl.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                       )}
 

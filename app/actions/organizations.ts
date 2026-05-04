@@ -1,4 +1,4 @@
-﻿"use server"
+"use server"
 
 import { db } from "@/lib/db"
 import { revalidatePath } from "next/cache"
@@ -81,29 +81,32 @@ export async function getDeanCandidates() {
 export async function getOrganizationStructure() {
     try {
         const collegesRaw = await db.$queryRaw<any[]>`
-            SELECT college_id, name FROM colleges ORDER BY name ASC
+            SELECT college_id, name, show_absences FROM colleges ORDER BY name ASC
         `
         const deptsRaw = await db.$queryRaw<any[]>`
-            SELECT department_id, dept_name, college_id FROM departments ORDER BY dept_name ASC
+            SELECT department_id, dept_name, college_id, show_absences FROM departments ORDER BY dept_name ASC
         `
         const levelsRaw = await db.$queryRaw<any[]>`
-            SELECT level_id, name, "order", department_id FROM levels ORDER BY "order" ASC
+            SELECT level_id, name, "order", department_id, show_absences FROM levels ORDER BY "order" ASC
         `
 
         const data = collegesRaw.map((c: any) => ({
             college_id: c.college_id,
             name: c.name,
+            show_absences: c.show_absences,
             departments: deptsRaw
                 .filter((d: any) => d.college_id === c.college_id)
                 .map((d: any) => ({
                     department_id: d.department_id,
                     dept_name: d.dept_name,
+                    show_absences: d.show_absences,
                     college_id: d.college_id,
                     levels: levelsRaw
                         .filter((l: any) => l.department_id === d.department_id)
                         .map((l: any) => ({
                             level_id: l.level_id,
                             name: l.name,
+                            show_absences: l.show_absences,
                             order: Number(l.order)
                         }))
                 }))

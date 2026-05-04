@@ -1,4 +1,4 @@
-﻿"use server"
+"use server"
 
 import { db } from "@/lib/db"
 import { Prisma } from "@prisma/client"
@@ -28,11 +28,11 @@ export async function getCollegesWithDepartments(employeeId?: string) {
         let collegesRaw: any[]
         if (collegeFilter !== null) {
             collegesRaw = await db.$queryRaw<any[]>`
-                SELECT college_id, name FROM colleges WHERE college_id = ${collegeFilter} ORDER BY name ASC
+                SELECT college_id, name, show_absences FROM colleges WHERE college_id = ${collegeFilter} ORDER BY name ASC
             `
         } else {
             collegesRaw = await db.$queryRaw<any[]>`
-                SELECT college_id, name FROM colleges ORDER BY name ASC
+                SELECT college_id, name, show_absences FROM colleges ORDER BY name ASC
             `
         }
 
@@ -304,7 +304,7 @@ export async function deleteSubject(subjectId: number) {
 // STUDENT ABSENCES – fetch for employee view
 // ============================================================
 
-export async function getStudentAbsences(studentUniversityId: string) {
+export async function getStudentAbsences(studentUniversityId: string, isStudentView: boolean = false) {
     try {
         // Fetch student basic info (no new relations needed here)
         const student = await db.users.findUnique({
@@ -340,10 +340,18 @@ export async function getStudentAbsences(studentUniversityId: string) {
         `
         const levelInfo = levelRows[0] ?? null
 
-        // Filter by term if student is assigned to one, otherwise show all for level
+        // Filter by term if student is assigned to one, otherwise default to the first term of the level
         const subjectsWhereClause: any = { level_terms: { level_id: student.level_id } }
         if (student.current_term_id) {
             subjectsWhereClause.term_id = student.current_term_id
+        } else {
+            const firstTerm = await db.level_terms.findFirst({
+                where: { level_id: student.level_id },
+                orderBy: { term_id: 'asc' }
+            });
+            if (firstTerm) {
+                subjectsWhereClause.term_id = firstTerm.term_id;
+            }
         }
 
         const subjects = await db.subjects.findMany({
@@ -408,7 +416,7 @@ export async function getStudentAbsences(studentUniversityId: string) {
                     } : null
                 } : null
             },
-            subjects: isHidden ? [] : result,
+            subjects: (isHidden && isStudentView) ? [] : result,
             isHidden: isHidden
         }
     } catch (e) {
@@ -552,7 +560,7 @@ export async function deleteAbsenceRecord(recordId: number) {
 // ============================================================
 
 export async function getMyAbsences(studentUniversityId: string) {
-    return getStudentAbsences(studentUniversityId)
+    return getStudentAbsences(studentUniversityId, true)
 }
 
 // ============================================================
@@ -791,10 +799,20 @@ export async function promoteAllStudentsGlobally(includedStudentIds: number[]) {
  */
 export async function promoteStudentsToNextTerm(fromTermId: number, toTermId: number) {
     try {
+        // Fetch the level_id for the fromTermId to handle unassigned students
+        const fromTerm = await db.level_terms.findUnique({
+            where: { term_id: fromTermId },
+            select: { level_id: true }
+        });
+
+        if (!fromTerm) {
+            return { success: false, error: "الفصل الدراسي غير موجود" };
+        }
+
         const result = await db.$executeRaw`
             UPDATE users
             SET current_term_id = ${toTermId}
-            WHERE current_term_id = ${fromTermId}
+            WHERE (current_term_id = ${fromTermId} OR (current_term_id IS NULL AND level_id = ${fromTerm.level_id}))
               AND user_status = 'active'
         `
         return { success: true, count: result }

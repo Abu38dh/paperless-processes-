@@ -688,7 +688,7 @@ function AssetsToolbar({
                   </div>
                ))}
 
-               <label className={`cursor-pointer text-xs flex flex-col items-center justify-center gap-3 text-slate-500 hover:text-[#1b9d91] transition-all bg-white hover:bg-[#1b9d91]/5 border-2 border-dashed border-slate-200 hover:border-[#1b9d91]/50 rounded-lg p-3 h-24 group ${isUploadingSig ? 'opacity-50 pointer-events-none' : ''}`}>
+               <label className="select-field">
                     <div className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
                         {isUploadingSig ? <span className="animate-[spin_1s_linear_infinite]">⏳</span> : <Plus className="w-4 h-4 text-slate-400 group-hover:text-[#1b9d91]" />}
                     </div>
@@ -736,7 +736,7 @@ function AssetsToolbar({
                   </div>
                ))}
 
-               <label htmlFor="stamp-upload" className={`cursor-pointer text-xs flex flex-col items-center justify-center gap-3 text-slate-500 hover:text-[#1b9d91] transition-all bg-slate-50 hover:bg-[#1b9d91]/5 border-2 border-dashed border-slate-200 hover:border-[#1b9d91]/50 rounded-lg p-4 h-28 group ${isUploadingStamp ? 'opacity-50 pointer-events-none' : ''}`}>
+               <label htmlFor="stamp-upload" className="select-field">
                     <div className="w-10 h-10 rounded-full bg-white border border-slate-100 flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
                         {isUploadingStamp ? <span className="animate-[spin_1s_linear_infinite]">⏳</span> : <Upload className="w-5 h-5 text-slate-400 group-hover:text-[#1b9d91]" />}
                     </div>

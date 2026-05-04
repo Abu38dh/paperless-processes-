@@ -118,7 +118,7 @@ export default function EmployeeKpiDashboard({ onBack, currentUserId }: Employee
         <div className="flex gap-2 items-center flex-wrap">
           {/* Term filter */}
           <select
-            className="border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+            className="select-field"
             value={selectedTermId ?? ""}
             onChange={e => handleTermChange(e.target.value ? Number(e.target.value) : undefined)}
           >

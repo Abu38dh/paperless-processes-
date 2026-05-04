@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -690,7 +690,7 @@ export default function FormBuilderEditor({ formId, onBack, currentUserId }: For
                                 type: e.target.value as FormField["type"],
                               })
                             }
-                            className="w-full p-2 border border-border rounded-lg mt-1 text-sm bg-background text-foreground"
+                            className="select-field mt-1"
                           >
                             {fieldTypes.map((type) => (
                               <option key={type.id} value={type.id}>
@@ -832,10 +832,7 @@ export default function FormBuilderEditor({ formId, onBack, currentUserId }: For
                               onDrop={(e) => handleDrop(e, field.id)}
                               onDragEnd={handleDragEnd}
                               onClick={() => setSelectedFieldId(field.id)}
-                              className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${selectedFieldId === field.id
-                                ? "border-primary bg-primary/5 shadow-md"
-                                : "border-border hover:border-primary/50 bg-card"
-                                } ${draggedFieldId === field.id ? "opacity-50 dashed border-primary" : ""}`}
+                              className={`p-3 border-2 rounded-lg cursor-pointer transition-all duration-150 ${selectedFieldId === field.id ? 'border-primary bg-primary/5 shadow-sm' : 'border-transparent bg-card hover:bg-slate-50 hover:border-slate-200'}`}
                             >
                               <div className="flex items-start gap-2">
                                 <GripVertical className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0 cursor-grab active:cursor-grabbing" />

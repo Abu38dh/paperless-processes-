@@ -1,12 +1,13 @@
-﻿"use client"
+"use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion"
 import {
     Search, Plus, Trash2, CheckCircle2, XCircle, CalendarDays,
     ChevronDown, ChevronUp, BookOpen, User, Loader2, Building2,
@@ -38,9 +39,9 @@ export default function AbsenceManager({ currentUserId }: AbsenceManagerProps) {
     const [searchResults, setSearchResults] = useState<any[]>([])
     const [searching, setSearching] = useState(false)
 
-    // Selected student
     const [selectedStudent, setSelectedStudent] = useState<any | null>(null)
     const [subjectData, setSubjectData] = useState<any[]>([])
+    const [isHidden, setIsHidden] = useState(false)
     const [loadingAbsences, setLoadingAbsences] = useState(false)
 
     // Expanded subject
@@ -79,7 +80,7 @@ export default function AbsenceManager({ currentUserId }: AbsenceManagerProps) {
 
     useEffect(() => {
         const t = setTimeout(() => {
-            if (!selectedStudent && (query.length >= 2 || (query.length === 0 && searchResults.length === 0))) {
+            if (!selectedStudent && (query.length >= 2 || query.length === 0)) {
                 handleSearch()
             }
         }, 400)
@@ -94,8 +95,12 @@ export default function AbsenceManager({ currentUserId }: AbsenceManagerProps) {
         setLoadingAbsences(true)
         try {
             const res = await getStudentAbsences(student.university_id)
-            if (res.success) setSubjectData((res as any).subjects ?? [])
-            else toast({ title: " خطأ", description: (res as any).error, variant: "destructive" })
+            if (res.success) {
+                setSubjectData((res as any).subjects ?? [])
+                setIsHidden((res as any).isHidden ?? false)
+            } else {
+                toast({ title: " خطأ", description: (res as any).error, variant: "destructive" })
+            }
         } finally {
             setLoadingAbsences(false)
         }
@@ -125,7 +130,10 @@ export default function AbsenceManager({ currentUserId }: AbsenceManagerProps) {
                 setAddingTo(null)
                 // Refresh
                 const updated = await getStudentAbsences(selectedStudent.university_id)
-                if (updated.success) setSubjectData((updated as any).subjects ?? [])
+                if (updated.success) {
+                    setSubjectData((updated as any).subjects ?? [])
+                    setIsHidden((updated as any).isHidden ?? false)
+                }
             } else {
                 toast({ title: " خطأ", description: (res as any).error, variant: "destructive" })
             }
@@ -140,7 +148,10 @@ export default function AbsenceManager({ currentUserId }: AbsenceManagerProps) {
             const res = await updateAbsenceRecord(recordId, !currentExcused)
             if (res.success) {
                 const updated = await getStudentAbsences(selectedStudent.university_id)
-                if (updated.success) setSubjectData((updated as any).subjects ?? [])
+                if (updated.success) {
+                    setSubjectData((updated as any).subjects ?? [])
+                    setIsHidden((updated as any).isHidden ?? false)
+                }
                 toast({ title: currentExcused ? " تم إلغاء العذر" : " تم التأشير بعذر" })
             }
         } catch {
@@ -158,7 +169,10 @@ export default function AbsenceManager({ currentUserId }: AbsenceManagerProps) {
                 toast({ title: " تم حذف السجل" })
                 setDeleteRecordId(null)
                 const updated = await getStudentAbsences(selectedStudent.university_id)
-                if (updated.success) setSubjectData((updated as any).subjects ?? [])
+                if (updated.success) {
+                    setSubjectData((updated as any).subjects ?? [])
+                    setIsHidden((updated as any).isHidden ?? false)
+                }
             } else {
                 toast({ title: " خطأ", description: (res as any).error, variant: "destructive" })
             }
@@ -166,6 +180,22 @@ export default function AbsenceManager({ currentUserId }: AbsenceManagerProps) {
             setDeleting(false)
         }
     }
+
+    const groupedResults = useMemo(() => {
+        const groups: Record<string, Record<string, any[]>> = {}
+        searchResults.forEach(s => {
+            const deptNode = s.departments_users_department_idTodepartments;
+            const college = deptNode?.colleges;
+            const deptName = deptNode ? `${college?.name ? college.name + ' - ' : ''}${deptNode.dept_name}` : 'قسم غير محدد';
+            const levelName = s.levels?.name || 'مستوى غير محدد';
+
+            if (!groups[deptName]) groups[deptName] = {};
+            if (!groups[deptName][levelName]) groups[deptName][levelName] = [];
+            
+            groups[deptName][levelName].push(s);
+        });
+        return groups;
+    }, [searchResults]);
 
     return (
         <div className="p-6 space-y-6" dir="rtl">
@@ -183,15 +213,32 @@ export default function AbsenceManager({ currentUserId }: AbsenceManagerProps) {
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                    <div className="relative">
-                        <Search className="absolute right-3 top-2.5 w-4 h-4 text-muted-foreground" />
-                        <Input
-                            placeholder="ابحث بالاسم أو رقم القيد..."
-                            value={query}
-                            onChange={e => setQuery(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                            className="pr-10"
-                        />
+                    <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                            <Search className="absolute right-3 top-2.5 w-4 h-4 text-muted-foreground" />
+                            <Input
+                                placeholder="ابحث بالاسم أو رقم القيد..."
+                                value={query}
+                                onChange={e => setQuery(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                                className="pr-10"
+                                disabled={!!selectedStudent}
+                            />
+                        </div>
+                        {selectedStudent && (
+                            <Button 
+                                variant="outline" 
+                                onClick={() => {
+                                    setSelectedStudent(null);
+                                    setQuery("");
+                                    handleSearch(); // Refresh list automatically
+                                }}
+                                className="shrink-0 text-muted-foreground hover:text-foreground"
+                            >
+                                <XCircle className="w-4 h-4 ml-2" />
+                                العودة للقائمة
+                            </Button>
+                        )}
                     </div>
                     {searching && (
                         <div className="flex items-center gap-2 text-muted-foreground text-sm">
@@ -199,37 +246,53 @@ export default function AbsenceManager({ currentUserId }: AbsenceManagerProps) {
                         </div>
                     )}
                     {!selectedStudent && searchResults.length > 0 && (
-                        <div className="border rounded-xl divide-y bg-card shadow-lg max-h-80 overflow-y-auto mt-2 transition-all">
-                            {searchResults.map(s => (
-                                <button
-                                    key={s.user_id}
-                                    onClick={() => selectStudent(s)}
-                                    className="w-full text-right px-6 py-5 hover:bg-primary/5 transition-colors flex items-center justify-between gap-4 group"
-                                >
-                                    <div className="flex-1 min-w-0">
-                                        <p className="font-bold text-lg group-hover:text-primary transition-colors">{s.full_name}</p>
-                                        <div className="flex items-center gap-3 mt-1">
-                                            <p className="text-sm font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded">{s.university_id}</p>
-                                            {(() => {
-                                                const dept = s.departments_users_department_idTodepartments
-                                                const college = dept?.colleges
-                                                return dept ? (
-                                                    <p className="text-sm text-muted-foreground/80 flex items-center gap-1">
-                                                        <Building2 className="w-3.5 h-3.5" />
-                                                        {college?.name && <span>{college.name} / </span>}
-                                                        {dept.dept_name}
-                                                    </p>
-                                                ) : null
-                                            })()}
-                                        </div>
-                                    </div>
-                                    <div className="flex flex-col gap-1 items-end shrink-0">
-                                        {s.levels && (
-                                            <Badge variant="secondary" className="text-xs px-3 py-1">{s.levels.name}</Badge>
-                                        )}
-                                    </div>
-                                </button>
-                            ))}
+                        <div className="border rounded-xl bg-card shadow-lg max-h-[500px] overflow-y-auto mt-2 transition-all p-2">
+                            <Accordion type="multiple" className="w-full space-y-2">
+                                {Object.entries(groupedResults).map(([deptName, levels]) => (
+                                    <AccordionItem value={deptName} key={deptName} className="border bg-slate-50/50 rounded-lg overflow-hidden">
+                                        <AccordionTrigger className="hover:no-underline px-4 py-3 bg-slate-50 border-b">
+                                            <div className="flex items-center gap-2 font-bold text-primary text-base">
+                                                <Building2 className="w-5 h-5" />
+                                                {deptName}
+                                            </div>
+                                        </AccordionTrigger>
+                                        <AccordionContent className="p-3 bg-white">
+                                            <Accordion type="multiple" className="w-full space-y-3">
+                                                {Object.entries(levels).map(([levelName, students]) => (
+                                                    <AccordionItem value={`${deptName}-${levelName}`} key={`${deptName}-${levelName}`} className="border rounded-lg overflow-hidden shadow-sm">
+                                                        <AccordionTrigger className="hover:no-underline bg-slate-50/80 px-4 py-2 border-b">
+                                                            <div className="flex items-center gap-2 font-semibold text-slate-700">
+                                                                <GraduationCap className="w-4 h-4" />
+                                                                {levelName}
+                                                                <Badge variant="secondary" className="mr-2 text-xs">{students.length} طلاب</Badge>
+                                                            </div>
+                                                        </AccordionTrigger>
+                                                        <AccordionContent className="p-3 bg-white">
+                                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                                {students.map((s: any) => (
+                                                                    <button
+                                                                        key={s.user_id}
+                                                                        onClick={() => selectStudent(s)}
+                                                                        className="w-full text-right px-4 py-3 bg-white border hover:border-primary/50 hover:shadow-md transition-all rounded-lg flex items-center justify-start gap-3 group"
+                                                                    >
+                                                                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                                                                            <User className="w-5 h-5 text-primary group-hover:scale-110 transition-transform" />
+                                                                        </div>
+                                                                        <div className="flex-1 min-w-0">
+                                                                            <p className="font-bold text-sm text-foreground group-hover:text-primary transition-colors truncate">{s.full_name}</p>
+                                                                            <p className="text-xs font-mono text-muted-foreground mt-0.5">{s.university_id}</p>
+                                                                        </div>
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        </AccordionContent>
+                                                    </AccordionItem>
+                                                ))}
+                                            </Accordion>
+                                        </AccordionContent>
+                                    </AccordionItem>
+                                ))}
+                            </Accordion>
                         </div>
                     )}
 
@@ -382,12 +445,20 @@ export default function AbsenceManager({ currentUserId }: AbsenceManagerProps) {
                             <Loader2 className="w-5 h-5 animate-spin" />
                             جارٍ تحميل الغيابات...
                         </div>
-                    ) : subjectData.length === 0 ? (
+                    ) : !selectedStudent.levels ? (
                         <Card>
                             <CardContent className="pt-6 text-center text-muted-foreground py-12">
                                 <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-20" />
                                 <p className="font-medium">لم يتم تعيين مستوى لهذا الطالب</p>
                                 <p className="text-sm mt-1">يرجى تعيين المستوى من صفحة إدارة المستخدمين أو إدارة المستويات</p>
+                            </CardContent>
+                        </Card>
+                    ) : subjectData.length === 0 ? (
+                        <Card>
+                            <CardContent className="pt-6 text-center text-muted-foreground py-12">
+                                <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                                <p className="font-medium">لا توجد مواد مسجلة لهذا الطالب</p>
+                                <p className="text-sm mt-1">تأكد من إضافة مواد دراسية لهذا المستوى والفصل الدراسي من إدارة المستويات</p>
                             </CardContent>
                         </Card>
                     ) : (
