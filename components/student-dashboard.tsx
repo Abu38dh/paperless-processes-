@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -114,6 +114,7 @@ export default function StudentDashboard({ onLogout, userData }: StudentDashboar
           applicant: userData.full_name,
           term_id: r.term_id ?? null,
           users: r.users, // Pass the users object containing college/dept info
+          attachments: r.attachments || [], // Pass attachments from admin/employee uploads
           workflow: (() => {
             const steps = r.form_templates?.request_types?.workflows?.workflow_steps || [];
             const currentStepId = r.current_step_id;

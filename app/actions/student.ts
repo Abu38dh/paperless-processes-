@@ -1,4 +1,4 @@
-﻿"use server"
+"use server"
 
 import { db } from "@/lib/db"
 import { revalidatePath } from "next/cache"
@@ -59,6 +59,23 @@ export async function getStudentDashboardData(studentId: string, page: number = 
                             name: true
                         }
                     },
+                    attachments: {
+                        select: {
+                            file_id: true,
+                            storage_location: true,
+                            file_type: true,
+                            uploaded_at: true,
+                            uploader_id: true,
+                            users: {
+                                select: {
+                                    full_name: true,
+                                    university_id: true,
+                                    roles: { select: { role_name: true } }
+                                }
+                            }
+                        },
+                        orderBy: { uploaded_at: 'desc' }
+                    },
                     users: {
                         select: {
                             full_name: true,
@@ -109,7 +126,7 @@ export async function getStudentDashboardData(studentId: string, page: number = 
         return {
             success: true,
             data: {
-                requests: requests.map((r: any) => ({ ...r, term_id: termIdMap[r.request_id] ?? null })),
+                requests: requests.map((r: any) => ({ ...r, term_id: termIdMap[r.request_id] ?? null, attachments: r.attachments || [] })),
                 stats: {
                     total: totalRequests,
                     pending: pendingRequests,

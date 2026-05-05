@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useState, useRef, useEffect, FormEvent } from "react"
 import { Button } from "@/components/ui/button"
@@ -47,10 +47,11 @@ export default function PdfTemplateEditor({
     
     // Use setTimeout to allow the DOM to update after the command
     setTimeout(() => {
-        const boldState = document.queryCommandState('bold')
-        const italicState = document.queryCommandState('italic')
-        setIsBold(boldState)
-        setIsItalic(italicState)
+        setIsBold(document.queryCommandState('bold'))
+        setIsItalic(document.queryCommandState('italic'))
+        
+        // Removed the automatic updating of color/font/size based on cursor position
+        // as per user request to keep toolbar selections static.
     }, 0)
   }
 
@@ -93,11 +94,33 @@ export default function PdfTemplateEditor({
   }
 
   const restoreSelection = () => {
-      const selection = window.getSelection()
-      if (selection && selectionRef.current) {
-          selection.removeAllRanges()
-          selection.addRange(selectionRef.current)
+      if (editorRef.current && document.activeElement !== editorRef.current) {
+          editorRef.current.focus()
       }
+      const selection = window.getSelection()
+      if (selection) {
+          if (selectionRef.current) {
+              selection.removeAllRanges()
+              selection.addRange(selectionRef.current)
+          } else if (editorRef.current) {
+              const range = document.createRange()
+              range.selectNodeContents(editorRef.current)
+              range.collapse(false)
+              selection.removeAllRanges()
+              selection.addRange(range)
+              selectionRef.current = range.cloneRange()
+          }
+      }
+  }
+
+  // Force the browser's typing context to match the toolbar
+  const enforceToolbarStyles = () => {
+      const selection = window.getSelection()
+      if (!selection || !selection.isCollapsed) return
+      if (!editorRef.current || !editorRef.current.contains(selection.anchorNode)) return
+      
+      document.execCommand('foreColor', false, textColor)
+      document.execCommand('fontName', false, fontFamily)
   }
 
   // Insert variable at cursor position
@@ -169,30 +192,24 @@ export default function PdfTemplateEditor({
     const selection = window.getSelection()
     if (!selection || selection.rangeCount === 0) return
 
-    // Special handling for color (use native command for best cursor support)
-    if (styleProp === 'color') {
-      document.execCommand('foreColor', false, styleValue)
-      return
-    }
-
-    // Special handling for font-family
-    if (styleProp === 'font-family') {
-      document.execCommand('fontName', false, styleValue)
-      return
-    }
-
-    // Special handling for font-size (native only supports 1-7, so we need span for px)
-    if (styleProp === 'font-size' && selection.isCollapsed) {
-      // If selection is collapsed (cursor only), we need to insert a styled span with ZWS
+    // Handle collapsed selection (cursor only) for ALL style properties
+    if (selection.isCollapsed) {
       const span = document.createElement('span')
-      span.style.fontSize = styleValue
+      if (styleProp === 'color') {
+        span.style.color = styleValue
+      } else if (styleProp === 'font-family') {
+        span.style.fontFamily = styleValue
+      } else {
+        span.style.setProperty(styleProp, styleValue)
+      }
+      
       span.innerHTML = '&#8203;' // Zero width space
       const range = selection.getRangeAt(0)
       range.insertNode(span)
       
-      // Move cursor inside the span
+      // Move cursor inside the span after the ZWS
       range.selectNodeContents(span)
-      range.collapse(false) // Collapse to end of ZWS
+      range.collapse(false) 
       selection.removeAllRanges()
       selection.addRange(range)
       
@@ -201,7 +218,18 @@ export default function PdfTemplateEditor({
       return
     }
 
+    // Handle normal selected text using native commands where possible
+    if (styleProp === 'color') {
+      document.execCommand('foreColor', false, styleValue)
+      if (editorRef.current) onTemplateChange(editorRef.current.innerHTML)
+      return
+    }
 
+    if (styleProp === 'font-family') {
+      document.execCommand('fontName', false, styleValue)
+      if (editorRef.current) onTemplateChange(editorRef.current.innerHTML)
+      return
+    }
     const range = selection.getRangeAt(0)
     
     // Check if we are inside the editor
@@ -310,30 +338,38 @@ export default function PdfTemplateEditor({
         <div className="flex-1 overflow-auto bg-slate-100 p-8 rounded-lg">
           <div className="w-full max-w-[210mm] bg-white shadow-2xl rounded-sm border border-slate-300 min-h-[297mm]">
             {/* Paper Header */}
-            <div className="border-b-4 border-orange-500 p-6 bg-white">
-              <div className="flex items-center justify-between gap-4">
+            <div className="relative p-8 bg-white overflow-hidden">
+              {/* Gradient top accent */}
+              <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#1b9d91] via-[#1b9d91]/70 to-[#f97316]"></div>
+
+              <div className="flex items-center justify-between gap-6 mt-1">
                 {/* Right side - Arabic */}
-                <div className="text-right space-y-0.5">
-                  <div className="text-base font-bold text-slate-900">الجمهورية اليمنية</div>
-                  <div className="text-xs text-slate-700 leading-tight">وزارة التعليم العالي والبحث العلمي</div>
-                  <div className="text-xs text-slate-700 leading-tight">والتعليم الفني والتدريب المهني</div>
-                  <div className="text-2xl font-bold text-slate-900 mt-3">جامعة العرب</div>
+                <div className="text-right flex flex-col justify-center flex-1">
+                  <div className="text-base font-black text-slate-900">الجمهورية اليمنية</div>
+                  <div className="text-xs font-semibold text-slate-600 mt-1">وزارة التعليم العالي والبحث العلمي</div>
+                  <div className="text-xs font-semibold text-slate-600 mt-0.5">والتعليم الفني والتدريب المهني</div>
+                  <div className="w-8 h-0.5 bg-[#f97316] my-2.5 ml-auto rounded-full"></div>
+                  <div className="text-2xl font-black text-[#1b9d91]">جامعة العرب</div>
                 </div>
-                
+
                 {/* Center - Logo */}
-                <div className="flex-shrink-0">
-                  <img src="/university-logo.png" alt="AL-ARAB UNIVERSITY" className="w-32 h-32 object-contain" />
+                <div className="flex-shrink-0 flex items-center justify-center px-2">
+                  <img src="/university-logo.png" alt="AL-ARAB UNIVERSITY" className="w-28 h-28 object-contain" />
                 </div>
-                
+
                 {/* Left side - English */}
-                <div className="text-left space-y-0.5">
-                  <div className="text-base font-bold text-slate-900">Republic of Yemen</div>
-                  <div className="text-xs text-slate-700 leading-tight">Ministry of Higher Education &</div>
-                  <div className="text-xs text-slate-700 leading-tight">Scientific Research,</div>
-                  <div className="text-xs text-slate-700 leading-tight">Technical education and Vocational Training</div>
-                  <div className="text-2xl font-bold text-slate-900 mt-3">AL-ARAB UNIVERSITY</div>
+                <div className="text-left flex flex-col justify-center flex-1" dir="ltr">
+                  <div className="text-base font-black text-slate-900">Republic of Yemen</div>
+                  <div className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider mt-1">Ministry of Higher Education</div>
+                  <div className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider mt-0.5">& Scientific Research</div>
+                  <div className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider mt-0.5">Vocational Training</div>
+                  <div className="w-8 h-0.5 bg-[#f97316] my-2.5 mr-auto rounded-full"></div>
+                  <div className="text-xl font-black text-[#1b9d91] uppercase">Al-Arab University</div>
                 </div>
               </div>
+
+              {/* Bottom subtle border */}
+              <div className="absolute bottom-0 left-8 right-8 h-px bg-slate-200"></div>
             </div>
 
             {/* Editor Area */}
@@ -346,19 +382,16 @@ export default function PdfTemplateEditor({
                     <span>🎨</span>
                     تنسيق النص
                   </div>
-
                   <Button 
                     variant="ghost" 
                     size="sm" 
                     onClick={() => setShowPreview(true)}
                     className="text-slate-500 hover:text-[#1b9d91] hover:bg-[#1b9d91]/10 gap-2 h-8"
                   >
-                    <span className="text-lg"></span>
                     <span className="text-xs font-bold">معاينة الوثيقة</span>
                   </Button>
-                  
                 </div>
-                
+
                 {/* Controls Row */}
                 <div className="px-4 py-3 flex flex-wrap items-center gap-3">
                   {/* Font Size */}
@@ -476,10 +509,15 @@ export default function PdfTemplateEditor({
                 onMouseUp={() => {
                   saveSelection()
                   checkActiveStyles()
+                  enforceToolbarStyles()
                 }}
-                onKeyUp={() => {
+                onKeyUp={(e) => {
                   saveSelection()
                   checkActiveStyles()
+                  // Only enforce if navigating, not while actively typing characters
+                  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown', 'Enter'].includes(e.key)) {
+                      enforceToolbarStyles()
+                  }
                 }}
                 onFocus={() => {
                   saveSelection()
@@ -490,7 +528,8 @@ export default function PdfTemplateEditor({
                 style={{
                   fontSize: '18px',
                   fontFamily: 'serif',
-                  color: '#1e293b'
+                  color: '#1e293b',
+                  caretColor: 'black'
                 }}
                 dir="rtl"
               />
@@ -512,30 +551,38 @@ export default function PdfTemplateEditor({
           <div className="flex-1 overflow-y-auto p-8 flex justify-center bg-slate-100/50">
              <div className="bg-white shadow-2xl w-[794px] min-h-[1123px] origin-top transform scale-90 flex flex-col">
                 {/* Paper Header */}
-                <div className="border-b-4 border-orange-500 p-8 bg-white shrink-0">
-                  <div className="flex items-center justify-between gap-4">
+                <div className="relative p-10 bg-white shrink-0 overflow-hidden">
+                  {/* Decorative top accent */}
+                  <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#1b9d91] via-[#1b9d91]/80 to-[#f97316]"></div>
+                  
+                  <div className="flex items-center justify-between gap-6 relative z-10">
                     {/* Right side - Arabic */}
-                    <div className="text-right space-y-0.5">
-                      <div className="text-base font-bold text-slate-900">الجمهورية اليمنية</div>
-                      <div className="text-xs text-slate-700 leading-tight">وزارة التعليم العالي والبحث العلمي</div>
-                      <div className="text-xs text-slate-700 leading-tight">والتعليم الفني والتدريب المهني</div>
-                      <div className="text-2xl font-bold text-slate-900 mt-3">جامعة العرب</div>
+                    <div className="text-right flex flex-col justify-center flex-1">
+                      <div className="text-lg font-black text-slate-900 tracking-tight">الجمهورية اليمنية</div>
+                      <div className="text-xs font-bold text-slate-700 mt-1.5">وزارة التعليم العالي والبحث العلمي</div>
+                      <div className="text-xs font-bold text-slate-700 mt-0.5">والتعليم الفني والتدريب المهني</div>
+                      <div className="w-10 h-0.5 bg-[#f97316] my-3 ml-auto rounded-full"></div>
+                      <div className="text-2xl font-black text-[#1b9d91]">جامعة العرب</div>
                     </div>
                     
                     {/* Center - Logo */}
-                    <div className="flex-shrink-0">
-                      <img src="/university-logo.png" alt="AL-ARAB UNIVERSITY" className="w-32 h-32 object-contain" />
+                    <div className="flex-shrink-0 flex items-center justify-center px-4">
+                      <img src="/university-logo.png" alt="AL-ARAB UNIVERSITY" className="w-[120px] h-[120px] object-contain drop-shadow-sm" />
                     </div>
                     
                     {/* Left side - English */}
-                    <div className="text-left space-y-0.5" dir="ltr">
-                      <div className="text-base font-bold text-slate-900">Republic of Yemen</div>
-                      <div className="text-xs text-slate-700 leading-tight">Ministry of Higher Education &</div>
-                      <div className="text-xs text-slate-700 leading-tight">Scientific Research,</div>
-                      <div className="text-xs text-slate-700 leading-tight">Technical education and Vocational Training</div>
-                      <div className="text-2xl font-bold text-slate-900 mt-3">AL-ARAB UNIVERSITY</div>
+                    <div className="text-left flex flex-col justify-center flex-1" dir="ltr">
+                      <div className="text-lg font-black text-slate-900 tracking-tight">Republic of Yemen</div>
+                      <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mt-1.5">Ministry of Higher Education</div>
+                      <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mt-0.5">& Scientific Research</div>
+                      <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mt-0.5">Vocational Training</div>
+                      <div className="w-10 h-0.5 bg-[#f97316] my-3 mr-auto rounded-full"></div>
+                      <div className="text-xl font-black text-[#1b9d91] tracking-tight uppercase">Al-Arab University</div>
                     </div>
                   </div>
+
+                  {/* Bottom Border */}
+                  <div className="absolute bottom-0 left-10 right-10 h-px bg-slate-200"></div>
                 </div>
 
                 {/* Content */}

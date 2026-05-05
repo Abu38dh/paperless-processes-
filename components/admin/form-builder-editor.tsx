@@ -606,56 +606,55 @@ export default function FormBuilderEditor({ formId, onBack, currentUserId }: For
         </div>
       ) : (
         <>
-          {/* Header */}
-          <div className="border-b bg-card p-2">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex gap-2">
-                <Button onClick={handlePublish} disabled={isSaving} className="bg-primary hover:bg-primary/90 text-white gap-2">
-                  <UploadIcon className="w-4 h-4" />
-                  {isSaving ? "جارٍ النشر..." : "نشر"}
-                </Button>
-                <Button onClick={handleSave} disabled={isSaving} variant="outline" className="gap-2 bg-transparent">
-                  <Save className="w-4 h-4" />
-                  {isSaving ? "جارٍ الحفظ..." : "حفظ"}
-                </Button>
-
-              </div>
-
-              {/* Form Name - Center */}
-              <div className="flex-1 max-w-md flex flex-col gap-1.5">
-                <Label className="text-center" required>اسم النموذج</Label>
-                <Input
-                  value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
-                  className="text-center font-semibold"
-                  placeholder={isNewForm ? "اسم النموذج الجديد" : "اسم النموذج"}
-                />
-              </div>
-
-              {/* Back Button */}
-              <Button variant="ghost" onClick={onBack} className="gap-2">
-                <ArrowRight className="w-4 h-4" />
-                رجوع
-              </Button>
-            </div>
-          </div>
-
-          {/* Main Content - Tabs Layout */}
           <Tabs defaultValue="form" className="flex-1 flex flex-col overflow-hidden">
-            <div className="bg-card border-b px-4">
-              <TabsList>
-                <TabsTrigger value="form">تصميم النموذج</TabsTrigger>
-                <TabsTrigger value="template">قالب الوثيقة الرسمية</TabsTrigger>
-              </TabsList>
+            {/* Unified Sleek Header */}
+            <div className="bg-white border-b flex items-center justify-between px-4 py-3 shadow-sm shrink-0 relative z-10">
+              {/* Right Side: Back Button & Title */}
+              <div className="flex items-center gap-4">
+                <Button variant="ghost" size="sm" onClick={onBack} className="gap-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 rounded-lg">
+                  <ArrowRight className="w-4 h-4" />
+                  رجوع
+                </Button>
+                
+                <div className="h-8 w-px bg-slate-200"></div>
+                
+                <div className="flex flex-col justify-center">
+                  <label className="text-[10px] text-slate-500 font-bold mb-0.5 px-1">اسم النموذج <span className="text-red-500">*</span></label>
+                  <Input
+                    value={formName}
+                    onChange={(e) => setFormName(e.target.value)}
+                    className="h-8 min-w-[280px] font-medium bg-slate-50 border-slate-200 focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-primary px-3 text-sm shadow-inner rounded-md"
+                    placeholder={isNewForm ? "اكتب اسم النموذج هنا..." : "اسم النموذج"}
+                  />
+                </div>
+              </div>
+
+              {/* Center: Tabs */}
+              <div className="absolute left-1/2 -translate-x-1/2 hidden lg:block">
+                <TabsList className="bg-slate-100/80 p-1 h-10 border border-slate-200 shadow-inner rounded-lg">
+                  <TabsTrigger value="form" className="data-[state=active]:bg-white data-[state=active]:shadow-sm text-sm px-6 py-1.5 rounded-md transition-all font-medium text-slate-600 data-[state=active]:text-primary">تصميم النموذج</TabsTrigger>
+                  <TabsTrigger value="template" className="data-[state=active]:bg-white data-[state=active]:shadow-sm text-sm px-6 py-1.5 rounded-md transition-all font-medium text-slate-600 data-[state=active]:text-primary">قالب الوثيقة الرسمية</TabsTrigger>
+                </TabsList>
+              </div>
+
+              {/* Left Side: Actions */}
+              <div className="flex items-center gap-2.5">
+                <Button onClick={() => setShowPreview(true)} variant="outline" size="sm" className="gap-2 bg-white border-slate-200 hover:bg-slate-50 h-9 text-sm font-medium shadow-sm rounded-lg text-slate-700">
+                  <Eye className="w-4 h-4 text-slate-500" />
+                  معاينة
+                </Button>
+                <Button onClick={handleSave} disabled={isSaving} variant="outline" size="sm" className="gap-2 bg-white border-slate-200 hover:bg-slate-50 h-9 text-sm font-medium shadow-sm rounded-lg text-slate-700">
+                  <Save className="w-4 h-4 text-slate-500" />
+                  {isSaving ? "حفظ..." : "حفظ"}
+                </Button>
+                <Button onClick={handlePublish} disabled={isSaving} size="sm" className="bg-primary hover:bg-primary/90 text-white gap-2 h-9 text-sm font-medium shadow-sm rounded-lg">
+                  <UploadIcon className="w-4 h-4" />
+                  {isSaving ? "نشر..." : "نشر"}
+                </Button>
+              </div>
             </div>
 
             <TabsContent value="form" className="flex-1 flex flex-col p-0 m-0 data-[state=inactive]:hidden">
-              <div className="p-2 border-b bg-muted/20 flex justify-end">
-                  <Button onClick={() => setShowPreview(true)} variant="outline" size="sm" className="gap-2 bg-white hover:bg-slate-50 text-slate-700 border-slate-200">
-                    <Eye className="w-4 h-4" />
-                    معاينة النموذج
-                  </Button>
-              </div>
               <ResizablePanelGroup direction="horizontal" className="flex-1">
                 {/* RIGHT COLUMN - Field Settings Panel (Now on Left/Start in LTR-rendered RTL) */}
                 <ResizablePanel defaultSize={30} minSize={20} maxSize={40}>

@@ -1,4 +1,4 @@
-﻿import jsPDF from "jspdf"
+import jsPDF from "jspdf"
 import html2canvas from "html2canvas"
 
 interface GeneratePDFProps {
@@ -65,59 +65,7 @@ export const generateOfficialPDF = async ({
   container.style.setProperty('--input', '#e2e8f0');
   container.style.setProperty('--ring', '#1b9d91');
 
-  let parsedSignatures: any[] = []
-  let isJsonSignatures = false
-  if (signatureUrl) {
-    try {
-      const parsed = JSON.parse(signatureUrl)
-      if (Array.isArray(parsed)) {
-        parsedSignatures = parsed
-        isJsonSignatures = true
-      }
-    } catch(e) {
-      // Not JSON
-    }
-  }
 
-  let parsedStamps: any[] = []
-  let isJsonStamps = false
-  if (stampUrl) {
-    try {
-      const parsed = JSON.parse(stampUrl)
-      if (Array.isArray(parsed)) {
-        parsedStamps = parsed
-        isJsonStamps = true
-      }
-    } catch(e) {
-      // Not JSON
-    }
-  }
-
-  const signaturesContent = isJsonSignatures 
-    ? `<div style="display: flex; gap: 40px; justify-content: center;">
-        ${parsedSignatures.map(sig => `
-          <div style="text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px;">
-            <div style="font-size: 16px; font-weight: bold; color: #1e293b;">${sig.name}</div>
-            <img src="${sig.url}" style="height: 60px; object-fit: contain;" crossorigin="anonymous" />
-          </div>
-        `).join('')}
-       </div>`
-    : (signatureUrl 
-        ? `<img src="${signatureUrl}" style="height: 60px;" crossorigin="anonymous" />` 
-        : '<div style="margin-bottom: 40px;">التوقيع: ..........................</div>')
-
-  const stampsContent = isJsonStamps
-    ? `<div style="display: flex; flex-direction: column; gap: 20px; align-items: center;">
-        ${parsedStamps.map(stamp => `
-          <div style="text-align: center; display: flex; flex-direction: column; align-items: center; gap: 5px;">
-            <div style="font-size: 14px; font-weight: bold; color: #1e293b;">${stamp.name}</div>
-            <img src="${stamp.url}" style="height: 80px; object-fit: contain;" crossorigin="anonymous" />
-          </div>
-        `).join('')}
-       </div>`
-    : (stampUrl 
-        ? `<img src="${stampUrl}" style="height: 80px;" crossorigin="anonymous" />` 
-        : '<div style="color: #94a3b8; border: 2px dashed #cbd5e1; padding: 10px; border-radius: 50%; width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; font-size: 10px;">الختم الرسمي</div>');
 
   // Reconstruct the official header structure (similar to editor preview)
   // Inline styles are critical here for html2canvas to pick them up correctly
@@ -158,15 +106,7 @@ export const generateOfficialPDF = async ({
         ${content}
       </div>
 
-      <!-- Footer / Signature Placeholder -->
-      <div style="margin-top: 50px; display: flex; justify-content: space-between; align-items: flex-end;">
-         <div style="text-align: center;">
-            ${signaturesContent}
-         </div>
-         <div style="text-align: center;">
-            ${stampsContent}
-         </div>
-      </div>
+
 
     </div>
   `

@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
@@ -521,58 +521,74 @@ export default function RequestDetail({ request, onEdit, onBack, userId, showHis
       })()}
 
       {request.attachments && request.attachments.length > 0 && (
-        <Card className="p-4 bg-muted/20 border border-slate-200">
-          <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
-            <Download className="w-4 h-4" />
-            المرفقات
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+        <Card className="overflow-hidden border border-primary/20 shadow-sm">
+          {/* Header */}
+          <div className="bg-gradient-to-l from-primary/10 to-primary/5 border-b border-primary/15 px-5 py-3.5 flex items-center gap-2.5">
+            <span className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="m9 15 2 2 4-4"/></svg>
+            </span>
+            <div>
+              <h3 className="font-bold text-sm text-primary">وثائق وملفات من الإدارة</h3>
+              <p className="text-xs text-primary/60">{request.attachments.length} ملف مرفق</p>
+            </div>
+          </div>
+
+          {/* Files List */}
+          <div className="p-4 space-y-2 bg-white">
             {request.attachments.map((file: any, idx: number) => {
-              // Handle different shapes of attachments if mapped or raw
-              const fileName = file.storage_location ? file.storage_location.split('/').pop() : 'file';
+              const fileName = file.storage_location ? file.storage_location.split('/').pop() : `ملف ${idx + 1}`;
               const fileUrl = file.storage_location || '#';
               const isImage = /\.(jpeg|jpg|gif|png|webp|svg)$/i.test(fileName)
               const isPdf = /\.pdf$/i.test(fileName) || fileUrl.startsWith('data:application/pdf')
+              const uploaderName = file.users?.full_name || 'الإدارة';
+              const uploadDate = file.uploaded_at ? new Date(file.uploaded_at).toLocaleDateString('ar-SA') : '';
 
-              if (isImage || isPdf) {
-                return (
-                  <div
-                    key={idx}
-                    onClick={() => setFilePreview({
-                      open: true,
-                      type: isImage ? 'image' : 'pdf',
-                      content: fileUrl,
-                      name: fileName
-                    })}
-                    className="flex items-center justify-between p-2 bg-white rounded border hover:bg-slate-50 transition-colors cursor-pointer"
-                  >
-                    <div className="flex items-center gap-2 overflow-hidden">
-                      <span className="bg-slate-100 p-1.5 rounded text-slate-500">
-                        {isPdf ? '' : ''}
-                      </span>
-                      <div className="truncate text-sm font-medium">{fileName}</div>
-                    </div>
-                    <span className="text-xs text-muted-foreground mr-2 shrink-0">عرض</span>
-                  </div>
-                )
-              }
+              const fileIcon = isPdf ? (
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+              ) : isImage ? (
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+              );
 
               return (
-                <a
-                  key={idx}
-                  href={fileUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-between p-2 bg-white rounded border hover:bg-slate-50 transition-colors"
-                >
-                  <div className="flex items-center gap-2 overflow-hidden">
-                    <span className="bg-slate-100 p-1.5 rounded text-slate-500">
-                      📎
-                    </span>
-                    <div className="truncate text-sm font-medium">{fileName}</div>
+                <div key={idx} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-100 hover:border-primary/30 hover:bg-primary/5 transition-all group">
+                  {/* Icon */}
+                  <span className="w-10 h-10 rounded-lg bg-white border border-slate-200 flex items-center justify-center shrink-0 shadow-sm group-hover:border-primary/30 transition-colors">
+                    {fileIcon}
+                  </span>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground truncate">{fileName}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      رُفع بواسطة: <span className="text-primary font-medium">{uploaderName}</span>
+                      {uploadDate && <span className="mr-2 text-muted-foreground/70">· {uploadDate}</span>}
+                    </p>
                   </div>
-                  <span className="text-xs text-muted-foreground mr-2 shrink-0">تحميل</span>
-                </a>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {(isImage || isPdf) && (
+                      <button
+                        onClick={() => setFilePreview({ open: true, type: isImage ? 'image' : 'pdf', content: fileUrl, name: fileName })}
+                        className="px-2.5 py-1 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-md transition-colors"
+                      >
+                        عرض
+                      </button>
+                    )}
+                    <a
+                      href={fileUrl}
+                      download={fileName}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-1.5 text-slate-500 hover:text-primary hover:bg-primary/10 rounded-md transition-colors"
+                      title="تحميل الملف"
+                    >
+                      <Download className="w-4 h-4" />
+                    </a>
+                  </div>
+                </div>
               )
             })}
           </div>

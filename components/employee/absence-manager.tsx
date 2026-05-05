@@ -508,192 +508,212 @@ export default function AbsenceManager({ currentUserId }: AbsenceManagerProps) {
                                 </Card>
                             </div>
 
-                            {/* Subjects */}
-                            {subjectData.map(subject => (
-                                <Card key={subject.subject_id} className={`overflow-hidden border transition-shadow ${expandedSubjectId === subject.subject_id ? "shadow-sm border-primary/40 ring-1 ring-primary/10" : "shadow-sm hover:border-slate-300"}`}>
-                                    {/* Subject Header */}
-                                    <button
-                                        className={`w-full text-right transition-colors ${expandedSubjectId === subject.subject_id ? "bg-slate-50/50" : "hover:bg-slate-50"}`}
-                                        onClick={() => setExpandedSubjectId(
-                                            expandedSubjectId === subject.subject_id ? null : subject.subject_id
-                                        )}
-                                    >
-                                        <CardHeader className="py-3 px-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="p-2 rounded-md shrink-0 bg-primary/10 text-primary">
-                                                    <BookOpen className="w-5 h-5" />
-                                                </div>
-                                                <div className="flex-1 text-right">
-                                                    <CardTitle className="text-base font-semibold flex items-center gap-2">
-                                                        {subject.name}
-                                                        {subject.code && (
-                                                            <span className="text-xs font-normal text-muted-foreground mr-1">({subject.code})</span>
-                                                        )}
-                                                    </CardTitle>
-                                                    <div className="flex gap-3 mt-1.5">
-                                                        <div className="flex items-center gap-1.5 min-w-[70px]">
-                                                            <span className="text-xs text-muted-foreground font-medium">الغياب الكلي:</span>
-                                                            <span className="text-sm font-bold">{subject.total_absences}</span>
-                                                        </div>
-                                                        <div className="flex items-center gap-1.5 min-w-[70px]">
-                                                            <span className="text-xs text-emerald-600 font-medium">بعذر:</span>
-                                                            <span className="text-sm font-bold text-emerald-700">{subject.excused_count}</span>
-                                                        </div>
-                                                        <div className="flex items-center gap-1.5 min-w-[70px]">
-                                                            <span className="text-xs text-rose-500 font-medium">بدون عذر:</span>
-                                                            <span className="text-sm font-bold text-rose-600">{subject.total_absences - subject.excused_count}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div className="p-1.5">
-                                                    {expandedSubjectId === subject.subject_id
-                                                        ? <ChevronUp className="w-5 h-5 text-muted-foreground" />
-                                                        : <ChevronDown className="w-5 h-5 text-muted-foreground" />
-                                                    }
-                                                </div>
-                                            </div>
-                                        </CardHeader>
-                                    </button>
-
-                                    {/* Expanded Content */}
-                                    {expandedSubjectId === subject.subject_id && (
-                                        <CardContent className="pt-0 border-t">
-                                            {/* Records Table */}
-                                            <div className="mt-4 space-y-2">
-                                                {subject.records.length === 0 ? (
-                                                    <p className="text-sm text-muted-foreground text-center py-4">
-                                                        لا توجد سجلات غياب لهذه المادة
-                                                    </p>
-                                                ) : (
-                                                    <div className="rounded-lg border overflow-hidden">
-                                                        <table className="w-full text-sm">
-                                                            <thead className="bg-muted/50">
-                                                                <tr>
-                                                                    <th className="text-right p-3 font-medium">التاريخ</th>
-                                                                    <th className="text-right p-3 font-medium">الحالة</th>
-                                                                    <th className="text-right p-3 font-medium">ملاحظات</th>
-                                                                    <th className="text-right p-3 font-medium">إجراء</th>
-                                                                </tr>
-                                                            </thead>
-                                                            <tbody className="divide-y">
-                                                                {subject.records.map((record: any) => (
-                                                                    <tr key={record.record_id} className="hover:bg-muted/30 transition-colors">
-                                                                        <td className="p-3 font-mono">
-                                                                            {new Date(record.absence_date).toLocaleDateString('ar-SA')}
-                                                                        </td>
-                                                                        <td className="p-3">
-                                                                            {record.is_excused ? (
-                                                                                <Badge className="bg-green-100 text-green-700 border-green-200 gap-1">
-                                                                                    <CheckCircle2 className="w-3 h-3" />
-                                                                                    بعذر
-                                                                                </Badge>
-                                                                            ) : (
-                                                                                <Badge variant="outline" className="text-red-600 border-red-200 gap-1">
-                                                                                    <XCircle className="w-3 h-3" />
-                                                                                    بدون عذر
-                                                                                </Badge>
-                                                                            )}
-                                                                        </td>
-                                                                        <td className="p-3 text-muted-foreground text-xs">
-                                                                            {record.notes || "—"}
-                                                                        </td>
-                                                                        <td className="p-3">
-                                                                            <div className="flex gap-1">
-                                                                                <Button
-                                                                                    variant="ghost"
-                                                                                    size="icon"
-                                                                                    className={record.is_excused
-                                                                                        ? "text-orange-500 hover:text-orange-600 h-7 w-7"
-                                                                                        : "text-green-600 hover:text-green-700 h-7 w-7"
-                                                                                    }
-                                                                                    title={record.is_excused ? "إلغاء العذر" : "تأشير بعذر"}
-                                                                                    onClick={() => handleToggleExcused(record.record_id, record.is_excused, subject.subject_id)}
-                                                                                >
-                                                                                    <CheckCircle2 className="w-4 h-4" />
-                                                                                </Button>
-                                                                                <Button
-                                                                                    variant="ghost"
-                                                                                    size="icon"
-                                                                                    className="text-destructive hover:text-destructive h-7 w-7"
-                                                                                    title="حذف السجل"
-                                                                                    onClick={() => setDeleteRecordId(record.record_id)}
-                                                                                >
-                                                                                    <Trash2 className="w-4 h-4" />
-                                                                                </Button>
-                                                                            </div>
-                                                                        </td>
-                                                                    </tr>
-                                                                ))}
-                                                            </tbody>
-                                                        </table>
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* Add new record */}
-                                            {addingTo === subject.subject_id ? (
-                                                <div className="mt-4 p-4 bg-primary/5 rounded-lg border border-primary/20 space-y-3">
-                                                    <h4 className="font-medium text-sm">تسجيل غياب جديد</h4>
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                        <div>
-                                                            <Label className="text-xs mb-1 block">التاريخ *</Label>
-                                                            <Input
-                                                                type="date"
-                                                                value={newDate}
-                                                                onChange={e => setNewDate(e.target.value)}
-                                                                max={new Date().toISOString().split('T')[0]}
-                                                            />
-                                                        </div>
-                                                        <div>
-                                                            <Label className="text-xs mb-1 block">ملاحظات (اختياري)</Label>
-                                                            <Input
-                                                                placeholder="ملاحظات إضافية..."
-                                                                value={newNotes}
-                                                                onChange={e => setNewNotes(e.target.value)}
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                    <label className="flex items-center gap-2 cursor-pointer text-sm">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={newIsExcused}
-                                                            onChange={e => setNewIsExcused(e.target.checked)}
-                                                            className="w-4 h-4 rounded"
-                                                        />
-                                                        تسجيل كغياب بعذر
-                                                    </label>
-                                                    <div className="flex gap-2">
-                                                        <Button
-                                                            size="sm"
-                                                            onClick={() => handleAddRecord(subject.subject_id)}
-                                                            disabled={saving}
-                                                        >
-                                                            {saving ? <Loader2 className="w-4 h-4 animate-spin ml-1" /> : null}
-                                                            حفظ
-                                                        </Button>
-                                                        <Button
-                                                            size="sm"
-                                                            variant="ghost"
-                                                            onClick={() => { setAddingTo(null); setNewDate(""); setNewNotes(""); setNewIsExcused(false) }}
-                                                        >
-                                                            إلغاء
-                                                        </Button>
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="mt-4 gap-2"
-                                                    onClick={() => { setAddingTo(subject.subject_id); setExpandedSubjectId(subject.subject_id) }}
+                            {/* Group subjects by term */}
+                            { (Object.entries(
+                                subjectData.reduce((acc, subject) => {
+                                    const term = subject.term_name || 'مواد أخرى';
+                                    if (!acc[term]) acc[term] = [];
+                                    acc[term].push(subject);
+                                    return acc;
+                                }, {} as Record<string, any[]>)
+                            ) as [string, any[]][]).map(([termName, termSubjects]) => (
+                                <div key={termName} className="space-y-4">
+                                    <div className="flex items-center gap-2 mt-6 mb-2">
+                                        <div className="h-px bg-slate-200 flex-1"></div>
+                                        <h3 className="text-sm font-semibold text-slate-500 uppercase px-2 tracking-wider">
+                                            {termName === 'مواد أخرى' ? termName : `الفصل الدراسي ${termName}`}
+                                        </h3>
+                                        <div className="h-px bg-slate-200 flex-1"></div>
+                                    </div>
+                                    <div className="space-y-3">
+                                        {termSubjects.map((subject: any) => (
+                                            <Card key={subject.subject_id} className={`overflow-hidden border transition-shadow ${expandedSubjectId === subject.subject_id ? "shadow-sm border-primary/40 ring-1 ring-primary/10" : "shadow-sm hover:border-slate-300"}`}>
+                                                {/* Subject Header */}
+                                                <button
+                                                    className={`w-full text-right transition-colors ${expandedSubjectId === subject.subject_id ? "bg-slate-50/50" : "hover:bg-slate-50"}`}
+                                                    onClick={() => setExpandedSubjectId(
+                                                        expandedSubjectId === subject.subject_id ? null : subject.subject_id
+                                                    )}
                                                 >
-                                                    <Plus className="w-4 h-4" />
-                                                    تسجيل غياب جديد
-                                                </Button>
-                                            )}
-                                        </CardContent>
-                                    )}
-                                </Card>
+                                                    <CardHeader className="py-3 px-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="p-2 rounded-md shrink-0 bg-primary/10 text-primary">
+                                                                <BookOpen className="w-5 h-5" />
+                                                            </div>
+                                                            <div className="flex-1 text-right">
+                                                                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                                                                    {subject.name}
+                                                                    {subject.code && (
+                                                                        <span className="text-xs font-normal text-muted-foreground mr-1">({subject.code})</span>
+                                                                    )}
+                                                                </CardTitle>
+                                                                <div className="flex gap-3 mt-1.5">
+                                                                    <div className="flex items-center gap-1.5 min-w-[70px]">
+                                                                        <span className="text-xs text-muted-foreground font-medium">الغياب الكلي:</span>
+                                                                        <span className="text-sm font-bold">{subject.total_absences}</span>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-1.5 min-w-[70px]">
+                                                                        <span className="text-xs text-emerald-600 font-medium">بعذر:</span>
+                                                                        <span className="text-sm font-bold text-emerald-700">{subject.excused_count}</span>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-1.5 min-w-[70px]">
+                                                                        <span className="text-xs text-rose-500 font-medium">بدون عذر:</span>
+                                                                        <span className="text-sm font-bold text-rose-600">{subject.total_absences - subject.excused_count}</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div className="p-1.5">
+                                                                {expandedSubjectId === subject.subject_id
+                                                                    ? <ChevronUp className="w-5 h-5 text-muted-foreground" />
+                                                                    : <ChevronDown className="w-5 h-5 text-muted-foreground" />
+                                                                }
+                                                            </div>
+                                                        </div>
+                                                    </CardHeader>
+                                                </button>
+            
+                                                {/* Expanded Content */}
+                                                {expandedSubjectId === subject.subject_id && (
+                                                    <CardContent className="pt-0 border-t">
+                                                        {/* Records Table */}
+                                                        <div className="mt-4 space-y-2">
+                                                            {subject.records.length === 0 ? (
+                                                                <p className="text-sm text-muted-foreground text-center py-4">
+                                                                    لا توجد سجلات غياب لهذه المادة
+                                                                </p>
+                                                            ) : (
+                                                                <div className="rounded-lg border overflow-hidden">
+                                                                    <table className="w-full text-sm">
+                                                                        <thead className="bg-muted/50">
+                                                                            <tr>
+                                                                                <th className="text-right p-3 font-medium">التاريخ</th>
+                                                                                <th className="text-right p-3 font-medium">الحالة</th>
+                                                                                <th className="text-right p-3 font-medium">ملاحظات</th>
+                                                                                <th className="text-right p-3 font-medium">إجراء</th>
+                                                                            </tr>
+                                                                        </thead>
+                                                                        <tbody className="divide-y">
+                                                                            {subject.records.map((record: any) => (
+                                                                                <tr key={record.record_id} className="hover:bg-muted/30 transition-colors">
+                                                                                    <td className="p-3 font-mono">
+                                                                                        {new Date(record.absence_date).toLocaleDateString('ar-SA')}
+                                                                                    </td>
+                                                                                    <td className="p-3">
+                                                                                        {record.is_excused ? (
+                                                                                            <Badge className="bg-green-100 text-green-700 border-green-200 gap-1">
+                                                                                                <CheckCircle2 className="w-3 h-3" />
+                                                                                                بعذر
+                                                                                            </Badge>
+                                                                                        ) : (
+                                                                                            <Badge variant="outline" className="text-red-600 border-red-200 gap-1">
+                                                                                                <XCircle className="w-3 h-3" />
+                                                                                                بدون عذر
+                                                                                            </Badge>
+                                                                                        )}
+                                                                                    </td>
+                                                                                    <td className="p-3 text-muted-foreground text-xs">
+                                                                                        {record.notes || "—"}
+                                                                                    </td>
+                                                                                    <td className="p-3">
+                                                                                        <div className="flex gap-1">
+                                                                                            <Button
+                                                                                                variant="ghost"
+                                                                                                size="icon"
+                                                                                                className={record.is_excused
+                                                                                                    ? "text-orange-500 hover:text-orange-600 h-7 w-7"
+                                                                                                    : "text-green-600 hover:text-green-700 h-7 w-7"
+                                                                                                }
+                                                                                                title={record.is_excused ? "إلغاء العذر" : "تأشير بعذر"}
+                                                                                                onClick={() => handleToggleExcused(record.record_id, record.is_excused, subject.subject_id)}
+                                                                                            >
+                                                                                                <CheckCircle2 className="w-4 h-4" />
+                                                                                            </Button>
+                                                                                            <Button
+                                                                                                variant="ghost"
+                                                                                                size="icon"
+                                                                                                className="text-destructive hover:text-destructive h-7 w-7"
+                                                                                                title="حذف السجل"
+                                                                                                onClick={() => setDeleteRecordId(record.record_id)}
+                                                                                            >
+                                                                                                <Trash2 className="w-4 h-4" />
+                                                                                            </Button>
+                                                                                        </div>
+                                                                                    </td>
+                                                                                </tr>
+                                                                            ))}
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
+                                                            )}
+                                                        </div>
+            
+                                                        {/* Add new record */}
+                                                        {addingTo === subject.subject_id ? (
+                                                            <div className="mt-4 p-4 bg-primary/5 rounded-lg border border-primary/20 space-y-3">
+                                                                <h4 className="font-medium text-sm">تسجيل غياب جديد</h4>
+                                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                                    <div>
+                                                                        <Label className="text-xs mb-1 block">التاريخ *</Label>
+                                                                        <Input
+                                                                            type="date"
+                                                                            value={newDate}
+                                                                            onChange={e => setNewDate(e.target.value)}
+                                                                            max={new Date().toISOString().split('T')[0]}
+                                                                        />
+                                                                    </div>
+                                                                    <div>
+                                                                        <Label className="text-xs mb-1 block">ملاحظات (اختياري)</Label>
+                                                                        <Input
+                                                                            placeholder="ملاحظات إضافية..."
+                                                                            value={newNotes}
+                                                                            onChange={e => setNewNotes(e.target.value)}
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                                <label className="flex items-center gap-2 cursor-pointer text-sm">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={newIsExcused}
+                                                                        onChange={e => setNewIsExcused(e.target.checked)}
+                                                                        className="w-4 h-4 rounded"
+                                                                    />
+                                                                    تسجيل كغياب بعذر
+                                                                </label>
+                                                                <div className="flex gap-2">
+                                                                    <Button
+                                                                        size="sm"
+                                                                        onClick={() => handleAddRecord(subject.subject_id)}
+                                                                        disabled={saving}
+                                                                    >
+                                                                        {saving ? <Loader2 className="w-4 h-4 animate-spin ml-1" /> : null}
+                                                                        حفظ
+                                                                    </Button>
+                                                                    <Button
+                                                                        size="sm"
+                                                                        variant="ghost"
+                                                                        onClick={() => { setAddingTo(null); setNewDate(""); setNewNotes(""); setNewIsExcused(false) }}
+                                                                    >
+                                                                        إلغاء
+                                                                    </Button>
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="mt-4 gap-2"
+                                                                onClick={() => { setAddingTo(subject.subject_id); setExpandedSubjectId(subject.subject_id) }}
+                                                            >
+                                                                <Plus className="w-4 h-4" />
+                                                                تسجيل غياب جديد
+                                                            </Button>
+                                                        )}
+                                                    </CardContent>
+                                                )}
+                                            </Card>
+                                        ))}
+                                    </div>
+                                </div>
                             ))}
                         </div>
                     )}
