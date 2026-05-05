@@ -1,4 +1,4 @@
-﻿import NextAuth from "next-auth"
+import NextAuth from "next-auth"
 import { authConfig } from "./auth.config"
 import Credentials from "next-auth/providers/credentials"
 import { z } from "zod"
@@ -20,7 +20,21 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
 
                         const user = await db.users.findUnique({
                             where: { university_id: username },
-                            include: { roles: true }
+                            select: {
+                                user_id: true,
+                                university_id: true,
+                                password_hash: true,
+                                full_name: true,
+                                is_active: true,
+                                department_id: true,
+                                custom_permissions: true,
+                                roles: {
+                                    select: {
+                                        role_name: true,
+                                        permissions: true,
+                                    }
+                                }
+                            }
                         })
 
                         if (!user) return null
