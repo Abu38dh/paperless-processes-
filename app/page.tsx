@@ -20,6 +20,7 @@ export default async function Home() {
     university_id: user.university_id || "",
     full_name: user.name || "",
     role: user.role || "",
+    user_status: user.user_status || "active",
   }
 
   switch (true) {

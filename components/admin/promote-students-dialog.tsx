@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
@@ -206,16 +206,16 @@ export function PromoteStudentsDialog({ isOpen, onClose, onConfirm, scope, scope
                                                                                             </Badge>
                                                                                         </div>
                                                                                         
-                                                                                        <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 bg-slate-50/50">
+                                                                                        <div className="p-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 bg-slate-50/50">
                                                                                             {levelStudents.map((student: any) => {
                                                                                                 const isSelected = selectedIds.has(student.user_id)
                                                                                                 return (
                                                                                                     <label 
                                                                                                         key={student.user_id}
                                                                                                         htmlFor={`student-${student.user_id}`}
-                                                                                                        className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all duration-200 shadow-sm hover:shadow ${
+                                                                                                        className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all duration-200 hover:shadow-sm ${
                                                                                                             isSelected 
-                                                                                                            ? "border-primary bg-primary/5 shadow-primary/10" 
+                                                                                                            ? "border-primary bg-primary/5 shadow-sm" 
                                                                                                             : "border-slate-200 hover:border-slate-300 bg-white"
                                                                                                         }`}
                                                                                                     >
@@ -223,13 +223,13 @@ export function PromoteStudentsDialog({ isOpen, onClose, onConfirm, scope, scope
                                                                                                             id={`student-${student.user_id}`} 
                                                                                                             checked={isSelected}
                                                                                                             onCheckedChange={() => toggleStudent(student.user_id)}
-                                                                                                            className="w-5 h-5 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
+                                                                                                            className="w-4 h-4 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
                                                                                                         />
                                                                                                         <div className="flex flex-col overflow-hidden">
-                                                                                                            <span className="text-sm font-bold text-slate-900 truncate">
+                                                                                                            <span className="text-xs font-bold text-slate-900 truncate">
                                                                                                                 {student.full_name}
                                                                                                             </span>
-                                                                                                            <span className="text-xs text-slate-500 font-mono mt-0.5 truncate">
+                                                                                                            <span className="text-[10px] text-slate-500 font-mono truncate">
                                                                                                                 {student.university_id || 'بدون رقم جامعي'}
                                                                                                             </span>
                                                                                                         </div>

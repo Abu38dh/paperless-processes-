@@ -12,6 +12,7 @@ interface SidebarProps {
   userRole?: "student" | "admin" | "employee" | "reviewer"
   permissions?: string[]
   className?: string
+  userStatus?: string
 }
 
 export default function Sidebar({
@@ -20,6 +21,7 @@ export default function Sidebar({
   userRole = "student",
   permissions = [],
   className,
+  userStatus,
 }: SidebarProps) {
   const hasPermission = (permission: string) =>
     permissions.includes("all") || permissions.includes(permission)
@@ -61,7 +63,7 @@ export default function Sidebar({
       { id: "submit",    label: "طلب جديد",   icon: Plus },
       { id: "absences",  label: "الغيابات",   icon: CalendarMinus },
       { id: "settings",  label: "الإعدادات",  icon: Settings },
-    ],
+    ].filter(item => !(userStatus === 'graduated' && item.id === 'submit')),
     admin: [
       { id: "home",         label: "لوحة التحكم",        icon: BarChart3 },
       { id: "forms",        label: "إدارة النماذج",       icon: FileText },

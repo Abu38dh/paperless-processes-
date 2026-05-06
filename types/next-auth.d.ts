@@ -1,4 +1,4 @@
-﻿import NextAuth, { DefaultSession } from "next-auth"
+import NextAuth, { DefaultSession } from "next-auth"
 
 declare module "next-auth" {
     /**
@@ -10,6 +10,7 @@ declare module "next-auth" {
             role: string
             permissions: string[]
             department_id?: number
+            user_status?: string
         } & DefaultSession["user"]
     }
 
@@ -18,6 +19,7 @@ declare module "next-auth" {
         role: string
         permissions: string[]
         department_id?: number | null
+        user_status?: string
     }
 }
 
@@ -28,6 +30,7 @@ declare module "next-auth/jwt" {
         role: string
         permissions: string[]
         department_id?: number | null
+        user_status?: string
     }
 }
 

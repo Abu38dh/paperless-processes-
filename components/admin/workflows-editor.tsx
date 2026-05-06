@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -22,6 +22,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 import {
   DndContext,
@@ -451,7 +461,7 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
 
   if (loading) {
     return (
-      <div className="min-h-full bg-[#F4F8F8]" dir="rtl">
+      <div className="min-h-full bg-white" dir="rtl">
         <div className="bg-white border-b border-[#E2EDEC] px-8 py-5">
           <h1 className="text-xl font-bold text-[#1C2E2D]">إدارة مسارات العمل</h1>
         </div>
@@ -462,7 +472,7 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
 
   if (error) {
     return (
-      <div className="min-h-full bg-[#F4F8F8]" dir="rtl">
+      <div className="min-h-full bg-white" dir="rtl">
         <div className="bg-white border-b border-[#E2EDEC] px-8 py-5">
           <h1 className="text-xl font-bold text-[#1C2E2D]">إدارة مسارات العمل</h1>
         </div>
@@ -623,27 +633,32 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
 
                 <div className="space-y-2">
                   <Label className="text-sm font-medium" required>الموافق</Label>
-                  <select
+                  <Select
                     value={currentStep.approverId}
-                    onChange={(e) => handleFieldChange('approverId', e.target.value)}
-                    className="select-field"
+                    onValueChange={(value) => handleFieldChange('approverId', value)}
                   >
-                    <option value="">اختر المسؤول</option>
-                    <optgroup label="الأدوار الوظيفية">
-                      {roles.map((role: any) => (
-                        <option key={`role_${role.role_id}`} value={`role_${role.role_id}`}>
-                          {role.role_name}
-                        </option>
-                      ))}
-                    </optgroup>
-                    <optgroup label="المستخدمين">
-                      {users.map((user: any) => (
-                        <option key={`user_${user.user_id}`} value={`user_${user.user_id}`}>
-                          {user.full_name} ({user.university_id})
-                        </option>
-                      ))}
-                    </optgroup>
-                  </select>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="اختر المسؤول" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>الأدوار الوظيفية</SelectLabel>
+                        {roles.map((role: any) => (
+                          <SelectItem key={`role_${role.role_id}`} value={`role_${role.role_id}`}>
+                            {role.role_name}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                      <SelectGroup>
+                        <SelectLabel>المستخدمين</SelectLabel>
+                        {users.map((user: any) => (
+                          <SelectItem key={`user_${user.user_id}`} value={`user_${user.user_id}`}>
+                            {user.full_name} ({user.university_id})
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">
@@ -656,14 +671,18 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
                       onChange={(e) => handleFieldChange('sla', parseInt(e.target.value) || 0)}
                       className="flex-1 bg-gray-50 focus:bg-white"
                     />
-                    <select
+                    <Select
                       value={currentStep.slaUnit}
-                      onChange={(e) => handleFieldChange('slaUnit', e.target.value)}
-                      className="select-field"
+                      onValueChange={(value) => handleFieldChange('slaUnit', value)}
                     >
-                      <option value="hours">ساعة</option>
-                      <option value="days">يوم</option>
-                    </select>
+                      <SelectTrigger className="w-24 mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="hours">ساعة</SelectItem>
+                        <SelectItem value="days">يوم</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
                     التصعيد بعد {currentStep.sla} {currentStep.slaUnit === 'days' ? 'يوم' : 'ساعة'}
@@ -672,29 +691,35 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
 
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-gray-700">يتصعد إلى</Label>
-                  <select
+                  <Select
                     value={currentStep.escalatorId}
-                    onChange={(e) => handleFieldChange('escalatorId', e.target.value)}
-                    className="select-field"
+                    onValueChange={(value) => handleFieldChange('escalatorId', value)}
                   >
-                    <option value="">لا يوجد تصعيد</option>
-                    <option value="next_step" className="font-semibold text-teal-700">الخطوة التالية (تلقائي)</option>
-                    <optgroup label="الأدوار الوظيفية">
-                      <option value="role_1">رئيس القسم (تلقائي لمقدم الطلب)</option>
-                      {roles.map((role: any) => (
-                        <option key={`esc_role_${role.role_id}`} value={`role_${role.role_id}`}>
-                          {role.role_name}
-                        </option>
-                      ))}
-                    </optgroup>
-                    <optgroup label="مستخدم معين">
-                      {users.map((user: any) => (
-                        <option key={`esc_user_${user.user_id}`} value={`user_${user.user_id}`}>
-                          {user.full_name} ({user.university_id})
-                        </option>
-                      ))}
-                    </optgroup>
-                  </select>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="لا يوجد تصعيد" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">لا يوجد تصعيد</SelectItem>
+                      <SelectItem value="next_step" className="font-semibold text-teal-700">الخطوة التالية (تلقائي)</SelectItem>
+                      <SelectGroup>
+                        <SelectLabel>الأدوار الوظيفية</SelectLabel>
+                        <SelectItem value="role_1">رئيس القسم (تلقائي لمقدم الطلب)</SelectItem>
+                        {roles.map((role: any) => (
+                          <SelectItem key={`esc_role_${role.role_id}`} value={`role_${role.role_id}`}>
+                            {role.role_name}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                      <SelectGroup>
+                        <SelectLabel>مستخدم معين</SelectLabel>
+                        {users.map((user: any) => (
+                          <SelectItem key={`esc_user_${user.user_id}`} value={`user_${user.user_id}`}>
+                            {user.full_name} ({user.university_id})
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="pt-4 space-y-3 border-t">
@@ -761,7 +786,7 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
   )
 
   return (
-    <div dir="rtl" className="min-h-full bg-[#F4F8F8]">
+    <div dir="rtl" className="min-h-full bg-white">
 
       {/* ══ Page Header ══ */}
       <div className="bg-white border-b border-[#E2EDEC] px-8 py-5">
@@ -891,7 +916,7 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
                             <div
                               className="
                                 flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium
-                                border border-[#E2EDEC] bg-[#F4F8F8] text-[#2D4847]
+                                border border-[#E2EDEC] bg-white text-[#2D4847]
                                 whitespace-nowrap shrink-0
                               "
                             >

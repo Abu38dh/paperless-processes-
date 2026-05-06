@@ -143,7 +143,7 @@ function SelectItem({
         'rounded-lg py-2 pr-8 pl-3 text-sm text-[#1C2E2D]',
         'outline-none transition-colors duration-100',
         // Hover
-        'hover:bg-[#F4F8F8]',
+        'hover:bg-[#FEF3E6] hover:text-[#D97E10]',
         // Focus / keyboard nav
         'focus:bg-[#FEF3E6] focus:text-[#D97E10]',
         // Selected (data-state=checked)

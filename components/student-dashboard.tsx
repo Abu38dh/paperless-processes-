@@ -27,6 +27,7 @@ interface StudentDashboardProps {
     university_id: string
     full_name: string
     role: string
+    user_status?: string
   }
 }
 
@@ -214,7 +215,7 @@ export default function StudentDashboard({ onLogout, userData }: StudentDashboar
       <div className="flex flex-1">
         {/* Desktop Sidebar */}
         <div className="hidden md:block h-full">
-          <Sidebar currentView={currentView} onViewChange={(view) => setCurrentView(view as any)} userRole="student" />
+          <Sidebar currentView={currentView} onViewChange={(view) => setCurrentView(view as any)} userRole="student" userStatus={userData.user_status} />
         </div>
 
         {/* Mobile Sidebar Sheet */}
@@ -231,6 +232,7 @@ export default function StudentDashboard({ onLogout, userData }: StudentDashboar
                 setIsMobileMenuOpen(false)
               }}
               userRole="student"
+              userStatus={userData.user_status}
               className="h-full border-none w-full"
             />
           </SheetContent>
@@ -250,6 +252,24 @@ export default function StudentDashboard({ onLogout, userData }: StudentDashboar
                 </div>
               ) : (
                 <>
+                  {userData.user_status === "graduated" && (
+                    <div className="bg-amber-50 border-l-4 border-amber-500 p-4 mx-3 md:mx-6 mt-4 rounded-r-md">
+                      <div className="flex">
+                        <div className="flex-shrink-0">
+                          <span className="text-amber-500 text-xl">🎓</span>
+                        </div>
+                        <div className="mr-3">
+                          <p className="text-sm text-amber-700 font-bold">
+                            حساب خريج (للقراءة فقط)
+                          </p>
+                          <p className="text-sm text-amber-600 mt-1">
+                            مبارك تخرجك! يمكنك استعراض طلباتك السابقة ونماذجك، لكن لا يمكنك تقديم طلبات جديدة.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Stats Cards */}
                   {/* Stats Cards */}
                   <div className="p-3 md:p-6 border-b bg-muted/30 w-full overflow-hidden">
@@ -281,11 +301,11 @@ export default function StudentDashboard({ onLogout, userData }: StudentDashboar
                       <EmptyState
                         icon="📭"
                         title="لا توجد طلبات"
-                        description={`مرحباً ${userData.full_name}! لم تقم بتقديم أي طلبات بعد. ابدأ بتقديم طلب جديد.`}
-                        action={{
+                        description={userData.user_status === 'graduated' ? `مرحباً ${userData.full_name}! ليس لديك طلبات سابقة.` : `مرحباً ${userData.full_name}! لم تقم بتقديم أي طلبات بعد. ابدأ بتقديم طلب جديد.`}
+                        action={userData.user_status !== 'graduated' ? {
                           label: "تقديم طلب جديد",
                           onClick: () => setCurrentView("submit")
-                        }}
+                        } : undefined}
                       />
                     </div>
                   ) : (
@@ -406,7 +426,20 @@ export default function StudentDashboard({ onLogout, userData }: StudentDashboar
           )}
 
           {/* Submit View */}
-          {currentView === "submit" || editingRequestId ? (
+          {(currentView === "submit" || editingRequestId) ? (
+            userData.user_status === "graduated" ? (
+              <div className="p-6">
+                <EmptyState
+                  icon="🎓"
+                  title="غير متاح للخريجين"
+                  description="خاصية تقديم الطلبات الجديدة غير متاحة للخريجين."
+                  action={{
+                    label: "العودة للطلبات",
+                    onClick: () => setCurrentView("requests")
+                  }}
+                />
+              </div>
+            ) : (
             <div className="p-6 w-full">
               {!selectedRequestType && !editingRequestId ? (
                 <>
@@ -487,6 +520,7 @@ export default function StudentDashboard({ onLogout, userData }: StudentDashboar
                 />
               )}
             </div>
+            )
           ) : null}
 
           {/* Settings View */}

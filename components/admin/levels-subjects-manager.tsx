@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -624,14 +624,14 @@ export default function LevelsSubjectsManager({ currentUserId }: LevelsSubjectsM
                                                         <Badge variant="outline" className="text-xs gap-1 border-blue-200 text-blue-700">
                                                             <Users className="w-3 h-3" /> {level._count?.users ?? 0} طالب
                                                         </Badge>
-                                                        {(!selectedCollege?.show_absences || !selectedDept?.show_absences) && (
-                                                            <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-1 rounded-full">
-                                                                {!selectedCollege?.show_absences ? 'الكلية مخفية' : 'القسم مخفي'}
-                                                            </span>
-                                                        )}
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center gap-2">
+                                                    {(!selectedCollege?.show_absences || !selectedDept?.show_absences) && (
+                                                        <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-1 rounded-full">
+                                                            {!selectedCollege?.show_absences ? 'الكلية مخفية' : 'القسم مخفي'}
+                                                        </span>
+                                                    )}
                                                     <button
                                                         onClick={async (e) => {
                                                             e.stopPropagation()

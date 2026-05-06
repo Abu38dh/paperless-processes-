@@ -1,4 +1,4 @@
-﻿"use server"
+"use server"
 
 import { db } from "@/lib/db"
 import { revalidatePath } from "next/cache"
@@ -814,3 +814,78 @@ export async function adminRevokeDelegation(delegationId: number, adminUserId: s
     }
 }
 
+/**
+ * Get all requests for a specific user (Admin view)
+ * Returns data in the same format as getRequesterInteractionHistory
+ */
+export async function adminGetUserRequests(adminUserId: string, targetUserId: number) {
+    try {
+        // Validate admin
+        const admin = await db.users.findUnique({
+            where: { university_id: adminUserId },
+            include: { roles: true }
+        });
+        
+        if (!admin || !['admin', 'dean', 'head'].includes(admin.roles?.role_name || '')) {
+             return { success: false, error: "غير مصرح لك بعرض الطلبات" };
+        }
+
+        // Get target user bio
+        const targetUser = await db.users.findUnique({
+            where: { user_id: targetUserId },
+            include: {
+                departments_users_department_idTodepartments: {
+                    include: { colleges: true }
+                }
+            }
+        });
+
+        if (!targetUser) return { success: false, error: "المستخدم غير موجود" };
+
+        const requesterBio = {
+            name: targetUser.full_name,
+            university_id: targetUser.university_id,
+            department: targetUser.departments_users_department_idTodepartments?.dept_name,
+            college: targetUser.departments_users_department_idTodepartments?.colleges?.name,
+            phone: targetUser.phone,
+            email: targetUser.email,
+        };
+
+        // Get ALL requests for the user (not just those the admin acted on)
+        const requests = await db.requests.findMany({
+            where: { requester_id: targetUserId },
+            include: {
+                form_templates: true,
+                request_actions: {
+                    include: { users: true },
+                    orderBy: { created_at: 'desc' }
+                }
+            },
+            orderBy: { submitted_at: 'desc' }
+        });
+
+        // Map to same format as employee's interaction history
+        const interactions = requests.map((r: any) => {
+            const latestAction = r.request_actions[0];
+            return {
+                id: r.request_id.toString(),
+                requestId: r.request_id.toString(),
+                requestType: r.form_templates?.name || "General",
+                action: latestAction?.action || r.status,
+                date: (r.submitted_at || r.created_at)?.toISOString().split('T')[0],
+                comment: latestAction?.comment || null,
+                originalStatus: r.status,
+                latestActor: latestAction?.users?.full_name || null,
+            };
+        });
+
+        return {
+            success: true,
+            requesterBio,
+            interactions,
+        };
+    } catch (error) {
+        console.error("Admin Get User Requests Error:", error);
+        return { success: false, error: "فشل جلب طلبات المستخدم" };
+    }
+}

@@ -1,4 +1,4 @@
-﻿import type { NextAuthConfig } from "next-auth"
+import type { NextAuthConfig } from "next-auth"
 
 export const authConfig = {
     pages: {
@@ -34,6 +34,9 @@ export const authConfig = {
             if (token.department_id && session.user) {
                 session.user.department_id = token.department_id as number
             }
+            if (token.user_status && session.user) {
+                session.user.user_status = token.user_status as string
+            }
             return session
         },
         async jwt({ token, user }) {
@@ -42,6 +45,7 @@ export const authConfig = {
                 token.university_id = user.university_id
                 token.permissions = user.permissions
                 token.department_id = user.department_id
+                token.user_status = user.user_status
             }
             return token
         }

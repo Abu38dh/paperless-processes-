@@ -192,7 +192,7 @@ export default function AdminCollegesPage({ onBack, currentUserId }: AdminColleg
             <div className="px-6 py-4 border-t border-[#E2EDEC] flex items-center justify-end gap-3">
               <button
                 onClick={cancelForm}
-                className="px-4 py-2 rounded-xl text-sm font-medium border border-[#E2EDEC] text-[#2D4847] hover:bg-[#F4F8F8] transition-colors"
+                className="px-4 py-2 rounded-xl text-sm font-medium border border-[#E2EDEC] text-[#2D4847] hover:bg-gray-50 transition-colors"
               >إلغاء</button>
               <button
                 onClick={handleSubmit}

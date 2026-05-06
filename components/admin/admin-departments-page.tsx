@@ -272,7 +272,7 @@ export default function AdminDepartmentsPage({ onBack, currentUserId }: AdminDep
               </div>
 
               {/* Academic Toggle */}
-              <div className="md:col-span-2 flex items-center gap-3 p-4 rounded-xl bg-[#F4F8F8] border border-[#E2EDEC]">
+              <div className="md:col-span-2 flex items-center gap-3 p-4 rounded-xl bg-white border border-[#E2EDEC]">
                 <Switch
                   id="is-academic"
                   checked={formData.is_academic}
@@ -296,7 +296,7 @@ export default function AdminDepartmentsPage({ onBack, currentUserId }: AdminDep
                 className="
                   px-4 py-2 rounded-xl text-sm font-medium
                   border border-[#E2EDEC] text-[#2D4847]
-                  hover:bg-[#F4F8F8] transition-colors
+                  hover:bg-gray-50 transition-colors
                 "
               >
                 إلغاء

@@ -5,7 +5,6 @@ import { useState, useEffect, useRef, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
-
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
@@ -19,18 +18,14 @@ import { translateRole } from "@/lib/translations"
 import { ArrowRightLeft } from "lucide-react"
 import { AdminDelegationsDialog } from "./admin-delegations-dialog"
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import {
-  Select, SelectContent, SelectItem,
-  SelectTrigger, SelectValue,
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 
 interface AdminUserPageProps {
@@ -39,6 +34,7 @@ interface AdminUserPageProps {
 }
 
 export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageProps) {
+  const { toast } = useToast()
   const [users, setUsers] = useState<any[]>([])
   const [roles, setRoles] = useState<any[]>([])
   const [colleges, setColleges] = useState<any[]>([])
@@ -46,47 +42,38 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
   const [levels, setLevels] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const { toast } = useToast()
-
-  // Filter States
+  const [currentUserScope, setCurrentUserScope] = useState<any>({})
   const [selectedCollegeId, setSelectedCollegeId] = useState("")
+  const [isCollegeDisabled, setIsCollegeDisabled] = useState(false)
   const [selectedDeptId, setSelectedDeptId] = useState("")
+  const [isDeptDisabled, setIsDeptDisabled] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
-
   const [showAddUser, setShowAddUser] = useState(false)
-  const [expandedUserId, setExpandedUserId] = useState<number | null>(null)
-  const [expandedUserData, setExpandedUserData] = useState<any>({})
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [itemToDelete, setItemToDelete] = useState<number | null>(null)
-
-  const [delegationsDialogOpen, setDelegationsDialogOpen] = useState(false)
-  const [delegationsUser, setDelegationsUser] = useState<any>(null)
-
-  // New user form
   const [newUserName, setNewUserName] = useState("")
   const [newUserEmail, setNewUserEmail] = useState("")
   const [newUserUniversityId, setNewUserUniversityId] = useState("")
   const [newUserPhone, setNewUserPhone] = useState("")
   const [newUserPassword, setNewUserPassword] = useState("")
-  const [newUserRoleId, setNewUserRoleId] = useState<number>(3) // default student
+  const [newUserRoleId, setNewUserRoleId] = useState<number>(3)
   const [newUserDeptId, setNewUserDeptId] = useState("")
-  const [newUserCollegeId, setNewUserCollegeId] = useState("") // للموظفين
-
-  const [isCollegeDisabled, setIsCollegeDisabled] = useState(false)
-  const [isDeptDisabled, setIsDeptDisabled] = useState(false)
-  const [currentUserScope, setCurrentUserScope] = useState<{ role?: string, collegeId?: number | null, departmentId?: number | null }>({})
-
+  const [newUserCollegeId, setNewUserCollegeId] = useState("")
+  const [newUserLevelId, setNewUserLevelId] = useState("")
+  const [expandedUserId, setExpandedUserId] = useState<number | null>(null)
+  const [expandedUserData, setExpandedUserData] = useState<any>({})
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [itemToDelete, setItemToDelete] = useState<number | null>(null)
+  const [delegationsUser, setDelegationsUser] = useState<any>(null)
+  const [delegationsDialogOpen, setDelegationsDialogOpen] = useState(false)
+  const [userRequestsDialog, setUserRequestsDialog] = useState<any>({
+    open: false, loading: false, user: null, data: [],
+    requesterBio: null, selectedRequestType: null, textSearch: ""
+  })
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
-
-  // Cache static data
   const [staticDataLoaded, setStaticDataLoaded] = useState(false)
-
-  // Infinite Scroll & Persistence Logic
   const observerTarget = useRef(null)
 
   useEffect(() => {
-    // Initial static data load
     const loadStaticData = async () => {
       try {
         const [rolesResult, orgResult, deptsResult] = await Promise.all([
@@ -94,33 +81,18 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
           import("@/app/actions/organizations").then(m => m.getOrganizationStructure()),
           import("@/app/actions/organizations").then(m => m.getAllDepartments())
         ])
-
         if (rolesResult.success) setRoles(rolesResult.data as any[])
-
-        if (orgResult.success) {
-          setColleges(orgResult.data || [])
-        }
-
-        // Use getAllDepartments for a complete list (includes depts without a college)
+        if (orgResult.success) setColleges(orgResult.data || [])
         if (deptsResult.success && deptsResult.data) {
           setDepartments(deptsResult.data)
-          // Flatten levels from org structure
           const orgDepts = (orgResult.success ? orgResult.data || [] : []).flatMap((c: any) =>
-            (c.departments || []).map((d: any) => ({
-              ...d,
-              college_id: c.college_id
-            }))
+            (c.departments || []).map((d: any) => ({ ...d, college_id: c.college_id }))
           )
           const allLevels = orgDepts.flatMap((d: any) =>
-            (d.levels || []).map((l: any) => ({
-              ...l,
-              department_id: d.department_id,
-              dept_name: d.dept_name
-            }))
+            (d.levels || []).map((l: any) => ({ ...l, department_id: d.department_id, dept_name: d.dept_name }))
           )
           setLevels(allLevels)
         }
-
         setStaticDataLoaded(true)
       } catch (e) {
         console.error("Failed to load static data", e)
@@ -130,7 +102,6 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
   }, [])
 
   useEffect(() => {
-    // Only re-fetch when the current user identity changes, NOT on filter changes
     fetchUsers()
   }, [currentUserId])
 
@@ -256,7 +227,8 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
         password: newUserPassword,
         phone: newUserPhone,
         role_id: newUserRoleId,
-        department_id: departmentId
+        department_id: departmentId,
+        level_id: newUserLevelId ? parseInt(newUserLevelId) : undefined
       }
       const result = await createUser(newUser, currentUserId)
 
@@ -270,6 +242,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
         setNewUserRoleId(3)
         setNewUserDeptId("")
         setNewUserCollegeId("") // إعادة تعيين الكلية
+        setNewUserLevelId("") // إعادة تعيين المستوى
         setShowAddUser(false)
 
         // PERSISTENCE: Prepend new user instead of full reload
@@ -369,6 +342,23 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
       }
     } catch (err) {
       toast({ title: " خطأ", description: "حدث خطأ غير متوقع", variant: "destructive" })
+    }
+  }
+
+  const handleViewUserRequests = async (user: any) => {
+    setUserRequestsDialog({ open: true, loading: true, user, data: [], requesterBio: null, selectedRequestType: null, textSearch: "" });
+    try {
+      const { adminGetUserRequests } = await import("@/app/actions/admin");
+      const result = await adminGetUserRequests(currentUserId || "", user.user_id);
+      if (result.success && result.interactions) {
+         setUserRequestsDialog((prev: any) => ({ ...prev, loading: false, data: result.interactions, requesterBio: result.requesterBio }));
+      } else {
+         toast({ title: "خطأ", description: result.error || "فشل تحميل الطلبات", variant: "destructive" });
+         setUserRequestsDialog((prev: any) => ({ ...prev, loading: false }));
+      }
+    } catch (e) {
+      console.error("Failed to load user requests", e);
+      setUserRequestsDialog((prev: any) => ({ ...prev, loading: false }));
     }
   }
 
@@ -589,6 +579,30 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                         </SelectContent>
                       </Select>
                     </div>
+
+                    {isStudent && (
+                      <div>
+                        <Label className="text-sm font-medium mb-2 block">المستوى الدراسي</Label>
+                        <Select
+                          value={newUserLevelId === "" ? "__none__" : newUserLevelId}
+                          onValueChange={(val) => setNewUserLevelId(val === "__none__" ? "" : val)}
+                          dir="rtl"
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="اختر المستوى الدراسي" />
+                          </SelectTrigger>
+                          <SelectContent dir="rtl">
+                            <SelectItem value="__none__">بدون مستوى</SelectItem>
+                            {levels
+                              .filter((l: any) => !newUserDeptId || l.department_id === parseInt(newUserDeptId))
+                              .sort((a: any, b: any) => a.order - b.order)
+                              .map((lvl: any) => (
+                                <SelectItem key={`new-lvl-${lvl.level_id}`} value={lvl.level_id.toString()}>{lvl.name}</SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                   </>
                 );
               })()}
@@ -652,8 +666,14 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                           dir="ltr"
                         />
                       </div>
+                      <Button variant="ghost" size="icon" title="سجل الطلبات" onClick={(e) => {
+                          e.stopPropagation();
+                          handleViewUserRequests(user);
+                        }} className="text-muted-foreground hover:text-primary">
+                        <FileText className="w-4 h-4" />
+                      </Button>
                       {user.roles?.role_name?.toLowerCase() !== 'student' && (
-                        <Button variant="ghost" size="icon" onClick={(e) => {
+                        <Button variant="ghost" size="icon" title="إدارة التفويضات" onClick={(e) => {
                             e.stopPropagation();
                             setDelegationsUser(user);
                             setDelegationsDialogOpen(true);
@@ -661,7 +681,8 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                           <ArrowRightLeft className="w-4 h-4" />
                         </Button>
                       )}
-                      <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleDeleteUser(user.user_id); }} className="text-destructive">
+                      <Button variant="ghost" size="icon" title="حذف" onClick={(e) => { e.stopPropagation(); handleDeleteUser(user.user_id); }} className="text-destructive">
+
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
@@ -1190,10 +1211,135 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
         />
       )}
 
-      {/* Infinite Scroll Sentinel */}
-          <div ref={observerTarget} className="h-10 flex items-center justify-center mt-4">
-            {loading && page > 1 && <span className="custom-loader"></span>}
+      {/* User Requests Dialog */}
+      <Dialog open={userRequestsDialog.open} onOpenChange={(open) => !open && setUserRequestsDialog((prev: any) => ({ ...prev, open: false }))}>
+        <DialogContent dir="rtl" className="max-w-3xl w-[95vw] max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>تفاصيل المستخدم وسجل الطلبات</DialogTitle>
+          </DialogHeader>
+
+          {userRequestsDialog.user && (
+            <div className="bg-muted/30 p-4 rounded-lg flex items-start gap-4 border mb-4">
+              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg">
+                {userRequestsDialog.user.full_name.charAt(0)}
+              </div>
+              <div>
+                <h4 className="font-bold text-foreground">{userRequestsDialog.user.full_name}</h4>
+                <div className="text-sm text-muted-foreground space-y-1">
+                  <p>الرقم: {userRequestsDialog.user.university_id}</p>
+                  <p>الدور: {translateRole(userRequestsDialog.user.roles?.role_name)}</p>
+                  <p>القسم: {userRequestsDialog.user.departments_users_department_idTodepartments?.dept_name || "-"}</p>
+                  <p>البريد الإلكتروني: {userRequestsDialog.user.email || "-"}</p>
+                  <p>الهاتف: <span dir="ltr">{userRequestsDialog.user.phone || "-"}</span></p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!userRequestsDialog.loading && userRequestsDialog.data.length > 0 && (() => {
+            const grouped = userRequestsDialog.data.reduce((acc: any, r: any) => {
+              const type = r.requestType || "طلب عام"
+              if (!acc[type]) acc[type] = { total: 0, approved: 0, rejected: 0, returned: 0, pending: 0 }
+              acc[type].total++
+              if (r.originalStatus === 'approved') acc[type].approved++
+              else if (r.originalStatus === 'rejected') acc[type].rejected++
+              else if (r.originalStatus === 'returned') acc[type].returned++
+              else acc[type].pending++
+              return acc
+            }, {})
+            return (
+              <div className="border rounded-lg p-3 bg-muted/10 mb-2">
+                <p className="font-semibold text-sm mb-3">إحصائيات الطلبات</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {(Object.entries(grouped) as [string, any][]).map(([type, stats]) => (
+                    <div key={type} className="p-2.5 border rounded-xl bg-card hover:bg-muted/30 transition-all">
+                      <div className="flex justify-between items-start mb-2">
+                        <h4 className="font-bold text-sm flex-1 leading-snug">{type}</h4>
+                        <span className="text-[10px] font-medium bg-primary/10 text-primary px-2 py-0.5 rounded-full shrink-0 ml-1">
+                          الكل: {stats.total}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-1">
+                        <div className="flex flex-col items-center p-1 rounded-md bg-green-500/10 text-green-700">
+                          <span className="font-bold text-sm">{stats.approved}</span>
+                          <span className="text-[9px]">موافق</span>
+                        </div>
+                        <div className="flex flex-col items-center p-1 rounded-md bg-red-500/10 text-red-700">
+                          <span className="font-bold text-sm">{stats.rejected}</span>
+                          <span className="text-[9px]">مرفوض</span>
+                        </div>
+                        <div className="flex flex-col items-center p-1 rounded-md bg-blue-500/10 text-blue-700">
+                          <span className="font-bold text-sm">{stats.returned + stats.pending}</span>
+                          <span className="text-[9px]">تعديل</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
+
+          <div className="space-y-3">
+            <h3 className="font-semibold border-b pb-2">الطلبات السابقة ({userRequestsDialog.data.length})</h3>
+
+            {userRequestsDialog.loading ? (
+              <div className="space-y-3">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="h-20 bg-muted/50 rounded-lg animate-pulse"></div>
+                ))}
+              </div>
+            ) : userRequestsDialog.data.length > 0 ? (
+              <div className="space-y-3">
+                {userRequestsDialog.data.map((req: any, i: number) => (
+                  <div key={i} className="p-3 border rounded-lg hover:bg-muted/30 transition-colors">
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="flex-1">
+                        <p className="font-semibold text-sm">{req.requestType || "طلب عام"}</p>
+                        <p className="text-xs text-muted-foreground mt-1">رقم الطلب: #{req.requestId}</p>
+                        {req.latestActor && (
+                          <div className="mt-2 text-xs bg-slate-50 p-2 rounded border">
+                            <span className="font-medium">آخر إجراء: </span>
+                            {req.action === 'approve' ? 'موافقة' :
+                             req.action === 'reject' ? 'رفض' :
+                             req.action === 'approve_with_changes' ? 'موافقة بتعديلات' :
+                             req.action === 'reject_with_changes' ? 'إعادة للتعديل' : req.action}
+                            {` من قبل ${req.latestActor}`}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex flex-col items-end gap-2 shrink-0">
+                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                          req.originalStatus === 'approved' ? 'bg-green-100 text-green-800' :
+                          req.originalStatus === 'rejected' ? 'bg-red-100 text-red-800' :
+                          req.originalStatus === 'returned' ? 'bg-orange-100 text-orange-800' :
+                          'bg-blue-100 text-blue-800'
+                        }`}>
+                          {req.originalStatus === 'approved' ? 'موافق عليه' :
+                           req.originalStatus === 'rejected' ? 'مرفوض' :
+                           req.originalStatus === 'returned' ? 'معاد للتعديل' :
+                           req.originalStatus === 'pending' ? 'قيد الانتظار' :
+                           req.originalStatus === 'processing' ? 'قيد المراجعة' : req.originalStatus}
+                        </span>
+                        <span className="text-xs text-muted-foreground">{req.date || "-"}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground bg-muted/10 rounded-lg border border-dashed">
+                لا توجد طلبات سابقة لهذا المستخدم
+              </div>
+            )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Infinite Scroll Sentinel */}
+      <div ref={observerTarget} className="h-10 flex items-center justify-center mt-4">
+        {loading && page > 1 && <span className="custom-loader"></span>}
+      </div>
         </CardContent>
       </Card>
 
@@ -1216,5 +1362,3 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
     </div >
   )
 }
-
-

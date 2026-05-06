@@ -26,6 +26,7 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                                 password_hash: true,
                                 full_name: true,
                                 is_active: true,
+                                user_status: true,
                                 department_id: true,
                                 custom_permissions: true,
                                 roles: {
@@ -40,7 +41,8 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                         if (!user) return null
 
                         // In a real app we should check is_active, but let's just return null if fail
-                        if (!user.is_active) return null
+                        // Exception: graduated users might have is_active: false but should be allowed read-only access
+                        if (!user.is_active && user.user_status !== 'graduated') return null
 
                         const passwordsMatch = await bcrypt.compare(password, user.password_hash)
                         if (passwordsMatch) {
@@ -67,7 +69,8 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                                 university_id: user.university_id,
                                 role: user.roles.role_name,
                                 permissions: permissions,
-                                department_id: user.department_id
+                                department_id: user.department_id,
+                                user_status: user.user_status
                             }
                         }
                     }

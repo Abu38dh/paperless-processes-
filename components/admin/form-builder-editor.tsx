@@ -671,32 +671,26 @@ export default function FormBuilderEditor({ formId, onBack, currentUserId }: For
                         </div>
 
                         <div>
-                          <Label className="text-sm font-semibold" required>مفتاح الحقل (الاسم الداخلي)</Label>
-                          <Input
-                            value={selectedField.key}
-                            onChange={(e) => updateField(selectedField.id, { key: e.target.value })}
-                            className="mt-1"
-                            placeholder="field_name"
-                          />
-                        </div>
-
-                        <div>
                           <Label className="text-sm font-semibold" required>نوع الحقل</Label>
-                          <select
+                          <Select
                             value={selectedField.type}
-                            onChange={(e) =>
+                            onValueChange={(value) =>
                               updateField(selectedField.id, {
-                                type: e.target.value as FormField["type"],
+                                type: value as FormField["type"],
                               })
                             }
-                            className="select-field mt-1"
                           >
-                            {fieldTypes.map((type) => (
-                              <option key={type.id} value={type.id}>
-                                {type.label}
-                              </option>
-                            ))}
-                          </select>
+                            <SelectTrigger className="mt-1">
+                              <SelectValue placeholder="اختر النوع" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {fieldTypes.map((type) => (
+                                <SelectItem key={type.id} value={type.id}>
+                                  {type.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
 
                         <div className="flex items-center gap-2">
