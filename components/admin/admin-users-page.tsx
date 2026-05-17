@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 // Force rebuild
 
 import { useState, useEffect, useRef, useMemo } from "react"
@@ -893,8 +893,10 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                       {(() => {
                         const expandedUserRole = roles.find(r => r.role_id === expandedUserData.role_id)?.role_name?.toLowerCase();
                         const isExpandedUserAdmin = expandedUserRole === 'admin';
-                        const activePermissions = isExpandedUserAdmin 
-                          ? ['review_requests', 'manage_forms', 'manage_users', 'manage_departments', 'view_reports', 'manage_workflows', 'grant_delegations', 'audit_access', 'can_manage_absences', 'manage_terms', 'manage_levels'] 
+                        const allAdminPerms = ['review_requests', 'manage_forms', 'manage_users', 'manage_departments', 'view_reports', 'manage_workflows', 'grant_delegations', 'audit_access', 'can_manage_absences', 'manage_terms', 'manage_levels'];
+                        // For admin: use DB permissions if set, else default to all
+                        const activePermissions = isExpandedUserAdmin
+                          ? ((expandedUserData.permissions && expandedUserData.permissions.length > 0) ? expandedUserData.permissions : allAdminPerms)
                           : (expandedUserData.permissions || []);
                         
                         if (expandedUserRole === 'student') return null;
@@ -915,15 +917,14 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                             {/* Review Requests */}
                             <div
                               onClick={() => {
-                                if (isExpandedUserAdmin) return;
-                                const perms = expandedUserData.permissions || []
+                                const perms = (isExpandedUserAdmin && (!expandedUserData.permissions || expandedUserData.permissions.length === 0)) ? allAdminPerms : (expandedUserData.permissions || [])
                                 const hasPermission = perms.includes('review_requests')
                                 const newPerms = hasPermission
                                   ? perms.filter((p: string) => p !== 'review_requests')
                                   : [...perms, 'review_requests']
                                 setExpandedUserData({ ...expandedUserData, permissions: newPerms })
                               }}
-                              className={`p-4 border-2 rounded-lg transition-all duration-200 ${isExpandedUserAdmin ? 'cursor-default opacity-80' : 'cursor-pointer'} ${activePermissions.includes('review_requests')
+                              className={`p-4 border-2 rounded-lg transition-all duration-200 cursor-pointer ${activePermissions.includes('review_requests')
                                 ? 'border-secondary bg-secondary/10 shadow-sm'
                                 : 'border-gray-200 hover:border-secondary/30 hover:bg-gray-50'
                                 }`}
@@ -951,15 +952,14 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                             {/* Manage Forms */}
                             <div
                               onClick={() => {
-                                if (isExpandedUserAdmin) return;
-                                const perms = expandedUserData.permissions || []
+                                const perms = (isExpandedUserAdmin && (!expandedUserData.permissions || expandedUserData.permissions.length === 0)) ? allAdminPerms : (expandedUserData.permissions || [])
                                 const hasPermission = perms.includes('manage_forms')
                                 const newPerms = hasPermission
                                   ? perms.filter((p: string) => p !== 'manage_forms')
                                   : [...perms, 'manage_forms']
                                 setExpandedUserData({ ...expandedUserData, permissions: newPerms })
                               }}
-                              className={`p-4 border-2 rounded-lg transition-all duration-200 ${isExpandedUserAdmin ? 'cursor-default opacity-80' : 'cursor-pointer'} ${activePermissions.includes('manage_forms')
+                              className={`p-4 border-2 rounded-lg transition-all duration-200 cursor-pointer ${activePermissions.includes('manage_forms')
                                 ? 'border-secondary bg-secondary/10 shadow-sm'
                                 : 'border-gray-200 hover:border-secondary/30 hover:bg-gray-50'
                                 }`}
@@ -987,15 +987,14 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                             {/* Manage Users */}
                             <div
                               onClick={() => {
-                                if (isExpandedUserAdmin) return;
-                                const perms = expandedUserData.permissions || []
+                                const perms = (isExpandedUserAdmin && (!expandedUserData.permissions || expandedUserData.permissions.length === 0)) ? allAdminPerms : (expandedUserData.permissions || [])
                                 const hasPermission = perms.includes('manage_users')
                                 const newPerms = hasPermission
                                   ? perms.filter((p: string) => p !== 'manage_users')
                                   : [...perms, 'manage_users']
                                 setExpandedUserData({ ...expandedUserData, permissions: newPerms })
                               }}
-                              className={`p-4 border-2 rounded-lg transition-all duration-200 ${isExpandedUserAdmin ? 'cursor-default opacity-80' : 'cursor-pointer'} ${activePermissions.includes('manage_users')
+                              className={`p-4 border-2 rounded-lg transition-all duration-200 cursor-pointer ${activePermissions.includes('manage_users')
                                 ? 'border-secondary bg-secondary/10 shadow-sm'
                                 : 'border-gray-200 hover:border-secondary/30 hover:bg-gray-50'
                                 }`}
@@ -1023,15 +1022,14 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                             {/* Manage Departments */}
                             <div
                               onClick={() => {
-                                if (isExpandedUserAdmin) return;
-                                const perms = expandedUserData.permissions || []
+                                const perms = (isExpandedUserAdmin && (!expandedUserData.permissions || expandedUserData.permissions.length === 0)) ? allAdminPerms : (expandedUserData.permissions || [])
                                 const hasPermission = perms.includes('manage_departments')
                                 const newPerms = hasPermission
                                   ? perms.filter((p: string) => p !== 'manage_departments')
                                   : [...perms, 'manage_departments']
                                 setExpandedUserData({ ...expandedUserData, permissions: newPerms })
                               }}
-                              className={`p-4 border-2 rounded-lg transition-all duration-200 ${isExpandedUserAdmin ? 'cursor-default opacity-80' : 'cursor-pointer'} ${activePermissions.includes('manage_departments')
+                              className={`p-4 border-2 rounded-lg transition-all duration-200 cursor-pointer ${activePermissions.includes('manage_departments')
                                 ? 'border-secondary bg-secondary/10 shadow-sm'
                                 : 'border-gray-200 hover:border-secondary/30 hover:bg-gray-50'
                                 }`}
@@ -1059,15 +1057,14 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                             {/* View Reports */}
                             <div
                               onClick={() => {
-                                if (isExpandedUserAdmin) return;
-                                const perms = expandedUserData.permissions || []
+                                const perms = (isExpandedUserAdmin && (!expandedUserData.permissions || expandedUserData.permissions.length === 0)) ? allAdminPerms : (expandedUserData.permissions || [])
                                 const hasPermission = perms.includes('view_reports')
                                 const newPerms = hasPermission
                                   ? perms.filter((p: string) => p !== 'view_reports')
                                   : [...perms, 'view_reports']
                                 setExpandedUserData({ ...expandedUserData, permissions: newPerms })
                               }}
-                              className={`p-4 border-2 rounded-lg transition-all duration-200 ${isExpandedUserAdmin ? 'cursor-default opacity-80' : 'cursor-pointer'} ${activePermissions.includes('view_reports')
+                              className={`p-4 border-2 rounded-lg transition-all duration-200 cursor-pointer ${activePermissions.includes('view_reports')
                                 ? 'border-secondary bg-secondary/10 shadow-sm'
                                 : 'border-gray-200 hover:border-secondary/30 hover:bg-gray-50'
                                 }`}
@@ -1095,15 +1092,14 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                             {/* Manage Workflows */}
                             <div
                               onClick={() => {
-                                if (isExpandedUserAdmin) return;
-                                const perms = expandedUserData.permissions || []
+                                const perms = (isExpandedUserAdmin && (!expandedUserData.permissions || expandedUserData.permissions.length === 0)) ? allAdminPerms : (expandedUserData.permissions || [])
                                 const hasPermission = perms.includes('manage_workflows')
                                 const newPerms = hasPermission
                                   ? perms.filter((p: string) => p !== 'manage_workflows')
                                   : [...perms, 'manage_workflows']
                                 setExpandedUserData({ ...expandedUserData, permissions: newPerms })
                               }}
-                              className={`p-4 border-2 rounded-lg transition-all duration-200 ${isExpandedUserAdmin ? 'cursor-default opacity-80' : 'cursor-pointer'} ${activePermissions.includes('manage_workflows')
+                              className={`p-4 border-2 rounded-lg transition-all duration-200 cursor-pointer ${activePermissions.includes('manage_workflows')
                                 ? 'border-secondary bg-secondary/10 shadow-sm'
                                 : 'border-gray-200 hover:border-secondary/30 hover:bg-gray-50'
                                 }`}
@@ -1131,15 +1127,14 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                             {/* Grant Delegations */}
                             <div
                               onClick={() => {
-                                if (isExpandedUserAdmin) return;
-                                const perms = expandedUserData.permissions || []
+                                const perms = (isExpandedUserAdmin && (!expandedUserData.permissions || expandedUserData.permissions.length === 0)) ? allAdminPerms : (expandedUserData.permissions || [])
                                 const hasPermission = perms.includes('grant_delegations')
                                 const newPerms = hasPermission
                                   ? perms.filter((p: string) => p !== 'grant_delegations')
                                   : [...perms, 'grant_delegations']
                                 setExpandedUserData({ ...expandedUserData, permissions: newPerms })
                               }}
-                              className={`p-4 border-2 rounded-lg transition-all duration-200 ${isExpandedUserAdmin ? 'cursor-default opacity-80' : 'cursor-pointer'} ${activePermissions.includes('grant_delegations')
+                              className={`p-4 border-2 rounded-lg transition-all duration-200 cursor-pointer ${activePermissions.includes('grant_delegations')
                                 ? 'border-secondary bg-secondary/10 shadow-sm'
                                 : 'border-gray-200 hover:border-secondary/30 hover:bg-gray-50'
                                 }`}
@@ -1167,15 +1162,14 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                             {/* Audit Access */}
                             <div
                               onClick={() => {
-                                if (isExpandedUserAdmin) return;
-                                const perms = expandedUserData.permissions || []
+                                const perms = (isExpandedUserAdmin && (!expandedUserData.permissions || expandedUserData.permissions.length === 0)) ? allAdminPerms : (expandedUserData.permissions || [])
                                 const hasPermission = perms.includes('audit_access')
                                 const newPerms = hasPermission
                                   ? perms.filter((p: string) => p !== 'audit_access')
                                   : [...perms, 'audit_access']
                                 setExpandedUserData({ ...expandedUserData, permissions: newPerms })
                               }}
-                              className={`p-4 border-2 rounded-lg transition-all duration-200 ${isExpandedUserAdmin ? 'cursor-default opacity-80' : 'cursor-pointer'} ${activePermissions.includes('audit_access')
+                              className={`p-4 border-2 rounded-lg transition-all duration-200 cursor-pointer ${activePermissions.includes('audit_access')
                                 ? 'border-secondary bg-secondary/10 shadow-sm'
                                 : 'border-gray-200 hover:border-secondary/30 hover:bg-gray-50'
                                 }`}
@@ -1203,15 +1197,14 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                             {/* Can Manage Absences */}
                             <div
                               onClick={() => {
-                                if (isExpandedUserAdmin) return;
-                                const perms = expandedUserData.permissions || []
+                                const perms = (isExpandedUserAdmin && (!expandedUserData.permissions || expandedUserData.permissions.length === 0)) ? allAdminPerms : (expandedUserData.permissions || [])
                                 const hasPerm = perms.includes('can_manage_absences')
                                 const newPerms = hasPerm
                                   ? perms.filter((p: string) => p !== 'can_manage_absences')
                                   : [...perms, 'can_manage_absences']
                                 setExpandedUserData({ ...expandedUserData, permissions: newPerms })
                               }}
-                              className={`p-4 border-2 rounded-lg transition-all duration-200 ${isExpandedUserAdmin ? 'cursor-default opacity-80' : 'cursor-pointer'} ${activePermissions.includes('can_manage_absences')
+                              className={`p-4 border-2 rounded-lg transition-all duration-200 cursor-pointer ${activePermissions.includes('can_manage_absences')
                                 ? 'border-secondary bg-secondary/10 shadow-sm'
                                 : 'border-gray-200 hover:border-secondary/30 hover:bg-gray-50'
                                 }`}
@@ -1239,15 +1232,14 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                             {/* Manage Terms */}
                             <div
                               onClick={() => {
-                                if (isExpandedUserAdmin) return;
-                                const perms = expandedUserData.permissions || []
+                                const perms = (isExpandedUserAdmin && (!expandedUserData.permissions || expandedUserData.permissions.length === 0)) ? allAdminPerms : (expandedUserData.permissions || [])
                                 const hasPerm = perms.includes('manage_terms')
                                 const newPerms = hasPerm
                                   ? perms.filter((p: string) => p !== 'manage_terms')
                                   : [...perms, 'manage_terms']
                                 setExpandedUserData({ ...expandedUserData, permissions: newPerms })
                               }}
-                              className={`p-4 border-2 rounded-lg transition-all duration-200 ${isExpandedUserAdmin ? 'cursor-default opacity-80' : 'cursor-pointer'} ${activePermissions.includes('manage_terms')
+                              className={`p-4 border-2 rounded-lg transition-all duration-200 cursor-pointer ${activePermissions.includes('manage_terms')
                                 ? 'border-secondary bg-secondary/10 shadow-sm'
                                 : 'border-gray-200 hover:border-secondary/30 hover:bg-gray-50'
                                 }`}
@@ -1275,15 +1267,14 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                             {/* Manage Levels & Subjects */}
                             <div
                               onClick={() => {
-                                if (isExpandedUserAdmin) return;
-                                const perms = expandedUserData.permissions || []
+                                const perms = (isExpandedUserAdmin && (!expandedUserData.permissions || expandedUserData.permissions.length === 0)) ? allAdminPerms : (expandedUserData.permissions || [])
                                 const hasPerm = perms.includes('manage_levels')
                                 const newPerms = hasPerm
                                   ? perms.filter((p: string) => p !== 'manage_levels')
                                   : [...perms, 'manage_levels']
                                 setExpandedUserData({ ...expandedUserData, permissions: newPerms })
                               }}
-                              className={`p-4 border-2 rounded-lg transition-all duration-200 ${isExpandedUserAdmin ? 'cursor-default opacity-80' : 'cursor-pointer'} ${activePermissions.includes('manage_levels')
+                              className={`p-4 border-2 rounded-lg transition-all duration-200 cursor-pointer ${activePermissions.includes('manage_levels')
                                 ? 'border-secondary bg-secondary/10 shadow-sm'
                                 : 'border-gray-200 hover:border-secondary/30 hover:bg-gray-50'
                                 }`}
@@ -1491,3 +1482,4 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
     </div >
   )
 }
+
