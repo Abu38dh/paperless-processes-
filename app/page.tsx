@@ -1,4 +1,5 @@
 import { auth } from "@/auth"
+import { db } from "@/lib/db"
 import LoginPage from "@/components/login-page"
 import StudentDashboard from "@/components/student-dashboard"
 import EmployeeDashboard from "@/components/employee-dashboard"
@@ -14,6 +15,30 @@ export default async function Home() {
 
   const { user } = session
   const role = user.role?.toLowerCase() || ""
+
+  // Refresh permissions from DB to reflect changes immediately without re-login
+  if (role !== "student") {
+    try {
+      const freshUser = await db.users.findUnique({
+        where: { university_id: user.university_id },
+        select: { custom_permissions: true, roles: { select: { permissions: true } } }
+      })
+      if (freshUser) {
+        if (role === 'admin') {
+          const ALL_ADMIN_PERMS = ['review_requests', 'manage_forms', 'manage_users', 'manage_departments', 'view_reports', 'manage_workflows', 'grant_delegations', 'audit_access', 'can_manage_absences', 'manage_terms', 'manage_levels']
+          const storedPerms = freshUser.custom_permissions ? JSON.parse(freshUser.custom_permissions) : []
+          const isFullAccess = storedPerms.length === 0 || storedPerms.includes('all') || storedPerms.length < 5
+          user.permissions = isFullAccess ? ALL_ADMIN_PERMS : storedPerms
+        } else {
+          user.permissions = freshUser.custom_permissions 
+            ? JSON.parse(freshUser.custom_permissions) 
+            : (freshUser.roles?.permissions as string[] || [])
+        }
+      }
+    } catch (e) {
+      console.error("Failed to refresh permissions:", e)
+    }
+  }
 
   // Prepare userData object strictly compatible with dashboard prop types
   const dashboardUserData = {
@@ -35,7 +60,7 @@ export default async function Home() {
       return <EmployeeDashboard permissions={user.permissions || []} userData={dashboardUserData} onLogout={logout} />
 
     case role === "admin":
-      return <AdminDashboard userData={dashboardUserData} onLogout={logout} />
+      return <AdminDashboard permissions={user.permissions || []} userData={dashboardUserData} onLogout={logout} />
 
     default:
       if (user.permissions && user.permissions.length > 0) {

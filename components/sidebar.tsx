@@ -57,6 +57,50 @@ export default function Sidebar({
     return baseMenu
   }
 
+  const getAdminMenu = () => {
+    const baseMenu = [
+      { id: "home",         label: "لوحة التحكم",        icon: BarChart3 },
+    ]
+    if (hasPermission("review_requests")) {
+      baseMenu.push({ id: "inbox",        label: "صندوق الوارد",        icon: Inbox })
+    }
+    if (hasPermission("manage_forms")) {
+      baseMenu.push({ id: "forms",        label: "إدارة النماذج",       icon: FileText })
+    }
+    if (hasPermission("manage_workflows")) {
+      baseMenu.push({ id: "workflows",    label: "مسارات العمل",        icon: Zap })
+    }
+    if (hasPermission("manage_departments")) {
+      baseMenu.push({ id: "departments",  label: "إدارة الأقسام",       icon: Building2 })
+      baseMenu.push({ id: "colleges",     label: "إدارة الكليات",       icon: Building2 })
+    }
+    if (hasPermission("manage_users")) {
+      baseMenu.push({ id: "users",        label: "إدارة المستخدمين",    icon: Users })
+    }
+    if (hasPermission("view_reports")) {
+      baseMenu.push({ id: "reports",      label: "التقارير",             icon: BarChart3 })
+    }
+    if (hasPermission("manage_terms")) {
+      baseMenu.push({ id: "terms",        label: "إدارة الأترام",        icon: CalendarDays })
+    }
+    if (hasPermission("manage_levels")) {
+      baseMenu.push({ id: "levels",       label: "المستويات والمواد",    icon: CalendarMinus })
+    }
+    if (hasPermission("can_manage_absences")) {
+      baseMenu.push({ id: "absences",     label: "إدارة الغيابات",      icon: CalendarMinus })
+    }
+    if (hasPermission("grant_delegations")) {
+      baseMenu.push({ id: "delegation",   label: "تفويض الصلاحيات",    icon: Share2 })
+    }
+    if (hasPermission("review_requests")) {
+      baseMenu.push({ id: "history",      label: "سجل الإجراءات",      icon: CheckCircle })
+    }
+    if (hasPermission("audit_access")) {
+      baseMenu.push({ id: "employee-kpis",label: "أداء الموظفين",        icon: UserCheck })
+    }
+    return baseMenu
+  }
+
   const menuConfig = {
     student: [
       { id: "requests",  label: "الطلبات",    icon: FileText },
@@ -64,22 +108,7 @@ export default function Sidebar({
       { id: "absences",  label: "الغيابات",   icon: CalendarMinus },
       { id: "settings",  label: "الإعدادات",  icon: Settings },
     ].filter(item => !(userStatus === 'graduated' && (item.id === 'submit' || item.id === 'absences'))),
-    admin: [
-      { id: "home",         label: "لوحة التحكم",        icon: BarChart3 },
-      { id: "inbox",        label: "صندوق الوارد",        icon: Inbox },
-      { id: "forms",        label: "إدارة النماذج",       icon: FileText },
-      { id: "workflows",    label: "مسارات العمل",        icon: Zap },
-      { id: "departments",  label: "إدارة الأقسام",       icon: Building2 },
-      { id: "colleges",     label: "إدارة الكليات",       icon: Building2 },
-      { id: "users",        label: "إدارة المستخدمين",    icon: Users },
-      { id: "reports",      label: "التقارير",             icon: BarChart3 },
-      { id: "terms",        label: "إدارة الأترام",        icon: CalendarDays },
-      { id: "levels",       label: "المستويات والمواد",    icon: CalendarMinus },
-      { id: "absences",     label: "إدارة الغيابات",      icon: CalendarMinus },
-      { id: "delegation",   label: "تفويض الصلاحيات",    icon: Share2 },
-      { id: "history",      label: "سجل الإجراءات",      icon: CheckCircle },
-      { id: "employee-kpis",label: "أداء الموظفين",        icon: UserCheck },
-    ],
+    admin: getAdminMenu(),
     employee: getEmployeeMenu(),
     reviewer: [
       { id: "requests", label: "صندوق الوارد",     icon: Inbox },

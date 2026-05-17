@@ -333,10 +333,12 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
       const result = await deleteUser(itemToDelete, currentUserId)
 
       if (result.success) {
-        toast({ title: " تم الحذف بنجاح" })
+        toast({ title: " تم تعطيل الحساب بنجاح", description: "لم يتم حذف المستخدم نهائياً للحفاظ على السجلات" })
 
-        // PERSISTENCE: Remove from local state
-        setUsers(prev => prev.filter(u => u.user_id !== itemToDelete))
+        // PERSISTENCE: Update local state to reflect deactivation instead of removing
+        setUsers(prev => prev.map(u => 
+          u.user_id === itemToDelete ? { ...u, is_active: false } : u
+        ))
 
         if (expandedUserId === itemToDelete) {
           setExpandedUserId(null)
@@ -555,23 +557,24 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label className="text-sm font-medium mb-2 block" required>الاسم الكامل</Label>
-                <Input placeholder="أدخل الاسم الكامل" value={newUserName} onChange={(e) => setNewUserName(e.target.value)} />
+                <Input className="bg-transparent" placeholder="أدخل الاسم الكامل" value={newUserName} onChange={(e) => setNewUserName(e.target.value)} />
               </div>
               <div>
                 <Label className="text-sm font-medium mb-2 block" required>رقم القيد / اسم المستخدم</Label>
-                <Input placeholder="أدخل رقم القيد أو اسم المستخدم" value={newUserUniversityId} onChange={(e) => setNewUserUniversityId(e.target.value)} />
+                <Input className="bg-transparent" placeholder="أدخل رقم القيد أو اسم المستخدم" value={newUserUniversityId} onChange={(e) => setNewUserUniversityId(e.target.value)} />
               </div>
               <div>
                 <Label className="text-sm font-medium mb-2 block">البريد الإلكتروني</Label>
-                <Input type="email" placeholder="أدخل البريد الإلكتروني (اختياري)" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} />
+                <Input className="bg-transparent" type="email" placeholder="أدخل البريد الإلكتروني (اختياري)" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} />
               </div>
               <div>
                 <Label className="text-sm font-medium mb-2 block">رقم الجوال</Label>
-                <Input placeholder="أدخل رقم الجوال (اختياري)" value={newUserPhone} onChange={(e) => setNewUserPhone(e.target.value)} />
+                <Input className="bg-transparent text-right" dir="ltr" placeholder="أدخل رقم الجوال (اختياري)" value={newUserPhone} onChange={(e) => setNewUserPhone(e.target.value)} />
               </div>
               <div>
                 <Label className="text-sm font-medium mb-2 block" required>كلمة المرور</Label>
                 <Input
+                  className="bg-transparent"
                   type="password"
                   placeholder="أدخل كلمة المرور"
                   value={newUserPassword}
@@ -585,7 +588,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                   onValueChange={(val) => setNewUserRoleId(parseInt(val))}
                   dir="rtl"
                 >
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="w-full bg-transparent">
                     <SelectValue placeholder="اختر الدور" />
                   </SelectTrigger>
                   <SelectContent dir="rtl">
@@ -629,7 +632,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                           disabled={isRestrictedCollege}
                           dir="rtl"
                         >
-                          <SelectTrigger className="w-full">
+                          <SelectTrigger className="w-full bg-transparent">
                             <SelectValue placeholder="اختر الكلية (اختياري)" />
                           </SelectTrigger>
                           <SelectContent dir="rtl">
@@ -654,7 +657,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                         disabled={isRestrictedDept}
                         dir="rtl"
                       >
-                        <SelectTrigger className="w-full">
+                        <SelectTrigger className="w-full bg-transparent">
                           <SelectValue placeholder="اختر القسم" />
                         </SelectTrigger>
                         <SelectContent dir="rtl">
@@ -681,7 +684,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                           onValueChange={(val) => setNewUserLevelId(val === "__none__" ? "" : val)}
                           dir="rtl"
                         >
-                          <SelectTrigger className="w-full">
+                          <SelectTrigger className="w-full bg-transparent">
                             <SelectValue placeholder="اختر المستوى الدراسي" />
                           </SelectTrigger>
                           <SelectContent dir="rtl">
@@ -727,8 +730,11 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                         setExpandedUserId(user.user_id)
                         const allAdminPerms = ['review_requests', 'manage_forms', 'manage_users', 'manage_departments', 'view_reports', 'manage_workflows', 'grant_delegations', 'audit_access', 'can_manage_absences', 'manage_terms', 'manage_levels']
                         const isAdmin = roles.find((r: any) => r.role_id === user.role_id)?.role_name?.toLowerCase() === 'admin'
-                        const initializedUser = isAdmin && (!user.permissions || user.permissions.length === 0)
-                          ? { ...user, permissions: allAdminPerms }
+                        const storedPerms = user.permissions || []
+                        // Default to all if empty/corrupted (< 5). If intentionally restricted (≥ 5), use stored.
+                        const isFullAccess = !isAdmin || storedPerms.length === 0 || storedPerms.includes('all') || storedPerms.length < 5
+                        const initializedUser = isAdmin
+                          ? { ...user, permissions: isFullAccess ? allAdminPerms : storedPerms }
                           : user
                         setExpandedUserData(initializedUser)
 
@@ -900,10 +906,9 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                         const expandedUserRole = roles.find(r => r.role_id === expandedUserData.role_id)?.role_name?.toLowerCase();
                         const isExpandedUserAdmin = expandedUserRole === 'admin';
                         const allAdminPerms = ['review_requests', 'manage_forms', 'manage_users', 'manage_departments', 'view_reports', 'manage_workflows', 'grant_delegations', 'audit_access', 'can_manage_absences', 'manage_terms', 'manage_levels'];
-                        // For admin: use DB permissions if set, else default to all
-                        const activePermissions = isExpandedUserAdmin
-                          ? ((expandedUserData.permissions && expandedUserData.permissions.length > 0) ? expandedUserData.permissions : allAdminPerms)
-                          : (expandedUserData.permissions || []);
+                        // Use the current expandedUserData.permissions (already initialized correctly on expand)
+                        const activePermissions = expandedUserData.permissions || [];
+
                         
                         if (expandedUserRole === 'student') return null;
                         
@@ -1472,15 +1477,15 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent dir="rtl">
           <AlertDialogHeader>
-            <AlertDialogTitle>هل أنت متأكد من حذف هذا المستخدم؟</AlertDialogTitle>
+            <AlertDialogTitle>هل أنت متأكد من تعطيل هذا الحساب؟</AlertDialogTitle>
             <AlertDialogDescription>
-              لا يمكن التراجع عن هذا الإجراء. سيتم حذف المستخدم وجميع البيانات المرتبطة به.
+              سيتم إيقاف حساب المستخدم ولن يتمكن من الدخول للنظام. مع ذلك، ستبقى جميع سجلاته وطلباته السابقة محفوظة، ويمكنك إعادة تفعيله لاحقاً.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>إلغاء</AlertDialogCancel>
-            <AlertDialogAction onClick={executeDelete} className="bg-destructive hover:bg-destructive/90">
-              حذف
+            <AlertDialogAction onClick={executeDelete} className="bg-amber-600 hover:bg-amber-700">
+              تعطيل الحساب
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

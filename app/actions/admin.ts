@@ -212,11 +212,22 @@ export async function getUsers(
             db.users.count({ where: whereClause })
         ])
 
+        const ALL_ADMIN_PERMS = ['review_requests', 'manage_forms', 'manage_users', 'manage_departments', 'view_reports', 'manage_workflows', 'grant_delegations', 'audit_access', 'can_manage_absences', 'manage_terms', 'manage_levels']
+
         // Parse custom_permissions JSON for each user
-        const usersWithPermissions = users.map((user: any) => ({
-            ...user,
-            permissions: user.custom_permissions ? JSON.parse(user.custom_permissions) : []
-        }))
+        const usersWithPermissions = users.map((user: any) => {
+            const isAdmin = user.roles?.role_name?.toLowerCase() === 'admin'
+            const storedPerms: string[] = user.custom_permissions ? JSON.parse(user.custom_permissions) : []
+            let permissions: string[]
+            if (isAdmin) {
+                // If no permissions stored, has 'all', or corrupted (< 5 perms) → default to all
+                const isFullAccess = storedPerms.length === 0 || storedPerms.includes('all') || storedPerms.length < 5
+                permissions = isFullAccess ? ALL_ADMIN_PERMS : storedPerms
+            } else {
+                permissions = storedPerms
+            }
+            return { ...user, permissions }
+        })
 
         return {
             success: true,
@@ -294,7 +305,7 @@ export async function createUser(data: any, requesterId?: string) {
             })
         }
 
-        // revalidatePath('/admin')
+        revalidatePath('/', 'layout')
         return { success: true }
     } catch (e) {
         console.error("Create User Error:", e)
@@ -348,7 +359,7 @@ export async function updateUser(userId: number, data: any, requesterId?: string
             })
         }
 
-        // revalidatePath('/admin')
+        revalidatePath('/', 'layout')
         return { success: true }
     } catch (e: any) {
         console.error("Update User Error:", e)
@@ -375,7 +386,7 @@ export async function deleteUser(userId: number, requesterId?: string) {
             await logAuditAction(executor?.user_id, 'DEACTIVATE', 'USER', targetUser?.university_id || userId.toString(), null)
         }
 
-        // revalidatePath('/admin')
+        revalidatePath('/', 'layout')
         return { success: true }
     } catch (e) {
         console.error("Delete User Error:", e)

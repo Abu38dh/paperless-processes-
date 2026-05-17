@@ -34,6 +34,7 @@ interface AdminDashboardProps {
     full_name: string
     role: string
   }
+  permissions?: string[]
 }
 
 const adminCards = [
@@ -87,7 +88,7 @@ const adminCards = [
   },
 ]
 
-export default function AdminDashboard({ onLogout, userData }: AdminDashboardProps) {
+export default function AdminDashboard({ onLogout, userData, permissions = [] }: AdminDashboardProps) {
   const [currentView, setCurrentView] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       const saved = window.sessionStorage.getItem('adminDashboardView')
@@ -200,7 +201,7 @@ export default function AdminDashboard({ onLogout, userData }: AdminDashboardPro
       <div className="flex flex-1 overflow-hidden">
         {/* Desktop Sidebar */}
         <div className="hidden md:block h-full">
-          <Sidebar currentView={currentView} onViewChange={setCurrentView} userRole="admin" />
+          <Sidebar currentView={currentView} onViewChange={setCurrentView} userRole="admin" permissions={permissions} />
         </div>
 
         {/* Mobile Sidebar Sheet */}
@@ -213,6 +214,7 @@ export default function AdminDashboard({ onLogout, userData }: AdminDashboardPro
                 setIsMobileMenuOpen(false)
               }}
               userRole="admin"
+              permissions={permissions}
               className="h-full border-none w-full"
             />
           </SheetContent>
@@ -279,12 +281,24 @@ export default function AdminDashboard({ onLogout, userData }: AdminDashboardPro
                       </CardContent>
                     </Card>
                   </div>
-
                   {/* Management Cards */}
                   <div>
                     <h3 className="text-xl font-semibold mb-4">إدارة النظام</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {adminCards.map((card) => {
+                      {adminCards.filter(card => {
+                        if (permissions.includes('all')) return true;
+                        switch(card.id) {
+                          case 'forms': return permissions.includes('manage_forms');
+                          case 'workflows': return permissions.includes('manage_workflows');
+                          case 'users': return permissions.includes('manage_users');
+                          case 'reports': return permissions.includes('view_reports');
+                          case 'departments': return permissions.includes('manage_departments');
+                          case 'colleges': return permissions.includes('manage_departments');
+                          case 'terms': return permissions.includes('manage_terms');
+                          case 'employee-kpis': return permissions.includes('audit_access');
+                          default: return true;
+                        }
+                      }).map((card) => {
                         const Icon = card.icon
                         return (
                           <Card
