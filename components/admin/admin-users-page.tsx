@@ -890,8 +890,17 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                       </div>
 
                       {/* Permissions Section - For all except students */}
-                      {(roles.find(r => r.role_id === expandedUserData.role_id)?.role_name?.toLowerCase() !== 'student') && (
-                        <div className="space-y-3 border-t pt-4 col-span-full">
+                      {(() => {
+                        const expandedUserRole = roles.find(r => r.role_id === expandedUserData.role_id)?.role_name?.toLowerCase();
+                        const isExpandedUserAdmin = expandedUserRole === 'admin';
+                        const activePermissions = isExpandedUserAdmin 
+                          ? ['review_requests', 'manage_forms', 'manage_users', 'manage_departments', 'view_reports', 'manage_workflows', 'grant_delegations', 'audit_access', 'can_manage_absences', 'manage_terms', 'manage_levels'] 
+                          : (expandedUserData.permissions || []);
+                        
+                        if (expandedUserRole === 'student') return null;
+                        
+                        return (
+                          <div className="space-y-3 border-t pt-4 col-span-full">
                           <div className="flex items-center gap-2 mb-2">
                             <div className="p-2 bg-primary/10 rounded-lg">
                               <Shield className="w-5 h-5 text-primary" />
@@ -906,6 +915,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                             {/* Review Requests */}
                             <div
                               onClick={() => {
+                                if (isExpandedUserAdmin) return;
                                 const perms = expandedUserData.permissions || []
                                 const hasPermission = perms.includes('review_requests')
                                 const newPerms = hasPermission
@@ -913,13 +923,13 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                                   : [...perms, 'review_requests']
                                 setExpandedUserData({ ...expandedUserData, permissions: newPerms })
                               }}
-                              className={`p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${expandedUserData.permissions?.includes('review_requests')
+                              className={`p-4 border-2 rounded-lg transition-all duration-200 ${isExpandedUserAdmin ? 'cursor-default opacity-80' : 'cursor-pointer'} ${activePermissions.includes('review_requests')
                                 ? 'border-secondary bg-secondary/10 shadow-sm'
                                 : 'border-gray-200 hover:border-secondary/30 hover:bg-gray-50'
                                 }`}
                             >
                               <div className="flex items-start gap-3">
-                                <div className={`p-2 rounded-lg ${expandedUserData.permissions?.includes('review_requests')
+                                <div className={`p-2 rounded-lg ${activePermissions.includes('review_requests')
                                   ? 'bg-secondary text-white'
                                   : 'bg-gray-100 text-gray-600'
                                   }`}>
@@ -931,7 +941,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                                 </div>
                                 <input
                                   type="checkbox"
-                                  checked={expandedUserData.permissions?.includes('review_requests') || false}
+                                  checked={activePermissions.includes('review_requests') || false}
                                   onChange={() => { }}
                                   className="w-5 h-5 rounded border-gray-300 text-secondary focus:ring-secondary"
                                 />
@@ -941,6 +951,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                             {/* Manage Forms */}
                             <div
                               onClick={() => {
+                                if (isExpandedUserAdmin) return;
                                 const perms = expandedUserData.permissions || []
                                 const hasPermission = perms.includes('manage_forms')
                                 const newPerms = hasPermission
@@ -948,13 +959,13 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                                   : [...perms, 'manage_forms']
                                 setExpandedUserData({ ...expandedUserData, permissions: newPerms })
                               }}
-                              className={`p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${expandedUserData.permissions?.includes('manage_forms')
+                              className={`p-4 border-2 rounded-lg transition-all duration-200 ${isExpandedUserAdmin ? 'cursor-default opacity-80' : 'cursor-pointer'} ${activePermissions.includes('manage_forms')
                                 ? 'border-secondary bg-secondary/10 shadow-sm'
                                 : 'border-gray-200 hover:border-secondary/30 hover:bg-gray-50'
                                 }`}
                             >
                               <div className="flex items-start gap-3">
-                                <div className={`p-2 rounded-lg ${expandedUserData.permissions?.includes('manage_forms')
+                                <div className={`p-2 rounded-lg ${activePermissions.includes('manage_forms')
                                   ? 'bg-secondary text-white'
                                   : 'bg-gray-100 text-gray-600'
                                   }`}>
@@ -966,7 +977,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                                 </div>
                                 <input
                                   type="checkbox"
-                                  checked={expandedUserData.permissions?.includes('manage_forms') || false}
+                                  checked={activePermissions.includes('manage_forms') || false}
                                   onChange={() => { }}
                                   className="w-5 h-5 rounded border-gray-300 text-secondary focus:ring-secondary"
                                 />
@@ -976,6 +987,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                             {/* Manage Users */}
                             <div
                               onClick={() => {
+                                if (isExpandedUserAdmin) return;
                                 const perms = expandedUserData.permissions || []
                                 const hasPermission = perms.includes('manage_users')
                                 const newPerms = hasPermission
@@ -983,13 +995,13 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                                   : [...perms, 'manage_users']
                                 setExpandedUserData({ ...expandedUserData, permissions: newPerms })
                               }}
-                              className={`p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${expandedUserData.permissions?.includes('manage_users')
+                              className={`p-4 border-2 rounded-lg transition-all duration-200 ${isExpandedUserAdmin ? 'cursor-default opacity-80' : 'cursor-pointer'} ${activePermissions.includes('manage_users')
                                 ? 'border-secondary bg-secondary/10 shadow-sm'
                                 : 'border-gray-200 hover:border-secondary/30 hover:bg-gray-50'
                                 }`}
                             >
                               <div className="flex items-start gap-3">
-                                <div className={`p-2 rounded-lg ${expandedUserData.permissions?.includes('manage_users')
+                                <div className={`p-2 rounded-lg ${activePermissions.includes('manage_users')
                                   ? 'bg-secondary text-white'
                                   : 'bg-gray-100 text-gray-600'
                                   }`}>
@@ -1001,7 +1013,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                                 </div>
                                 <input
                                   type="checkbox"
-                                  checked={expandedUserData.permissions?.includes('manage_users') || false}
+                                  checked={activePermissions.includes('manage_users') || false}
                                   onChange={() => { }}
                                   className="w-5 h-5 rounded border-gray-300 text-secondary focus:ring-secondary"
                                 />
@@ -1011,6 +1023,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                             {/* Manage Departments */}
                             <div
                               onClick={() => {
+                                if (isExpandedUserAdmin) return;
                                 const perms = expandedUserData.permissions || []
                                 const hasPermission = perms.includes('manage_departments')
                                 const newPerms = hasPermission
@@ -1018,13 +1031,13 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                                   : [...perms, 'manage_departments']
                                 setExpandedUserData({ ...expandedUserData, permissions: newPerms })
                               }}
-                              className={`p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${expandedUserData.permissions?.includes('manage_departments')
+                              className={`p-4 border-2 rounded-lg transition-all duration-200 ${isExpandedUserAdmin ? 'cursor-default opacity-80' : 'cursor-pointer'} ${activePermissions.includes('manage_departments')
                                 ? 'border-secondary bg-secondary/10 shadow-sm'
                                 : 'border-gray-200 hover:border-secondary/30 hover:bg-gray-50'
                                 }`}
                             >
                               <div className="flex items-start gap-3">
-                                <div className={`p-2 rounded-lg ${expandedUserData.permissions?.includes('manage_departments')
+                                <div className={`p-2 rounded-lg ${activePermissions.includes('manage_departments')
                                   ? 'bg-secondary text-white'
                                   : 'bg-gray-100 text-gray-600'
                                   }`}>
@@ -1036,7 +1049,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                                 </div>
                                 <input
                                   type="checkbox"
-                                  checked={expandedUserData.permissions?.includes('manage_departments') || false}
+                                  checked={activePermissions.includes('manage_departments') || false}
                                   onChange={() => { }}
                                   className="w-5 h-5 rounded border-gray-300 text-secondary focus:ring-secondary"
                                 />
@@ -1046,6 +1059,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                             {/* View Reports */}
                             <div
                               onClick={() => {
+                                if (isExpandedUserAdmin) return;
                                 const perms = expandedUserData.permissions || []
                                 const hasPermission = perms.includes('view_reports')
                                 const newPerms = hasPermission
@@ -1053,13 +1067,13 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                                   : [...perms, 'view_reports']
                                 setExpandedUserData({ ...expandedUserData, permissions: newPerms })
                               }}
-                              className={`p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${expandedUserData.permissions?.includes('view_reports')
+                              className={`p-4 border-2 rounded-lg transition-all duration-200 ${isExpandedUserAdmin ? 'cursor-default opacity-80' : 'cursor-pointer'} ${activePermissions.includes('view_reports')
                                 ? 'border-secondary bg-secondary/10 shadow-sm'
                                 : 'border-gray-200 hover:border-secondary/30 hover:bg-gray-50'
                                 }`}
                             >
                               <div className="flex items-start gap-3">
-                                <div className={`p-2 rounded-lg ${expandedUserData.permissions?.includes('view_reports')
+                                <div className={`p-2 rounded-lg ${activePermissions.includes('view_reports')
                                   ? 'bg-secondary text-white'
                                   : 'bg-gray-100 text-gray-600'
                                   }`}>
@@ -1071,7 +1085,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                                 </div>
                                 <input
                                   type="checkbox"
-                                  checked={expandedUserData.permissions?.includes('view_reports') || false}
+                                  checked={activePermissions.includes('view_reports') || false}
                                   onChange={() => { }}
                                   className="w-5 h-5 rounded border-gray-300 text-secondary focus:ring-secondary"
                                 />
@@ -1081,6 +1095,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                             {/* Manage Workflows */}
                             <div
                               onClick={() => {
+                                if (isExpandedUserAdmin) return;
                                 const perms = expandedUserData.permissions || []
                                 const hasPermission = perms.includes('manage_workflows')
                                 const newPerms = hasPermission
@@ -1088,13 +1103,13 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                                   : [...perms, 'manage_workflows']
                                 setExpandedUserData({ ...expandedUserData, permissions: newPerms })
                               }}
-                              className={`p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${expandedUserData.permissions?.includes('manage_workflows')
+                              className={`p-4 border-2 rounded-lg transition-all duration-200 ${isExpandedUserAdmin ? 'cursor-default opacity-80' : 'cursor-pointer'} ${activePermissions.includes('manage_workflows')
                                 ? 'border-secondary bg-secondary/10 shadow-sm'
                                 : 'border-gray-200 hover:border-secondary/30 hover:bg-gray-50'
                                 }`}
                             >
                               <div className="flex items-start gap-3">
-                                <div className={`p-2 rounded-lg ${expandedUserData.permissions?.includes('manage_workflows')
+                                <div className={`p-2 rounded-lg ${activePermissions.includes('manage_workflows')
                                   ? 'bg-secondary text-white'
                                   : 'bg-gray-100 text-gray-600'
                                   }`}>
@@ -1106,7 +1121,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                                 </div>
                                 <input
                                   type="checkbox"
-                                  checked={expandedUserData.permissions?.includes('manage_workflows') || false}
+                                  checked={activePermissions.includes('manage_workflows') || false}
                                   onChange={() => { }}
                                   className="w-5 h-5 rounded border-gray-300 text-secondary focus:ring-secondary"
                                 />
@@ -1116,6 +1131,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                             {/* Grant Delegations */}
                             <div
                               onClick={() => {
+                                if (isExpandedUserAdmin) return;
                                 const perms = expandedUserData.permissions || []
                                 const hasPermission = perms.includes('grant_delegations')
                                 const newPerms = hasPermission
@@ -1123,13 +1139,13 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                                   : [...perms, 'grant_delegations']
                                 setExpandedUserData({ ...expandedUserData, permissions: newPerms })
                               }}
-                              className={`p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${expandedUserData.permissions?.includes('grant_delegations')
+                              className={`p-4 border-2 rounded-lg transition-all duration-200 ${isExpandedUserAdmin ? 'cursor-default opacity-80' : 'cursor-pointer'} ${activePermissions.includes('grant_delegations')
                                 ? 'border-secondary bg-secondary/10 shadow-sm'
                                 : 'border-gray-200 hover:border-secondary/30 hover:bg-gray-50'
                                 }`}
                             >
                               <div className="flex items-start gap-3">
-                                <div className={`p-2 rounded-lg ${expandedUserData.permissions?.includes('grant_delegations')
+                                <div className={`p-2 rounded-lg ${activePermissions.includes('grant_delegations')
                                   ? 'bg-secondary text-white'
                                   : 'bg-gray-100 text-gray-600'
                                   }`}>
@@ -1141,7 +1157,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                                 </div>
                                 <input
                                   type="checkbox"
-                                  checked={expandedUserData.permissions?.includes('grant_delegations') || false}
+                                  checked={activePermissions.includes('grant_delegations') || false}
                                   onChange={() => { }}
                                   className="w-5 h-5 rounded border-gray-300 text-secondary focus:ring-secondary"
                                 />
@@ -1151,6 +1167,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                             {/* Audit Access */}
                             <div
                               onClick={() => {
+                                if (isExpandedUserAdmin) return;
                                 const perms = expandedUserData.permissions || []
                                 const hasPermission = perms.includes('audit_access')
                                 const newPerms = hasPermission
@@ -1158,13 +1175,13 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                                   : [...perms, 'audit_access']
                                 setExpandedUserData({ ...expandedUserData, permissions: newPerms })
                               }}
-                              className={`p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${expandedUserData.permissions?.includes('audit_access')
+                              className={`p-4 border-2 rounded-lg transition-all duration-200 ${isExpandedUserAdmin ? 'cursor-default opacity-80' : 'cursor-pointer'} ${activePermissions.includes('audit_access')
                                 ? 'border-secondary bg-secondary/10 shadow-sm'
                                 : 'border-gray-200 hover:border-secondary/30 hover:bg-gray-50'
                                 }`}
                             >
                               <div className="flex items-start gap-3">
-                                <div className={`p-2 rounded-lg ${expandedUserData.permissions?.includes('audit_access')
+                                <div className={`p-2 rounded-lg ${activePermissions.includes('audit_access')
                                   ? 'bg-secondary text-white'
                                   : 'bg-gray-100 text-gray-600'
                                   }`}>
@@ -1176,7 +1193,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                                 </div>
                                 <input
                                   type="checkbox"
-                                  checked={expandedUserData.permissions?.includes('audit_access') || false}
+                                  checked={activePermissions.includes('audit_access') || false}
                                   onChange={() => { }}
                                   className="w-5 h-5 rounded border-gray-300 text-secondary focus:ring-secondary"
                                 />
@@ -1186,6 +1203,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                             {/* Can Manage Absences */}
                             <div
                               onClick={() => {
+                                if (isExpandedUserAdmin) return;
                                 const perms = expandedUserData.permissions || []
                                 const hasPerm = perms.includes('can_manage_absences')
                                 const newPerms = hasPerm
@@ -1193,13 +1211,13 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                                   : [...perms, 'can_manage_absences']
                                 setExpandedUserData({ ...expandedUserData, permissions: newPerms })
                               }}
-                              className={`p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${expandedUserData.permissions?.includes('can_manage_absences')
+                              className={`p-4 border-2 rounded-lg transition-all duration-200 ${isExpandedUserAdmin ? 'cursor-default opacity-80' : 'cursor-pointer'} ${activePermissions.includes('can_manage_absences')
                                 ? 'border-secondary bg-secondary/10 shadow-sm'
                                 : 'border-gray-200 hover:border-secondary/30 hover:bg-gray-50'
                                 }`}
                             >
                               <div className="flex items-start gap-3">
-                                <div className={`p-2 rounded-lg ${expandedUserData.permissions?.includes('can_manage_absences')
+                                <div className={`p-2 rounded-lg ${activePermissions.includes('can_manage_absences')
                                   ? 'bg-secondary text-white'
                                   : 'bg-gray-100 text-gray-600'
                                   }`}>
@@ -1211,7 +1229,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                                 </div>
                                 <input
                                   type="checkbox"
-                                  checked={expandedUserData.permissions?.includes('can_manage_absences') || false}
+                                  checked={activePermissions.includes('can_manage_absences') || false}
                                   onChange={() => { }}
                                   className="w-5 h-5 rounded border-gray-300 text-secondary focus:ring-secondary"
                                 />
@@ -1221,6 +1239,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                             {/* Manage Terms */}
                             <div
                               onClick={() => {
+                                if (isExpandedUserAdmin) return;
                                 const perms = expandedUserData.permissions || []
                                 const hasPerm = perms.includes('manage_terms')
                                 const newPerms = hasPerm
@@ -1228,13 +1247,13 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                                   : [...perms, 'manage_terms']
                                 setExpandedUserData({ ...expandedUserData, permissions: newPerms })
                               }}
-                              className={`p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${expandedUserData.permissions?.includes('manage_terms')
+                              className={`p-4 border-2 rounded-lg transition-all duration-200 ${isExpandedUserAdmin ? 'cursor-default opacity-80' : 'cursor-pointer'} ${activePermissions.includes('manage_terms')
                                 ? 'border-secondary bg-secondary/10 shadow-sm'
                                 : 'border-gray-200 hover:border-secondary/30 hover:bg-gray-50'
                                 }`}
                             >
                               <div className="flex items-start gap-3">
-                                <div className={`p-2 rounded-lg ${expandedUserData.permissions?.includes('manage_terms')
+                                <div className={`p-2 rounded-lg ${activePermissions.includes('manage_terms')
                                   ? 'bg-secondary text-white'
                                   : 'bg-gray-100 text-gray-600'
                                   }`}>
@@ -1246,7 +1265,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                                 </div>
                                 <input
                                   type="checkbox"
-                                  checked={expandedUserData.permissions?.includes('manage_terms') || false}
+                                  checked={activePermissions.includes('manage_terms') || false}
                                   onChange={() => { }}
                                   className="w-5 h-5 rounded border-gray-300 text-secondary focus:ring-secondary"
                                 />
@@ -1256,6 +1275,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                             {/* Manage Levels & Subjects */}
                             <div
                               onClick={() => {
+                                if (isExpandedUserAdmin) return;
                                 const perms = expandedUserData.permissions || []
                                 const hasPerm = perms.includes('manage_levels')
                                 const newPerms = hasPerm
@@ -1263,13 +1283,13 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                                   : [...perms, 'manage_levels']
                                 setExpandedUserData({ ...expandedUserData, permissions: newPerms })
                               }}
-                              className={`p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${expandedUserData.permissions?.includes('manage_levels')
+                              className={`p-4 border-2 rounded-lg transition-all duration-200 ${isExpandedUserAdmin ? 'cursor-default opacity-80' : 'cursor-pointer'} ${activePermissions.includes('manage_levels')
                                 ? 'border-secondary bg-secondary/10 shadow-sm'
                                 : 'border-gray-200 hover:border-secondary/30 hover:bg-gray-50'
                                 }`}
                             >
                               <div className="flex items-start gap-3">
-                                <div className={`p-2 rounded-lg ${expandedUserData.permissions?.includes('manage_levels')
+                                <div className={`p-2 rounded-lg ${activePermissions.includes('manage_levels')
                                   ? 'bg-secondary text-white'
                                   : 'bg-gray-100 text-gray-600'
                                   }`}>
@@ -1281,7 +1301,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                                 </div>
                                 <input
                                   type="checkbox"
-                                  checked={expandedUserData.permissions?.includes('manage_levels') || false}
+                                  checked={activePermissions.includes('manage_levels') || false}
                                   onChange={() => { }}
                                   className="w-5 h-5 rounded border-gray-300 text-secondary focus:ring-secondary"
                                 />
@@ -1289,7 +1309,8 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                             </div>
                           </div>
                         </div>
-                      )}
+                        );
+                      })()}
 
                       {/* Permissions Section - For all except students */}
                     </div>

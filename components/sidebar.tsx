@@ -66,6 +66,7 @@ export default function Sidebar({
     ].filter(item => !(userStatus === 'graduated' && (item.id === 'submit' || item.id === 'absences'))),
     admin: [
       { id: "home",         label: "لوحة التحكم",        icon: BarChart3 },
+      { id: "inbox",        label: "صندوق الوارد",        icon: Inbox },
       { id: "forms",        label: "إدارة النماذج",       icon: FileText },
       { id: "workflows",    label: "مسارات العمل",        icon: Zap },
       { id: "departments",  label: "إدارة الأقسام",       icon: Building2 },
@@ -74,6 +75,9 @@ export default function Sidebar({
       { id: "reports",      label: "التقارير",             icon: BarChart3 },
       { id: "terms",        label: "إدارة الأترام",        icon: CalendarDays },
       { id: "levels",       label: "المستويات والمواد",    icon: CalendarMinus },
+      { id: "absences",     label: "إدارة الغيابات",      icon: CalendarMinus },
+      { id: "delegation",   label: "تفويض الصلاحيات",    icon: Share2 },
+      { id: "history",      label: "سجل الإجراءات",      icon: CheckCircle },
       { id: "employee-kpis",label: "أداء الموظفين",        icon: UserCheck },
     ],
     employee: getEmployeeMenu(),

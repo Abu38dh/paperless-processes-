@@ -1,8 +1,9 @@
-﻿"use client"
+"use client"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import Header from "@/components/header"
 import Sidebar from "@/components/sidebar"
 import AdminFormsPage from "@/components/admin/admin-forms-page"
@@ -14,11 +15,17 @@ import AdminCollegesPage from "@/components/admin/admin-colleges-page"
 import TermsManagementPage from "@/components/admin/terms-management"
 import EmployeeKpiDashboard from "@/components/admin/employee-kpi-dashboard"
 import LevelsSubjectsManager from "@/components/admin/levels-subjects-manager"
+import AbsenceManager from "@/components/employee/absence-manager"
+import DelegationRequest from "@/components/dashboard/delegation-request"
+import RequestDetail from "@/components/request-detail"
+import { InboxRequestList } from "@/components/dashboard/inbox-request-list"
 import { DashboardSkeleton } from "@/components/ui/loading-skeleton"
 import { ErrorMessage } from "@/components/ui/error-message"
 import { getAdminStats } from "@/app/actions/admin"
-import { FileText, Users, Workflow, BarChart3, Building2, GraduationCap, CalendarDays, UserCheck } from "lucide-react"
+import { getEmployeeInbox } from "@/app/actions/employee"
+import { FileText, Users, Workflow, BarChart3, Building2, GraduationCap, CalendarDays, UserCheck, Search } from "lucide-react"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
+import { Badge } from "@/components/ui/badge"
 
 interface AdminDashboardProps {
   onLogout: () => void
@@ -103,6 +110,54 @@ export default function AdminDashboard({ onLogout, userData }: AdminDashboardPro
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Inbox state
+  const [inboxRequests, setInboxRequests] = useState<any[]>([])
+  const [inboxLoading, setInboxLoading] = useState(false)
+  const [selectedRequest, setSelectedRequest] = useState<any | null>(null)
+  const [historyRequests, setHistoryRequests] = useState<any[]>([])
+  const [historySearch, setHistorySearch] = useState("")
+
+  const fetchInbox = async () => {
+    if (!userData?.university_id) return
+    setInboxLoading(true)
+    try {
+      const result = await getEmployeeInbox(userData.university_id)
+      if (result.success) {
+        const mapped = (result.requests || []).map((r: any) => ({
+          id: r.requestId,
+          type: r.requestType,
+          title: r.requestType,
+          applicant: r.applicantName,
+          date: new Date(r.submittedAt).toLocaleDateString('ar-SA'),
+          status: r.status,
+          data: r,
+        }))
+        setInboxRequests(mapped)
+        if (mapped.length > 0 && !selectedRequest) setSelectedRequest(mapped[0])
+      }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setInboxLoading(false)
+    }
+  }
+
+  const fetchHistory = async () => {
+    if (!userData?.university_id) return
+    try {
+      const { getEmployeeHistory } = await import("@/app/actions/employee")
+      const result = await getEmployeeHistory(userData.university_id)
+      if (result.success) setHistoryRequests(result.history || [])
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  useEffect(() => {
+    if (currentView === 'inbox') fetchInbox()
+    if (currentView === 'history') fetchHistory()
+  }, [currentView])
 
   useEffect(() => {
     fetchStats()
@@ -269,6 +324,95 @@ export default function AdminDashboard({ onLogout, userData }: AdminDashboardPro
           {currentView === "terms" && <TermsManagementPage onBack={() => setCurrentView("home")} currentUserId={userData?.university_id} />}
           {currentView === "levels" && <LevelsSubjectsManager onBack={() => setCurrentView("home")} currentUserId={userData?.university_id} />}
           {currentView === "employee-kpis" && <EmployeeKpiDashboard onBack={() => setCurrentView("home")} currentUserId={userData?.university_id} />}
+
+          {/* Inbox View */}
+          {currentView === "inbox" && (
+            <div className="p-6 space-y-4">
+              <h2 className="text-2xl font-bold">صندوق الوارد</h2>
+              {inboxLoading ? (
+                <div className="h-64 flex items-center justify-center text-muted-foreground">جاري التحميل...</div>
+              ) : (
+                <div className="flex gap-4 h-[calc(100vh-180px)]">
+                  <InboxRequestList
+                    requests={inboxRequests}
+                    selectedRequestId={selectedRequest?.id}
+                    onSelectRequest={setSelectedRequest}
+                  />
+                  <div className="flex-1 overflow-auto border rounded-lg bg-card p-4">
+                    {selectedRequest ? (
+                      <RequestDetail
+                        request={selectedRequest.data}
+                        showHistory
+                      />
+                    ) : (
+                      <div className="h-full flex items-center justify-center text-muted-foreground">
+                        اختر طلباً من القائمة لعرض تفاصيله
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Absences View */}
+          {currentView === "absences" && (
+            <AbsenceManager
+              currentUserId={userData?.university_id || ""}
+              userRole="admin"
+            />
+          )}
+
+          {/* Delegation View */}
+          {currentView === "delegation" && (
+            <div className="p-6">
+              <h2 className="text-2xl font-bold mb-4">تفويض الصلاحيات</h2>
+              <DelegationRequest currentUserId={userData?.university_id || ""} />
+            </div>
+          )}
+
+          {/* History View */}
+          {currentView === "history" && (
+            <div className="p-6 space-y-4">
+              <h2 className="text-2xl font-bold">سجل الإجراءات</h2>
+              <div className="relative">
+                <Search className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="بحث في السجل..."
+                  className="pr-9"
+                  value={historySearch}
+                  onChange={(e) => setHistorySearch(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                {historyRequests
+                  .filter((h: any) =>
+                    !historySearch ||
+                    h.requestType?.includes(historySearch) ||
+                    h.applicantName?.includes(historySearch)
+                  )
+                  .map((h: any, i: number) => (
+                    <Card key={i} className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">{h.requestType}</p>
+                          <p className="text-sm text-muted-foreground">{h.applicantName} — #{h.requestId}</p>
+                        </div>
+                        <div className="text-left">
+                          <Badge variant="outline" className={h.action === 'approve' ? 'text-green-600 border-green-300' : h.action === 'reject' ? 'text-red-600 border-red-300' : ''}>
+                            {h.action === 'approve' ? 'موافقة' : h.action === 'reject' ? 'رفض' : h.action === 'return' ? 'إعادة' : h.action}
+                          </Badge>
+                          <p className="text-xs text-muted-foreground mt-1">{new Date(h.createdAt).toLocaleDateString('ar-SA')}</p>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                {historyRequests.length === 0 && (
+                  <div className="text-center py-16 text-muted-foreground">لا يوجد سجل إجراءات بعد</div>
+                )}
+              </div>
+            </div>
+          )}
         </main>
       </div>
     </div>
