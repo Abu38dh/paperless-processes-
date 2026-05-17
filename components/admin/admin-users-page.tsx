@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 // Force rebuild
 
 import { useState, useEffect, useRef, useMemo } from "react"
@@ -725,7 +725,13 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                         setExpandedUserId(null)
                       } else {
                         setExpandedUserId(user.user_id)
-                        setExpandedUserData(user)
+                        const allAdminPerms = ['review_requests', 'manage_forms', 'manage_users', 'manage_departments', 'view_reports', 'manage_workflows', 'grant_delegations', 'audit_access', 'can_manage_absences', 'manage_terms', 'manage_levels']
+                        const isAdmin = roles.find((r: any) => r.role_id === user.role_id)?.role_name?.toLowerCase() === 'admin'
+                        const initializedUser = isAdmin && (!user.permissions || user.permissions.length === 0)
+                          ? { ...user, permissions: allAdminPerms }
+                          : user
+                        setExpandedUserData(initializedUser)
+
                       }
                     }}
                     className="text-primary p-1 rounded"
