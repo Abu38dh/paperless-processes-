@@ -18,7 +18,7 @@ export async function getAllColleges() {
             ORDER BY c.name ASC
         `
         const deptsRaw = await db.$queryRaw<any[]>`
-            SELECT d.department_id, d.dept_name, d.college_id, d.manager_id,
+            SELECT d.department_id, d.dept_name, d.college_id, d.manager_id, d.is_academic,
                    m.full_name AS manager_name
             FROM departments d
             LEFT JOIN users m ON m.user_id = d.manager_id
@@ -38,6 +38,7 @@ export async function getAllColleges() {
                     dept_name: d.dept_name,
                     college_id: Number(d.college_id),
                     manager_id: d.manager_id ? Number(d.manager_id) : null,
+                    is_academic: d.is_academic,
                     users_departments_manager_idTousers: d.manager_id ? { full_name: d.manager_name } : null,
                 }))
         }))

@@ -852,7 +852,7 @@ export async function graduateStudents(levelId: number, academicYear: string) {
                 roles: { role_name: 'student' },
                 user_status: 'active'
             },
-            data: { user_status: 'graduated', academic_year: academicYear, is_active: false }
+            data: { user_status: 'graduated', academic_year: academicYear }
         })
         return { success: true, count: result.count }
     } catch (e) {

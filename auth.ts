@@ -40,9 +40,8 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
 
                         if (!user) return null
 
-                        // In a real app we should check is_active, but let's just return null if fail
-                        // Exception: graduated users might have is_active: false but should be allowed read-only access
-                        if (!user.is_active && user.user_status !== 'graduated') return null
+                        // Strictly respect is_active flag for ALL users, including graduated ones.
+                        if (!user.is_active) return null
 
                         const passwordsMatch = await bcrypt.compare(password, user.password_hash)
                         if (passwordsMatch) {
@@ -70,7 +69,7 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                                 role: user.roles.role_name,
                                 permissions: permissions,
                                 department_id: user.department_id,
-                                user_status: user.user_status
+                                user_status: user.user_status || undefined
                             }
                         }
                     }

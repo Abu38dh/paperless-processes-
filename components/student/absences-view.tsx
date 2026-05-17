@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -8,9 +8,10 @@ import { getMyAbsences } from "@/app/actions/absences"
 
 interface AbsencesViewProps {
     studentUniversityId: string
+    userStatus?: string
 }
 
-export default function AbsencesView({ studentUniversityId }: AbsencesViewProps) {
+export default function AbsencesView({ studentUniversityId, userStatus }: AbsencesViewProps) {
     const [loading, setLoading] = useState(true)
     const [studentInfo, setStudentInfo] = useState<any>(null)
     const [subjects, setSubjects] = useState<any[]>([])
@@ -33,6 +34,19 @@ export default function AbsencesView({ studentUniversityId }: AbsencesViewProps)
         }
         load()
     }, [studentUniversityId])
+
+    // Block graduated students immediately – no need to even load data
+    if (userStatus === 'graduated') {
+        return (
+            <div className="p-6 text-center" dir="rtl">
+                <GraduationCap className="w-14 h-14 mx-auto mb-4 text-amber-500 opacity-70" />
+                <h2 className="text-xl font-bold text-slate-700 mb-2">أنت خريج – تهانينا! 🎓</h2>
+                <p className="text-muted-foreground text-sm max-w-sm mx-auto">
+                    سجل الغيابات متاح للطلاب المنتسبين فقط. بما أنك قد أتممت مسيرتك الأكاديمية، لا يمكن عرض هذا السجل.
+                </p>
+            </div>
+        )
+    }
 
     if (loading) {
         return (

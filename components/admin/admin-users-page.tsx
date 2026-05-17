@@ -8,10 +8,12 @@ import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Edit2, Trash2, Search, UserCheck, UserX, ArrowRight, ChevronDown, ChevronUp, Save, X, Shield, CheckCircle, XCircle, FileText, Building2, BarChart3, Workflow, BookOpen, CalendarDays, CalendarCheck } from "lucide-react"
+import { Plus, Edit2, Trash2, Search, UserCheck, UserX, ArrowRight, ChevronDown, ChevronUp, Save, X, Shield, CheckCircle, XCircle, FileText, Building2, BarChart3, Workflow, BookOpen, CalendarDays, CalendarCheck, UploadCloud } from "lucide-react"
 import { TableSkeleton } from "@/components/ui/loading-skeleton"
 import { ErrorMessage } from "@/components/ui/error-message"
 import { getUsers, createUser, updateUser, deleteUser, getAllRoles } from "@/app/actions/admin"
+import { importUsersFromCSV } from "@/app/actions/admin-import"
+import Papa from "papaparse"
 import { getAllColleges } from "@/app/actions/organizations"
 import { useToast } from "@/hooks/use-toast"
 import { translateRole } from "@/lib/translations"
@@ -47,6 +49,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
   const [isCollegeDisabled, setIsCollegeDisabled] = useState(false)
   const [selectedDeptId, setSelectedDeptId] = useState("")
   const [isDeptDisabled, setIsDeptDisabled] = useState(false)
+  const [showGraduated, setShowGraduated] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [showAddUser, setShowAddUser] = useState(false)
   const [newUserName, setNewUserName] = useState("")
@@ -71,6 +74,8 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [staticDataLoaded, setStaticDataLoaded] = useState(false)
+  const [isImporting, setIsImporting] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const observerTarget = useRef(null)
 
   useEffect(() => {
@@ -200,8 +205,64 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
       )
     }
 
+    if (!showGraduated) {
+      result = result.filter((u: any) => u.user_status !== 'graduated')
+    }
+
     return result
-  }, [users, selectedCollegeId, selectedDeptId, searchTerm, departments])
+  }, [users, selectedCollegeId, selectedDeptId, searchTerm, departments, showGraduated])
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setIsImporting(true)
+    
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        try {
+          if (results.errors && results.errors.length > 0) {
+            console.error("CSV Parse Errors:", results.errors)
+            toast({ title: " خطأ في قراءة الملف", description: "تأكد من تنسيق الملف", variant: "destructive" })
+            setIsImporting(false)
+            return
+          }
+          
+          if (!currentUserId) {
+            toast({ title: " خطأ", description: "الرقم التعريفي غير متوفر", variant: "destructive" })
+            setIsImporting(false)
+            return
+          }
+          
+          const importResult = await importUsersFromCSV(results.data, currentUserId)
+          
+          if (importResult.success) {
+            toast({ 
+              title: " تم الاستيراد بنجاح", 
+              description: `تم استيراد ${importResult.count} طالب من أصل ${importResult.totalProcessed} صف.` 
+            })
+            setPage(1)
+            fetchUsers()
+          } else {
+            toast({ title: " فشل الاستيراد", description: importResult.error, variant: "destructive" })
+          }
+        } catch (error) {
+          toast({ title: " خطأ", description: "حدث خطأ غير متوقع", variant: "destructive" })
+        } finally {
+          setIsImporting(false)
+          if (fileInputRef.current) {
+            fileInputRef.current.value = ""
+          }
+        }
+      },
+      error: (error: any) => {
+        toast({ title: " خطأ في قراءة الملف", description: error.message, variant: "destructive" })
+        setIsImporting(false)
+      }
+    })
+  }
 
   const addNewUser = async () => {
     if (!newUserName || !newUserUniversityId || !newUserRoleId) {
@@ -393,6 +454,21 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
           </p>
         </div>
         <div className="flex gap-2">
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            hidden 
+            accept=".csv" 
+            onChange={handleFileUpload} 
+          />
+          <Button 
+            onClick={() => fileInputRef.current?.click()} 
+            className="bg-emerald-600 hover:bg-emerald-700 gap-2"
+            disabled={isImporting}
+          >
+            <UploadCloud className="w-4 h-4" />
+            {isImporting ? "جاري الاستيراد..." : "استيراد طلاب (CSV)"}
+          </Button>
           <Button onClick={() => setShowAddUser(true)} className="bg-primary hover:bg-primary/90 gap-2">
             <Plus className="w-4 h-4" />
             مستخدم جديد
@@ -447,6 +523,23 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pr-10"
               />
+            </div>
+          </div>
+          <div className="flex justify-end mt-4">
+            <div className="flex items-center gap-2 bg-amber-50 px-3 py-2 rounded-md border border-amber-200 w-fit">
+              <input
+                type="checkbox"
+                id="showGraduated"
+                checked={showGraduated}
+                onChange={(e) => setShowGraduated(e.target.checked)}
+                className="rounded text-amber-600 focus:ring-amber-500 w-4 h-4 cursor-pointer"
+              />
+              <label htmlFor="showGraduated" className="text-sm font-medium text-amber-800 cursor-pointer flex items-center gap-2">
+                عرض الخريجين
+                <Badge variant="secondary" className="bg-amber-100 text-amber-700 hover:bg-amber-200">
+                  {users.filter((u: any) => u.user_status === 'graduated').length}
+                </Badge>
+              </label>
             </div>
           </div>
         </CardContent>
@@ -642,7 +735,12 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
 
                   <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
-                      <p className="font-semibold">{user.full_name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold">{user.full_name}</p>
+                        {user.user_status === 'graduated' && (
+                          <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700 border-amber-200">خريج</Badge>
+                        )}
+                      </div>
                       <p className="text-sm text-muted-foreground">{user.university_id}</p>
                     </div>
                     <div>
@@ -654,18 +752,18 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                       <p className="font-medium">{user.departments_users_department_idTodepartments?.dept_name || "-"}</p>
                     </div>
                       <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center gap-2 ml-2">
-                        <span className={`text-xs ${user.is_active ? "text-primary" : "text-muted-foreground"}`}>
-                          {user.is_active ? "نشط" : "معطّل"}
-                        </span>
-                        <Switch
-                          checked={user.is_active}
-                          onCheckedChange={(checked) => {
-                            handleToggleUserStatus(user.user_id, user.is_active, { stopPropagation: () => { } } as any)
-                          }}
-                          dir="ltr"
-                        />
-                      </div>
+                        <div className="flex items-center gap-2 ml-2">
+                          <span className={`text-xs ${user.is_active ? "text-primary" : "text-muted-foreground"}`}>
+                            {user.is_active ? "نشط" : "معطّل"}
+                          </span>
+                          <Switch
+                            checked={user.is_active}
+                            onCheckedChange={(checked) => {
+                              handleToggleUserStatus(user.user_id, user.is_active, { stopPropagation: () => { } } as any)
+                            }}
+                            dir="ltr"
+                          />
+                        </div>
                       <Button variant="ghost" size="icon" title="سجل الطلبات" onClick={(e) => {
                           e.stopPropagation();
                           handleViewUserRequests(user);
@@ -698,7 +796,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                         <Input
                           value={expandedUserData.full_name || ""}
                           onChange={(e) => setExpandedUserData({ ...expandedUserData, full_name: e.target.value })}
-                          className="mt-1"
+                          className="mt-1 bg-transparent"
                         />
                       </div>
                       <div>
@@ -707,7 +805,17 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                           type="email"
                           value={expandedUserData.email || ""}
                           onChange={(e) => setExpandedUserData({ ...expandedUserData, email: e.target.value })}
-                          className="mt-1"
+                          className="mt-1 bg-transparent"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium">رقم الجوال</Label>
+                        <Input
+                          type="tel"
+                          value={expandedUserData.phone || ""}
+                          onChange={(e) => setExpandedUserData({ ...expandedUserData, phone: e.target.value })}
+                          className="mt-1 bg-transparent text-right"
+                          dir="ltr"
                         />
                       </div>
                       <div>
@@ -717,7 +825,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                           onValueChange={(val) => setExpandedUserData({ ...expandedUserData, role_id: parseInt(val) })}
                           dir="rtl"
                         >
-                          <SelectTrigger className="w-full mt-1">
+                          <SelectTrigger className="w-full mt-1 bg-transparent">
                             <SelectValue placeholder="اختر الدور" />
                           </SelectTrigger>
                           <SelectContent dir="rtl">
@@ -734,7 +842,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                           onValueChange={(val) => setExpandedUserData({ ...expandedUserData, department_id: val === "__none__" ? null : parseInt(val) })}
                           dir="rtl"
                         >
-                          <SelectTrigger className="w-full mt-1">
+                          <SelectTrigger className="w-full mt-1 bg-transparent">
                             <SelectValue placeholder="بدون قسم" />
                           </SelectTrigger>
                           <SelectContent dir="rtl">
@@ -755,7 +863,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                             onValueChange={(val) => setExpandedUserData({ ...expandedUserData, level_id: val === "__none__" ? null : parseInt(val) })}
                             dir="rtl"
                           >
-                            <SelectTrigger className="w-full mt-1">
+                            <SelectTrigger className="w-full mt-1 bg-transparent">
                               <SelectValue placeholder="بدون مستوى" />
                             </SelectTrigger>
                             <SelectContent dir="rtl">
@@ -776,7 +884,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                         <Input
                           type="password"
                           placeholder="اتركه فارغاً للإبقاء على الحالية"
-                          className="mt-1"
+                          className="mt-1 bg-transparent"
                           onChange={(e) => setExpandedUserData({ ...expandedUserData, password: e.target.value })}
                         />
                       </div>

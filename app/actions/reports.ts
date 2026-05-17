@@ -1,4 +1,4 @@
-﻿"use server"
+"use server"
 
 import { db } from "@/lib/db"
 
@@ -376,3 +376,79 @@ export async function getAllEmployeesKPIs(termId?: number) {
     }
 }
 
+
+export async function getAbsencesReportData() {
+  try {
+    const students = await db.users.findMany({
+      where: {
+        roles: {
+          role_name: 'student'
+        }
+      },
+      include: {
+        departments_users_department_idTodepartments: {
+          select: { dept_name: true }
+        },
+        levels: {
+          select: { name: true }
+        },
+        current_term: {
+          include: {
+            subjects: true
+          }
+        },
+        absences: {
+          select: {
+            subject_id: true,
+            total_absences: true,
+            excused_count: true
+          }
+        }
+      }
+    });
+
+    const formattedData: any[] = [];
+
+    students.forEach(student => {
+      const baseInfo = {
+        university_id: student.university_id || 'غير متوفر',
+        full_name: student.full_name || 'غير متوفر',
+        department: student.departments_users_department_idTodepartments?.dept_name || 'غير متوفر',
+        level: student.levels?.name || 'غير متوفر',
+        term: student.current_term?.name || 'غير متوفر',
+      };
+
+      if (!student.current_term || !student.current_term.subjects || student.current_term.subjects.length === 0) {
+        // No subjects
+        formattedData.push({
+          ...baseInfo,
+          subject: 'لا توجد مواد مسجلة',
+          total_absences: 0,
+          excused_count: 0,
+          unexcused_count: 0
+        });
+      } else {
+        // One row per subject
+        student.current_term.subjects.forEach(sub => {
+          const absenceRecord = student.absences.find(a => a.subject_id === sub.subject_id);
+          const totalAbsences = absenceRecord?.total_absences || 0;
+          const excusedCount = absenceRecord?.excused_count || 0;
+          const unexcusedCount = Math.max(0, totalAbsences - excusedCount);
+
+          formattedData.push({
+            ...baseInfo,
+            subject: sub.name,
+            total_absences: totalAbsences,
+            excused_count: excusedCount,
+            unexcused_count: unexcusedCount
+          });
+        });
+      }
+    });
+
+    return { success: true, data: formattedData };
+  } catch (error) {
+    console.error("Failed to get absences report", error);
+    return { success: false, error: "فشل في جلب تقرير الغيابات" };
+  }
+}

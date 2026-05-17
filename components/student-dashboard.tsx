@@ -552,7 +552,7 @@ export default function StudentDashboard({ onLogout, userData }: StudentDashboar
 
           {/* Absences View */}
           {currentView === "absences" && (
-            <AbsencesView studentUniversityId={userData.university_id} />
+            <AbsencesView studentUniversityId={userData.university_id} userStatus={userData.user_status} />
           )}
         </main>
       </div>

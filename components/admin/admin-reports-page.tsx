@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -9,6 +9,7 @@ import { TableSkeleton } from "@/components/ui/loading-skeleton"
 import { ErrorMessage } from "@/components/ui/error-message"
 import { Input } from "@/components/ui/input"
 import { getReportsData, getAuditLog } from "@/app/actions/admin"
+import { getAbsencesReportData } from "@/app/actions/reports"
 import RequestDetail from "@/components/request-detail"
 import { Loader2 } from "lucide-react"
 
@@ -19,13 +20,22 @@ interface AdminReportsPageProps {
 
 // ─── CSV Export Helper ──────────────────────────────────────────────────────
 function exportToCSV(filename: string, headers: string[], rows: (string | number)[][]) {
-  const BOM = "\uFEFF" // UTF-8 BOM for Excel Arabic support
   const escape = (v: string | number) => {
     const s = String(v ?? "").replace(/"/g, '""')
     return `"${s}"`
   }
-  const csv = BOM + [headers.map(escape), ...rows.map(r => r.map(escape))].map(r => r.join(",")).join("\n")
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
+  // Use tab as delimiter for better compatibility with UTF-16LE in Excel
+  const content = [headers.map(escape), ...rows.map(r => r.map(escape))].map(r => r.join("\t")).join("\r\n")
+  
+  // Create UTF-16LE array with BOM
+  const buffer = new ArrayBuffer(content.length * 2 + 2);
+  const view = new Uint16Array(buffer);
+  view[0] = 0xFEFF; // BOM
+  for (let i = 0; i < content.length; i++) {
+    view[i + 1] = content.charCodeAt(i);
+  }
+  
+  const blob = new Blob([view], { type: "text/csv;charset=utf-16le;" })
   const url = URL.createObjectURL(blob)
   const a = document.createElement("a")
   a.href = url
@@ -41,6 +51,7 @@ export default function AdminReportsPage({ onBack, currentUserId }: AdminReports
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [statDialog, setStatDialog] = useState<{ open: boolean; filter: string | null; title: string }>({ open: false, filter: null, title: '' })
+  const [isExportingAbsences, setIsExportingAbsences] = useState(false)
 
   const [statSearchQuery, setStatSearchQuery] = useState("")
   const [statStartDate, setStatStartDate] = useState("")
@@ -176,6 +187,43 @@ export default function AdminReportsPage({ onBack, currentUserId }: AdminReports
           >
             <Download className="w-4 h-4" />
             تصدير السجل
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            disabled={isExportingAbsences}
+            onClick={async () => {
+              setIsExportingAbsences(true)
+              try {
+                const res = await getAbsencesReportData()
+                if (res.success && res.data) {
+                  const rows = res.data.map((a: any) => [
+                    a.university_id,
+                    a.full_name,
+                    a.department,
+                    a.level,
+                    a.term,
+                    a.subject,
+                    a.total_absences,
+                    a.excused_count,
+                    a.unexcused_count
+                  ])
+                  exportToCSV(
+                    `تقرير-الغيابات-${new Date().toLocaleDateString('ar-SA').replace(/\//g,'-')}.csv`,
+                    ["الرقم الجامعي", "الاسم", "القسم", "المستوى", "الترم الحالي", "المادة", "إجمالي الغياب", "بعذر", "بدون عذر"],
+                    rows
+                  )
+                }
+              } catch (e) {
+                console.error(e)
+              } finally {
+                setIsExportingAbsences(false)
+              }
+            }}
+          >
+            {isExportingAbsences ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            تصدير الغيابات
           </Button>
           <Button onClick={onBack} variant="ghost" className="gap-2">
             <ArrowRight className="w-4 h-4" />

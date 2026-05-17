@@ -466,39 +466,40 @@ export default function LevelsSubjectsManager({ currentUserId }: LevelsSubjectsM
                                             <p className="text-base font-bold text-foreground hover:text-violet-700 transition-colors">{dept.dept_name}</p>
                                             <p className="text-sm text-muted-foreground mt-0.5">{dept.levels?.length ?? 0} مستوى دراسي</p>
                                         </button>
-                                        {!selectedCollege.show_absences && (
+                                        {selectedCollege.show_absences ? (
+                                            <button
+                                                onClick={async (e) => {
+                                                    e.stopPropagation()
+                                                    const newVal = !dept.show_absences
+                                                    // Optimistic update
+                                                    setColleges(prev => prev.map(c => 
+                                                        c.college_id === selectedCollege.college_id
+                                                        ? { ...c, departments: c.departments.map((d: any) => d.department_id === dept.department_id ? { ...d, show_absences: newVal } : d) }
+                                                        : c
+                                                    ))
+                                                    setSelectedCollege((prev: any) => prev ? {
+                                                        ...prev,
+                                                        departments: prev.departments.map((d: any) => d.department_id === dept.department_id ? { ...d, show_absences: newVal } : d)
+                                                    } : null)
+                                                    if (selectedDept?.department_id === dept.department_id) {
+                                                        setSelectedDept((prev: any) => prev ? { ...prev, show_absences: newVal } : null)
+                                                    }
+                                                    
+                                                    await updateDepartmentAbsenceVisibility(dept.department_id, newVal)
+                                                    toast({ title: newVal ? "تم إظهار الغيابات للقسم" : "تم إخفاء الغيابات عن القسم" })
+                                                }}
+                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                                                    dept.show_absences
+                                                        ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
+                                                        : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+                                                }`}
+                                            >
+                                                {dept.show_absences ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                                                {dept.show_absences ? 'ظاهر' : 'مخفي'}
+                                            </button>
+                                        ) : (
                                             <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-1 rounded-full">الكلية مخفية</span>
                                         )}
-                                        <button
-                                            onClick={async (e) => {
-                                                e.stopPropagation()
-                                                const newVal = !dept.show_absences
-                                                // Optimistic update
-                                                setColleges(prev => prev.map(c => 
-                                                    c.college_id === selectedCollege.college_id
-                                                    ? { ...c, departments: c.departments.map((d: any) => d.department_id === dept.department_id ? { ...d, show_absences: newVal } : d) }
-                                                    : c
-                                                ))
-                                                setSelectedCollege((prev: any) => prev ? {
-                                                    ...prev,
-                                                    departments: prev.departments.map((d: any) => d.department_id === dept.department_id ? { ...d, show_absences: newVal } : d)
-                                                } : null)
-                                                if (selectedDept?.department_id === dept.department_id) {
-                                                    setSelectedDept((prev: any) => prev ? { ...prev, show_absences: newVal } : null)
-                                                }
-                                                
-                                                await updateDepartmentAbsenceVisibility(dept.department_id, newVal)
-                                                toast({ title: newVal ? "تم إظهار الغيابات للقسم" : "تم إخفاء الغيابات عن القسم" })
-                                            }}
-                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
-                                                dept.show_absences
-                                                    ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
-                                                    : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
-                                            }`}
-                                        >
-                                            {dept.show_absences ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-                                            {dept.show_absences ? 'ظاهر' : 'مخفي'}
-                                        </button>
                                         <button onClick={() => { setSelectedDept(dept); setView("levels") }} className="text-sm text-muted-foreground hover:text-violet-600 transition-colors font-medium shrink-0">
                                             فتح المستويات ←
                                         </button>
@@ -627,11 +628,7 @@ export default function LevelsSubjectsManager({ currentUserId }: LevelsSubjectsM
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    {(!selectedCollege?.show_absences || !selectedDept?.show_absences) && (
-                                                        <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-1 rounded-full">
-                                                            {!selectedCollege?.show_absences ? 'الكلية مخفية' : 'القسم مخفي'}
-                                                        </span>
-                                                    )}
+                                                    {(selectedCollege?.show_absences && selectedDept?.show_absences) ? (
                                                     <button
                                                         onClick={async (e) => {
                                                             e.stopPropagation()
@@ -677,6 +674,11 @@ export default function LevelsSubjectsManager({ currentUserId }: LevelsSubjectsM
                                                         {level.show_absences ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
                                                         {level.show_absences ? 'ظاهر' : 'مخفي'}
                                                     </button>
+                                                ) : (
+                                                    <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-1 rounded-full">
+                                                        {!selectedCollege?.show_absences ? 'الكلية مخفية' : 'القسم مخفي'}
+                                                    </span>
+                                                )}
                                                     {idx < (selectedDept.levels ?? []).length - 1 && (
                                                         <Button
                                                             size="sm"
