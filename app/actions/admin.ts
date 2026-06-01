@@ -307,8 +307,11 @@ export async function createUser(data: any, requesterId?: string) {
 
         revalidatePath('/', 'layout')
         return { success: true }
-    } catch (e) {
+    } catch (e: any) {
         console.error("Create User Error:", e)
+        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+            return { success: false, error: "رقم القيد أو اسم المستخدم مستخدم بالفعل في النظام" }
+        }
         return { success: false, error: "Failed to create user" }
     }
 }

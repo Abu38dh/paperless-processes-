@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -152,10 +152,6 @@ export default function TermsManagementPage({ onBack, currentUserId }: TermsMana
           <Button onClick={openCreateDialog} size="lg" className="gap-2 font-bold px-6 shadow-md transition-all hover:scale-105">
             <Plus className="w-5 h-5" />
             إضافة ترم جديد
-          </Button>
-          <Button onClick={onBack} variant="secondary" size="lg" className="gap-2 font-semibold">
-            <ArrowRight className="w-5 h-5" />
-            رجوع
           </Button>
         </div>
       </div>

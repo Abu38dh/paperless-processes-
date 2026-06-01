@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import type React from "react"
 import { useState, useEffect } from "react"
@@ -47,6 +47,7 @@ import { FilePreviewDialog } from "@/components/shared/file-preview-dialog"
 import { RequestActionDialog, ActionType } from "@/components/dashboard/request-action-dialog"
 
 import { Request, RequestStats as RequestStatsType } from "@/types/schema"
+import { translateRole } from "@/lib/translations"
 
 interface EmployeeDashboardProps {
   onLogout: () => void
@@ -81,6 +82,47 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
     return permissions.includes("all") || permissions.includes(permission)
   }
 
+  // Enforce permission restrictions on views
+  useEffect(() => {
+    const isAuthorized = () => {
+      if (currentView === "inbox" || currentView === "history") {
+        return hasPermission("review_requests")
+      }
+      if (currentView === "forms") {
+        return hasPermission("manage_forms")
+      }
+      if (currentView === "users") {
+        return hasPermission("manage_users")
+      }
+      if (currentView === "departments") {
+        return hasPermission("manage_departments")
+      }
+      if (currentView === "reports") {
+        return hasPermission("view_reports")
+      }
+      if (currentView === "workflows") {
+        return hasPermission("manage_workflows")
+      }
+      if (currentView === "absences") {
+        return hasPermission("can_manage_absences")
+      }
+      if (currentView === "terms") {
+        return hasPermission("manage_terms")
+      }
+      if (currentView === "levels") {
+        return hasPermission("manage_levels")
+      }
+      if (currentView === "delegation") {
+        return hasPermission("review_requests") || hasPermission("grant_delegations")
+      }
+      return true
+    }
+
+    if (!isAuthorized()) {
+      setCurrentView("requests")
+    }
+  }, [currentView, permissions])
+
   // Data states
   const [inboxRequests, setInboxRequests] = useState<Request[]>([])
   const [myRequests, setMyRequests] = useState<Request[]>([])
@@ -102,6 +144,9 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
   const [attachment, setAttachment] = useState<{ name: string; content: string } | null>(null)
   const [internalNote, setInternalNote] = useState("")
   const [filePreview, setFilePreview] = useState<{ open: boolean; type: 'image' | 'pdf' | 'other'; content: string; name: string } | null>(null)
+
+  const [selectedRequestHistory, setSelectedRequestHistory] = useState<any[]>([])
+  const [selectedRequestHistoryLoading, setSelectedRequestHistoryLoading] = useState(false)
 
   // History detail states
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<any | null>(null)
@@ -140,6 +185,26 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
 
     return () => eventSource.close() // Cleanup on unmount
   }, [])
+
+  useEffect(() => {
+    if (selectedRequest) {
+      const fetchHistory = async () => {
+        setSelectedRequestHistoryLoading(true)
+        try {
+          const { getRequestActions } = await import("@/app/actions/student")
+          const actions = await getRequestActions(selectedRequest.id)
+          setSelectedRequestHistory(actions)
+        } catch (e) {
+          console.error(e)
+        } finally {
+          setSelectedRequestHistoryLoading(false)
+        }
+      }
+      fetchHistory()
+    } else {
+      setSelectedRequestHistory([])
+    }
+  }, [selectedRequest])
 // ... (rest of the component logic)
 
 // ... (render part)
@@ -778,18 +843,57 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                               </CardContent>
                             </Card>
 
-                            <Card>
-                              <CardHeader>
-                                <CardTitle>إجراء على الطلب</CardTitle>
-                                <CardDescription>قم بالموافقة أو الرفض مع إضافة تعليق</CardDescription>
-                              </CardHeader>
-                              <CardContent className="space-y-4">
-                                {!hasPermission('review_requests') ? (
-                                  <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg text-center">
-                                    <p className="text-yellow-800 font-medium"> ليس لديك صلاحية لمراجعة الطلبات</p>
-                                    <p className="text-yellow-600 text-sm mt-1">يرجى التواصل مع المدير لمنحك الصلاحيات المطلوبة</p>
+                            {/* سجل النشاطات والتعليقات السابقة */}
+                            {selectedRequestHistory.length > 0 && (
+                              <Card>
+                                <CardHeader className="pb-2">
+                                  <CardTitle className="text-base flex items-center gap-2">
+                                    <span>سجل الإجراءات والتعليقات السابقة</span>
+                                  </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                  <div className="relative space-y-6 pr-4 border-r border-slate-200">
+                                    {selectedRequestHistory.map((action: any) => (
+                                      <div key={action.id} className="relative">
+                                        <span className="absolute -right-[21px] top-1 h-3 w-3 rounded-full bg-primary ring-4 ring-background" />
+                                        <div className="flex flex-col gap-1">
+                                          <div className="flex items-center gap-2">
+                                            <span className="font-semibold text-sm text-foreground">
+                                              {action.action === 'created' ? 'تم إنشاء الطلب' :
+                                               action.action === 'submitted' ? 'تم تقديم الطلب' :
+                                               (action.action === 'approved' || action.action === 'approve') ? 'تمت الموافقة' :
+                                               (action.action === 'rejected' || action.action === 'reject') ? 'تم الرفض' :
+                                               (action.action === 'rejected_with_changes' || action.action === 'reject_with_changes') ? 'إعادة للتعديل' :
+                                               action.action === 'returned' ? 'إعادة للتعديل' :
+                                               action.action}
+                                            </span>
+                                            <span className="text-xs text-muted-foreground">
+                                              - {new Date(action.timestamp).toLocaleDateString('ar-SA')} {new Date(action.timestamp).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                          </div>
+                                          <p className="text-sm text-foreground/80">
+                                            <span className="font-medium text-primary">{action.actorName}</span> ({translateRole(action.actorRole)})
+                                          </p>
+                                          {action.comment && (
+                                            <div className="mt-1.5 p-2.5 bg-slate-50 rounded-lg text-xs text-muted-foreground border border-slate-100 whitespace-pre-wrap leading-relaxed">
+                                              {action.comment}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    ))}
                                   </div>
-                                ) : (
+                                </CardContent>
+                              </Card>
+                            )}
+
+                            {hasPermission('review_requests') && (
+                              <Card>
+                                <CardHeader>
+                                  <CardTitle>إجراء على الطلب</CardTitle>
+                                  <CardDescription>قم بالموافقة أو الرفض مع إضافة تعليق</CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
                                   <div className="space-y-6">
                                     {/* Internal Note */}
                                     <div className="space-y-2">
@@ -866,9 +970,9 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                                       </div>
                                     </div>
                                   </div>
-                                )}
-                              </CardContent>
-                            </Card>
+                                </CardContent>
+                              </Card>
+                            )}
                           </div>
                         ) : (
                           <div className="flex items-center justify-center h-full text-muted-foreground">

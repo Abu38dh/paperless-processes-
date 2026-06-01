@@ -129,13 +129,16 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
     try {
       // Prepare steps data
       const stepsData = steps.map((step, index) => ({
+        step_id: step.step_id || undefined,
         name: step.name,
         order: index + 1,
         approver_role_id: step.approver_role_id || 0,
         approver_user_id: step.approver_user_id || null,
         sla_hours: step.sla_hours || 24,
         is_final: index === steps.length - 1,
-        escalation_role_id: step.escalation_role_id || null
+        escalation_role_id: step.escalation_role_id || null,
+        escalation_user_id: step.escalation_user_id || null,
+        escalate_to_next: step.escalate_to_next || false
       }))
 
       if (editingWorkflow) {
@@ -261,6 +264,7 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
       }
 
       newSteps[editingStepIndex] = {
+        step_id: newSteps[editingStepIndex].step_id,
         name: updatedStep.name,
         approver_role_id: roleId,
         approver_user_id: userId,

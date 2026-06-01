@@ -270,6 +270,14 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
       return
     }
 
+    const selectedRoleName = roles.find(r => r.role_id === newUserRoleId)?.role_name?.toLowerCase();
+    const isStudent = selectedRoleName === 'student';
+
+    if (isStudent && !newUserDeptId && !currentUserScope.departmentId) {
+      toast({ title: " خطأ", description: "يرجى اختيار القسم للطالب", variant: "destructive" })
+      return
+    }
+
     try {
       // تحديد القسم بناءً على نوع المستخدم
       // تحديد القسم
@@ -355,6 +363,13 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
 
   const saveExpandedEdit = async () => {
     if (!expandedUserId || !expandedUserData) return
+
+    const selectedRole = roles.find(r => r.role_id === expandedUserData.role_id);
+    const isStudent = selectedRole?.role_name?.toLowerCase() === 'student';
+    if (isStudent && !expandedUserData.department_id) {
+      toast({ title: " خطأ", description: "يرجى اختيار القسم للطالب", variant: "destructive" })
+      return
+    }
 
     try {
       const result = await updateUser(expandedUserId, {
@@ -648,7 +663,9 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                     )}
 
                     <div>
-                      <Label className="text-sm font-medium mb-2 block" required>القسم</Label>
+                      <Label className="text-sm font-medium mb-2 block" required={isStudent}>
+                        {isStudent ? "القسم" : "القسم (اختياري)"}
+                      </Label>
                       <Select
                         value={isRestrictedDept ? (currentUserScope.departmentId?.toString() ?? "") : (newUserDeptId === "" ? "__none__" : newUserDeptId)}
                         onValueChange={(val) => {
@@ -658,10 +675,14 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
                         dir="rtl"
                       >
                         <SelectTrigger className="w-full bg-transparent">
-                          <SelectValue placeholder="اختر القسم" />
+                          <SelectValue placeholder={isStudent ? "اختر القسم" : "اختر القسم (اختياري)"} />
                         </SelectTrigger>
                         <SelectContent dir="rtl">
-                          {!isRestrictedDept && <SelectItem value="__none__">اختر القسم</SelectItem>}
+                          {!isRestrictedDept && (
+                            <SelectItem value="__none__">
+                              {isStudent ? "اختر القسم" : "بدون قسم (اختياري)"}
+                            </SelectItem>
+                          )}
                           {departments
                             .filter((d: any) => {
                               if (isRestrictedDept) return d.department_id === currentUserScope.departmentId;

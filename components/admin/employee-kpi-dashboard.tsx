@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -137,10 +137,6 @@ export default function EmployeeKpiDashboard({ onBack, currentUserId }: Employee
               تصدير CSV
             </Button>
           )}
-          <Button onClick={onBack} variant="ghost" className="gap-2">
-            <ArrowRight className="w-4 h-4" />
-            رجوع
-          </Button>
         </div>
       </div>
 

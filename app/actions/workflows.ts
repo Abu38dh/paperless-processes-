@@ -1,4 +1,4 @@
-﻿"use server"
+"use server"
 
 import { db } from "@/lib/db"
 import { revalidatePath } from "next/cache"
@@ -252,26 +252,98 @@ export async function updateWorkflow(
 
         // Update steps if provided
         if (data.steps) {
-            // Delete existing steps
-            await db.workflow_steps.deleteMany({
-                where: { workflow_id: workflowId }
+            const existingSteps = await db.workflow_steps.findMany({
+                where: { workflow_id: workflowId },
+                orderBy: { order: 'asc' }
             })
 
-            // Create new steps
-            await db.workflow_steps.createMany({
-                data: data.steps.map(step => ({
-                    workflow_id: workflowId,
-                    name: step.name,
-                    order: step.order,
-                    approver_role_id: step.approver_role_id || null,
-                    approver_user_id: step.approver_user_id || null,
-                    sla_hours: step.sla_hours || null,
-                    is_final: step.is_final || false,
-                    escalation_role_id: step.escalation_role_id || null,
-                    escalation_user_id: step.escalation_user_id || null,
-                    escalate_to_next: step.escalate_to_next || false,
-                }))
-            })
+            // Map incoming steps to existing steps
+            const matchedStepIds = new Set<number>()
+            const stepsToUpdate: Array<{ step_id: number, data: any }> = []
+            const stepsToCreate: Array<any> = []
+
+            for (let i = 0; i < data.steps.length; i++) {
+                const incomingStep = data.steps[i]
+                
+                // Try matching by step_id first
+                let matchedStep = incomingStep.step_id 
+                    ? existingSteps.find(es => es.step_id === incomingStep.step_id)
+                    : null
+
+                // Fallback: match by index if step_id is missing and we have an existing step at this index
+                if (!matchedStep && !incomingStep.step_id && i < existingSteps.length) {
+                    matchedStep = existingSteps[i]
+                }
+
+                if (matchedStep) {
+                    matchedStepIds.add(matchedStep.step_id)
+                    stepsToUpdate.push({
+                        step_id: matchedStep.step_id,
+                        data: incomingStep
+                    })
+                } else {
+                    stepsToCreate.push(incomingStep)
+                }
+            }
+
+            // 1. Update matched steps in-place
+            for (const item of stepsToUpdate) {
+                await db.workflow_steps.update({
+                    where: { step_id: item.step_id },
+                    data: {
+                        name: item.data.name,
+                        order: item.data.order,
+                        approver_role_id: item.data.approver_role_id || null,
+                        approver_user_id: item.data.approver_user_id || null,
+                        sla_hours: item.data.sla_hours || null,
+                        is_final: item.data.is_final || false,
+                        escalation_role_id: item.data.escalation_role_id || null,
+                        escalation_user_id: item.data.escalation_user_id || null,
+                        escalate_to_next: item.data.escalate_to_next || false,
+                    }
+                })
+            }
+
+            // 2. Create new steps
+            if (stepsToCreate.length > 0) {
+                await db.workflow_steps.createMany({
+                    data: stepsToCreate.map(step => ({
+                        workflow_id: workflowId,
+                        name: step.name,
+                        order: step.order,
+                        approver_role_id: step.approver_role_id || null,
+                        approver_user_id: step.approver_user_id || null,
+                        sla_hours: step.sla_hours || null,
+                        is_final: step.is_final || false,
+                        escalation_role_id: step.escalation_role_id || null,
+                        escalation_user_id: step.escalation_user_id || null,
+                        escalate_to_next: step.escalate_to_next || false,
+                    }))
+                })
+            }
+
+            // 3. Delete unmatched steps
+            const stepsToDelete = existingSteps.filter(es => !matchedStepIds.has(es.step_id))
+
+            if (stepsToDelete.length > 0) {
+                const stepIdsToDelete = stepsToDelete.map(s => s.step_id)
+
+                // Check if any of these deleted steps are referenced
+                const referencingRequests = await db.requests.count({
+                    where: { current_step_id: { in: stepIdsToDelete } }
+                })
+                const referencingActions = await db.request_actions.count({
+                    where: { step_id: { in: stepIdsToDelete } }
+                })
+
+                if (referencingRequests > 0 || referencingActions > 0) {
+                    throw new Error("لا يمكن حذف بعض خطوات مسار العمل لأنها تحتوي على طلبات سابقة أو معلقة بانتظارها.")
+                }
+
+                await db.workflow_steps.deleteMany({
+                    where: { step_id: { in: stepIdsToDelete } }
+                })
+            }
         }
 
         if (data.requesterId) {
@@ -308,6 +380,27 @@ export async function deleteWorkflow(workflowId: number, requesterId?: string) {
         }
 
         const workflow = await db.workflows.findUnique({ where: { workflow_id: workflowId } })
+
+        // Get all step IDs for this workflow
+        const steps = await db.workflow_steps.findMany({
+            where: { workflow_id: workflowId }
+        })
+        const stepIds = steps.map(s => s.step_id)
+
+        // Check if referenced
+        const referencingRequests = await db.requests.count({
+            where: { current_step_id: { in: stepIds } }
+        })
+        const referencingActions = await db.request_actions.count({
+            where: { step_id: { in: stepIds } }
+        })
+
+        if (referencingRequests > 0 || referencingActions > 0) {
+            return {
+                success: false,
+                error: "لا يمكن حذف مسار العمل لأنه يحتوي على خطوات مرتبطة بطلبات سابقة أو معلقة."
+            }
+        }
 
         // Delete steps first
         await db.workflow_steps.deleteMany({

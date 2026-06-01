@@ -373,7 +373,6 @@ export default function AdminDashboard({ onLogout, userData, permissions = [] }:
           {currentView === "absences" && (
             <AbsenceManager
               currentUserId={userData?.university_id || ""}
-              userRole="admin"
             />
           )}
 
@@ -381,7 +380,7 @@ export default function AdminDashboard({ onLogout, userData, permissions = [] }:
           {currentView === "delegation" && (
             <div className="p-6">
               <h2 className="text-2xl font-bold mb-4">تفويض الصلاحيات</h2>
-              <DelegationRequest currentUserId={userData?.university_id || ""} />
+              <DelegationRequest userData={userData || { university_id: "", full_name: "" }} />
             </div>
           )}
 

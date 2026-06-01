@@ -104,7 +104,6 @@ export default function AdminReportsPage({ onBack, currentUserId }: AdminReports
       <div className="space-y-6 p-6" dir="rtl">
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold">التقارير والإحصائيات</h1>
-          <Button onClick={onBack} variant="ghost">رجوع</Button>
         </div>
         <TableSkeleton />
       </div>
@@ -116,7 +115,6 @@ export default function AdminReportsPage({ onBack, currentUserId }: AdminReports
       <div className="space-y-6 p-6" dir="rtl">
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold">التقارير والإحصائيات</h1>
-          <Button onClick={onBack} variant="ghost">رجوع</Button>
         </div>
         <ErrorMessage error={error} onRetry={fetchData} />
       </div>
@@ -225,10 +223,7 @@ export default function AdminReportsPage({ onBack, currentUserId }: AdminReports
             {isExportingAbsences ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
             تصدير الغيابات
           </Button>
-          <Button onClick={onBack} variant="ghost" className="gap-2">
-            <ArrowRight className="w-4 h-4" />
-            رجوع
-          </Button>
+
         </div>
       </div>
 
