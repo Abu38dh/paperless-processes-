@@ -3,8 +3,11 @@ node_modules
 .env
 
 /lib/generated/prisma
+/generated
+/lib/prisma
 
 .vercel
+.firebase
 
 .next
 
