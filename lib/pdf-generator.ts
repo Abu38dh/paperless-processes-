@@ -53,7 +53,7 @@ export const generateOfficialPDF = async ({
   container.style.setProperty('--popover-foreground', '#0f172a');
   container.style.setProperty('--primary', '#1b9d91');
   container.style.setProperty('--primary-foreground', '#ffffff');
-  container.style.setProperty('--secondary', '#f4802a');
+  container.style.setProperty('--secondary', '#F7941D');
   container.style.setProperty('--secondary-foreground', '#ffffff');
   container.style.setProperty('--muted', '#f1f5f9');
   container.style.setProperty('--muted-foreground', '#64748b');
@@ -151,7 +151,7 @@ export const generateOfficialPDF = async ({
               --popover-foreground: #0f172a !important;
               --primary: #1b9d91 !important;
               --primary-foreground: #ffffff !important;
-              --secondary: #f4802a !important;
+              --secondary: #F7941D !important;
               --secondary-foreground: #ffffff !important;
               --muted: #f1f5f9 !important;
               --muted-foreground: #64748b !important;

@@ -367,16 +367,33 @@ export async function updateWorkflow(
  */
 export async function deleteWorkflow(workflowId: number, requesterId?: string) {
     try {
-        // Check if workflow is in use
+        // Check if workflow is in use by checking if there are associated active form templates
         const requestTypes = await db.request_types.findMany({
-            where: { workflow_id: workflowId }
+            where: { workflow_id: workflowId },
+            include: {
+                form_templates: true
+            }
         })
 
-        if (requestTypes.length > 0) {
+        // Filter request types that are actually linked to form templates
+        const activeRequestTypes = requestTypes.filter(rt => rt.form_templates !== null)
+
+        if (activeRequestTypes.length > 0) {
             return {
                 success: false,
-                error: "لا يمكن حذف مسار العمل لأنه مرتبط بأنواع طلبات"
+                error: "لا يمكن حذف مسار العمل لأنه مرتبط بأنواع طلبات نشطة"
             }
+        }
+
+        // If there are orphaned request types (no form template), delete them
+        const orphanedTypeIds = requestTypes
+            .filter(rt => rt.form_templates === null)
+            .map(rt => rt.type_id)
+
+        if (orphanedTypeIds.length > 0) {
+            await db.request_types.deleteMany({
+                where: { type_id: { in: orphanedTypeIds } }
+            })
         }
 
         const workflow = await db.workflows.findUnique({ where: { workflow_id: workflowId } })

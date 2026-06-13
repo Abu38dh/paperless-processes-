@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -13,6 +13,13 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { getAdminDelegations, adminCreateDelegation, adminRevokeDelegation, getApproversList } from "@/app/actions/admin"
 import { getAvailableFormTemplates } from "@/app/actions/forms"
 import { format } from "date-fns"
@@ -162,32 +169,35 @@ export function AdminDelegationsDialog({ user, currentUserId, isOpen, onClose }:
                 <h4 className="font-medium text-sm text-primary mb-2">إضافة تفويض جديد (بصلاحيات الإدارة)</h4>
                 
                 <div className="space-y-2">
-                  <Label>المفوض إليه (ينوب عن {user.full_name})</Label>
-                  <select 
-                    className="select-field"
+                  <Label required>المفوض إليه (ينوب عن {user.full_name})</Label>
+                  <Select
                     value={newDelegation.granteeId}
-                    onChange={e => setNewDelegation({...newDelegation, granteeId: e.target.value})}
+                    onValueChange={value => setNewDelegation({...newDelegation, granteeId: value})}
                   >
-                        <option value="">اختر الموظف البديل...</option>
-                        {colleagues.map(c => (
-                            <option key={c.user_id} value={c.user_id}>{c.full_name}</option>
-                        ))}
-                    </select>
+                    <SelectTrigger className="w-full bg-white border border-[#E2EDEC] rounded-xl py-2 px-3 text-right">
+                      <SelectValue placeholder="اختر الموظف البديل..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {colleagues.map(c => (
+                        <SelectItem key={c.user_id} value={String(c.user_id)}>{c.full_name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>تاريخ البداية</Label>
+                    <Label required>تاريخ البداية</Label>
                     <Input type="date" value={newDelegation.startDate} onChange={e => setNewDelegation({...newDelegation, startDate: e.target.value})} />
                   </div>
                   <div className="space-y-2">
-                    <Label>تاريخ النهاية</Label>
+                    <Label required>تاريخ النهاية</Label>
                     <Input type="date" value={newDelegation.endDate} onChange={e => setNewDelegation({...newDelegation, endDate: e.target.value})} />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                    <Label>سبب التفويض</Label>
+                    <Label required>سبب التفويض</Label>
                     <Textarea 
                         placeholder="السبب (إجازة، ظرف طارئ...)" 
                         value={newDelegation.reason}

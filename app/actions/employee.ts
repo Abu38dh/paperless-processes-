@@ -1,4 +1,4 @@
-﻿"use server"
+"use server"
 
 import { db } from "@/lib/db"
 import { revalidatePath } from "next/cache"
@@ -563,6 +563,7 @@ export async function submitDelegationRequest(requesterId: string, delegateeId: 
         const requester = await db.users.findUnique({
             where: { university_id: requesterId },
             include: {
+                roles: true,
                 departments_users_department_idTodepartments: {
                     include: { colleges: true }
                 }
@@ -570,27 +571,26 @@ export async function submitDelegationRequest(requesterId: string, delegateeId: 
         })
         if (!requester) return { success: false, error: "المستخدم غير موجود" }
 
-        // 1. Find Dean of the College
-        // Logic: Requester -> Department -> College -> Dean
+        // Find Admin role
+        const adminRole = await db.roles.findUnique({
+            where: { role_name: 'admin' }
+        })
+        if (!adminRole) return { success: false, error: "دور مسؤول النظام (admin) غير موجود" }
+
+        // Check if requester is a Dean of any college or has the dean role
         const college = requester.departments_users_department_idTodepartments?.colleges
         let deanId = college?.dean_id
 
-        if (!deanId) {
-            // Fallback: Check if requester IS the Dean? No, dean can't self-approve.
-            // Check if specific catch-all Dean exists?
-            // For MVP: Fail if no Dean found.
-            return { success: false, error: "لم يتم العثور على عميد الكلية للموافقة" }
+        let isDean = requester.roles?.role_name?.toLowerCase() === 'dean'
+        if (!isDean && college) {
+            if (college.dean_id === requester.user_id) {
+                isDean = true
+            }
         }
 
-        if (requester.user_id === deanId) {
-            // If I am the Dean, I should probably ask the Rector/Admin? 
-            // For simplicity, let's say Dean requests go to Admin.
-            const admin = await db.roles.findUnique({ where: { role_name: 'admin' }, include: { users: true } })
-            if (admin && admin.users.length > 0) {
-                deanId = admin.users[0].user_id
-            } else {
-                return { success: false, error: "لا يوجد مسؤول أعلى للموافقة على طلب العميد" }
-            }
+        // Check if Dean exists when requester is NOT a Dean
+        if (!isDean && !deanId) {
+            return { success: false, error: "لم يتم العثور على عميد الكلية للموافقة" }
         }
 
         const delegatee = await db.users.findUnique({
@@ -599,26 +599,63 @@ export async function submitDelegationRequest(requesterId: string, delegateeId: 
         
         // 2. Create Transaction
         await db.$transaction(async (tx) => {
-            // Create Ad-hoc Workflow Step for Dean Approval
-            const step = await tx.workflow_steps.create({
+            // Create Ad-hoc Workflow for this Delegation Request
+            const refNo = `DEL-${Date.now()}` // Unique Reference
+            const workflow = await tx.workflows.create({
                 data: {
-                    order: 1,
-                    name: "موافقة العميد / المدير",
-                    approver_user_id: deanId,
-                    is_final: true,
-                    sla_hours: 24,
-                    workflow_id: null // Ad-hoc
+                    name: `مسار تفويض - ${refNo}`,
+                    is_active: false
                 }
             })
 
+            let initialStepId: number
+
+            if (isDean) {
+                // If requester is Dean: Step 1 (Admin approval, final)
+                const step = await tx.workflow_steps.create({
+                    data: {
+                        workflow_id: workflow.workflow_id,
+                        order: 1,
+                        name: "اعتماد مسؤول النظام",
+                        approver_role_id: adminRole.role_id,
+                        is_final: true,
+                        sla_hours: 24
+                    }
+                })
+                initialStepId = step.step_id
+            } else {
+                // If normal employee: Step 1 (Dean approval)
+                const step1 = await tx.workflow_steps.create({
+                    data: {
+                        workflow_id: workflow.workflow_id,
+                        order: 1,
+                        name: "موافقة عميد الكلية",
+                        approver_user_id: deanId,
+                        is_final: false,
+                        sla_hours: 24
+                    }
+                })
+                // Step 2 (Admin approval, final)
+                await tx.workflow_steps.create({
+                    data: {
+                        workflow_id: workflow.workflow_id,
+                        order: 2,
+                        name: "اعتماد مسؤول النظام",
+                        approver_role_id: adminRole.role_id,
+                        is_final: true,
+                        sla_hours: 24
+                    }
+                })
+                initialStepId = step1.step_id
+            }
+
             // Create Request
-            const refNo = `DEL-${Date.now()}` // Unique Reference
             const request = await tx.requests.create({
                 data: {
                     requester_id: requester.user_id,
                     reference_no: refNo,
                     status: 'pending',
-                    current_step_id: step.step_id,
+                    current_step_id: initialStepId,
                     submission_data: {
                         type: 'SYSTEM_DELEGATION',
                         delegatee_university_id: delegateeId,

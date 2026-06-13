@@ -27,6 +27,7 @@ import {
   Users,
   Check,
   Building2,
+  Filter,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import {
@@ -52,7 +53,7 @@ import {
 } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { saveFormTemplate, publishFormTemplate, getFormTemplate } from "@/app/actions/forms"
-import { getAllColleges } from "@/app/actions/organizations"
+import { getAllColleges, getOrganizationStructure } from "@/app/actions/organizations"
 
 import { WorkflowSelectionDialog } from "@/components/admin/workflow-selection-dialog"
 import PdfTemplateEditor from "@/components/admin/pdf-template-editor"
@@ -110,6 +111,7 @@ export default function FormBuilderEditor({ formId, onBack, currentUserId }: For
   const [targetAudience, setTargetAudience] = useState<"student" | "employee" | "both" | "specific">("student")
   const [selectedColleges, setSelectedColleges] = useState<number[]>([])
   const [selectedDepartments, setSelectedDepartments] = useState<number[]>([])
+  const [selectedLevels, setSelectedLevels] = useState<number[]>([])
   const [colleges, setColleges] = useState<any[]>([])
   const [departments, setDepartments] = useState<any[]>([])
   const [specificRoleConfig, setSpecificRoleConfig] = useState({ student: true, employee: false })
@@ -179,10 +181,11 @@ export default function FormBuilderEditor({ formId, onBack, currentUserId }: For
           const config = result.data.audience_config as any
           setOriginalAudienceConfig(config)
 
-          if (config.colleges?.length > 0 || config.departments?.length > 0) {
+          if (config.colleges?.length > 0 || config.departments?.length > 0 || config.levels?.length > 0) {
             setTargetAudience("specific")
             setSelectedColleges(config.colleges || [])
             setSelectedDepartments(config.departments || [])
+            setSelectedLevels(config.levels || [])
             setSpecificRoleConfig({
               student: config.student !== false,
               employee: config.employee !== false
@@ -230,10 +233,10 @@ export default function FormBuilderEditor({ formId, onBack, currentUserId }: For
     }
   }
 
-  // Load colleges and departments
+  // Load colleges, departments, and levels
   useEffect(() => {
     const loadData = async () => {
-      const result = await getAllColleges()
+      const result = await getOrganizationStructure()
       if (result.success && result.data) {
         setColleges(result.data)
         // Extract all departments
@@ -406,6 +409,7 @@ export default function FormBuilderEditor({ formId, onBack, currentUserId }: For
       config.employee = specificRoleConfig.employee
       if (selectedColleges.length > 0) config.colleges = selectedColleges
       if (selectedDepartments.length > 0) config.departments = selectedDepartments
+      if (selectedLevels.length > 0) config.levels = selectedLevels
     } else {
       config.student = true
       config.employee = true
@@ -442,6 +446,7 @@ export default function FormBuilderEditor({ formId, onBack, currentUserId }: For
 
     if (!arraysEqual(originalAudienceConfig.colleges || [], nextConfig.colleges || [])) return true
     if (!arraysEqual(originalAudienceConfig.departments || [], nextConfig.departments || [])) return true
+    if (!arraysEqual(originalAudienceConfig.levels || [], nextConfig.levels || [])) return true
 
     return false
   }
@@ -468,15 +473,14 @@ export default function FormBuilderEditor({ formId, onBack, currentUserId }: For
 
     // Check logic
     if (currentWorkflow) {
-      if (isAudienceChanged()) {
-        setShowAudienceWarning(true)
-        return
-      } else {
-        // No change, keep existing workflow
-        setWorkflowData({ mode: 'existing', workflowId: currentWorkflow.workflow_id })
-        setShowPublishConfirm(true)
-        return
-      }
+      // Pre-populate workflowData with existing workflow, and show publish confirm dialog directly
+      setWorkflowData({
+        mode: 'existing',
+        workflowId: currentWorkflow.workflow_id,
+        workflowName: currentWorkflow.name
+      })
+      setShowPublishConfirm(true)
+      return
     }
 
     // New form or no workflow
@@ -549,6 +553,9 @@ export default function FormBuilderEditor({ formId, onBack, currentUserId }: For
         }
         if (selectedDepartments.length > 0) {
           audienceConfig.departments = selectedDepartments
+        }
+        if (selectedLevels.length > 0) {
+          audienceConfig.levels = selectedLevels
         }
       } else {
         audienceConfig.student = true
@@ -971,63 +978,116 @@ export default function FormBuilderEditor({ formId, onBack, currentUserId }: For
           </Dialog>
 
           {/* Publish Confirmation Dialog */}
+          {/* Publish Confirmation Dialog */}
           <Dialog open={showPublishConfirm} onOpenChange={setShowPublishConfirm}>
-            <DialogContent dir="rtl" className="sm:max-w-md gap-0 p-0 overflow-hidden">
-              <DialogHeader className="p-4 border-b">
-                <DialogTitle>تأكيد نشر النموذج</DialogTitle>
-                <DialogDescription>
-                  مراجعة نهائية قبل إتاحة النموذج للمستخدمين.
+            <DialogContent dir="rtl" className="sm:max-w-4xl max-w-4xl w-[90vw] gap-0 p-0 overflow-hidden">
+              <DialogHeader className="p-5 border-b bg-slate-50/50">
+                <DialogTitle className="text-xl font-bold text-slate-800">إعدادات استهداف ونشر النموذج</DialogTitle>
+                <DialogDescription className="text-sm text-slate-500 mt-1">
+                  حدد الفئات والمستويات المستهدفة ومسار العمل قبل نشر النموذج للعامة.
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="p-4 space-y-4 max-h-[60vh] overflow-y-auto">
-                <div className="bg-blue-50 border border-blue-100 rounded-md p-3 flex items-start gap-3">
-                  <div className="p-1.5 bg-blue-100 rounded-full text-blue-600">
-                    <FileText className="w-4 h-4" />
+              <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+                {/* Form Info Box */}
+                <div className="bg-primary/5 border border-primary/10 rounded-xl p-4 flex items-start gap-4">
+                  <div className="p-2.5 bg-primary/10 rounded-xl text-primary">
+                    <FileText className="w-5 h-5" />
                   </div>
                   <div className="space-y-1">
-                    <p className="text-sm font-semibold text-blue-900">{formName}</p>
-                    <p className="text-xs text-blue-700">
-                      يحتوي على {fields.length} حقول • {targetAudience === 'student' ? 'متاح للطلاب' : targetAudience === 'employee' ? 'متاح للموظفين' : 'متاح للجميع'}
+                    <p className="text-base font-bold text-slate-800">{formName}</p>
+                    <p className="text-xs text-slate-500">
+                      يحتوي على {fields.length} حقول • {targetAudience === 'student' ? 'متاح لجميع الطلاب' : targetAudience === 'employee' ? 'متاح لجميع الموظفين' : targetAudience === 'both' ? 'متاح للجميع' : 'استهداف مخصص'}
                     </p>
                   </div>
                 </div>
 
-                <div className="space-y-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-sm">الجمهور المستهدف</Label>
-                    <Select
-                      value={targetAudience}
-                      onValueChange={(val: any) => setTargetAudience(val)}
-                      dir="rtl"
+                {/* Workflow Info Box */}
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
+                  <div className="flex flex-col text-right">
+                    <span className="text-sm text-slate-600 font-semibold">مسار العمل المرتبط بالنموذج:</span>
+                    <span className="text-xs text-muted-foreground mt-0.5">
+                      {workflowData?.mode === 'new' 
+                        ? 'مسار مخصص جديد تم تصميمه' 
+                        : 'مسار جاهز من مكتبة مسارات العمل'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Badge variant="secondary" className="bg-white shadow-sm border font-bold text-slate-700 px-3 py-1">
+                      {workflowData?.mode === 'new' 
+                        ? workflowData.newWorkflow?.name 
+                        : (workflowData?.workflowName || currentWorkflow?.name || 'لا يوجد مسار')}
+                    </Badge>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      type="button"
+                      onClick={() => {
+                        setShowPublishConfirm(false)
+                        setShowWorkflowDialog(true)
+                      }}
+                      className="text-xs font-semibold"
                     >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="اختر الجمهور" />
-                      </SelectTrigger>
-                      <SelectContent dir="rtl">
-                        <SelectItem value="student">جميع الطلاب</SelectItem>
-                        <SelectItem value="employee">جميع الموظفين</SelectItem>
-                        <SelectItem value="both">الجميع (طلاب وموظفين)</SelectItem>
-                        <SelectItem value="specific">محدد (كليات/أقسام)</SelectItem>
-                      </SelectContent>
-                    </Select>
+                      تغيير المسار
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Premium Cards for Audience Selection */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold text-slate-700">من يستطيع تعبئة هذا النموذج؟ (الجمهور المستهدف)</Label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {[
+                        { id: "student", label: "جميع الطلاب", desc: "متاح لكافة الطلاب", icon: Users, color: "text-blue-600 bg-blue-50/50 border-blue-200" },
+                        { id: "employee", label: "جميع الموظفين", desc: "متاح للموظفين والإداريين", icon: Building2, color: "text-purple-600 bg-purple-50/50 border-purple-200" },
+                        { id: "both", label: "الجميع", desc: "متاح للطلاب والموظفين", icon: Check, color: "text-emerald-600 bg-emerald-50/50 border-emerald-200" },
+                        { id: "specific", label: "استهداف مخصص", desc: "كليات، أقسام ومستويات محددة", icon: Filter, color: "text-orange-600 bg-orange-50/50 border-orange-200" }
+                      ].map(option => {
+                        const isSelected = targetAudience === option.id;
+                        const Icon = option.icon;
+                        return (
+                          <button
+                            key={option.id}
+                            type="button"
+                            onClick={() => setTargetAudience(option.id as any)}
+                            className={`flex flex-col items-center justify-center p-3.5 rounded-xl border-2 text-center transition-all duration-200 cursor-pointer hover:shadow-md ${
+                              isSelected
+                                ? "border-primary bg-primary/5 ring-2 ring-primary/20 scale-[1.02]"
+                                : "border-slate-100 bg-white hover:border-slate-200 text-slate-500"
+                            }`}
+                          >
+                            <div className={`p-2 rounded-lg mb-2 ${isSelected ? "bg-primary text-white" : "bg-slate-100 text-slate-500"}`}>
+                              <Icon className="w-4 h-4" />
+                            </div>
+                            <span className="font-bold text-xs text-slate-800 block mb-0.5">{option.label}</span>
+                            <span className="text-[10px] text-slate-400 leading-tight">{option.desc}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
 
-
                   {targetAudience === 'specific' && (
-                    <div className="space-y-4 pt-4 border-t mt-4">
+                    <div className="space-y-4 pt-4 border-t border-slate-100 mt-4">
                       {/* Role Selection */}
                       <div className="flex gap-4">
                         <label className={`flex items-center gap-3 cursor-pointer border rounded-lg px-4 py-3 flex-1 transition-all ${specificRoleConfig.student ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'hover:bg-slate-50'}`}>
                           <input
                             type="checkbox"
                             checked={specificRoleConfig.student}
-                            onChange={(e) => setSpecificRoleConfig({ ...specificRoleConfig, student: e.target.checked })}
-                            className="w-5 h-5 rounded text-primary accent-primary"
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setSpecificRoleConfig({ ...specificRoleConfig, student: checked });
+                              if (!checked) {
+                                setSelectedLevels([]);
+                              }
+                            }}
+                            className="w-4 h-4 rounded text-primary accent-primary"
                           />
                           <div>
                             <span className="text-sm font-semibold block">الطلاب</span>
-                            <span className="text-xs text-muted-foreground">تطبيق على جميع الطلاب</span>
+                            <span className="text-xs text-muted-foreground">تطبيق الاستهداف على الطلاب</span>
                           </div>
                         </label>
                         <label className={`flex items-center gap-3 cursor-pointer border rounded-lg px-4 py-3 flex-1 transition-all ${specificRoleConfig.employee ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'hover:bg-slate-50'}`}>
@@ -1035,103 +1095,197 @@ export default function FormBuilderEditor({ formId, onBack, currentUserId }: For
                             type="checkbox"
                             checked={specificRoleConfig.employee}
                             onChange={(e) => setSpecificRoleConfig({ ...specificRoleConfig, employee: e.target.checked })}
-                            className="w-5 h-5 rounded text-primary accent-primary"
+                            className="w-4 h-4 rounded text-primary accent-primary"
                           />
                           <div>
                             <span className="text-sm font-semibold block">الموظفين</span>
-                            <span className="text-xs text-muted-foreground">تطبيق على جميع الموظفين</span>
+                            <span className="text-xs text-muted-foreground">تطبيق الاستهداف على الموظفين</span>
                           </div>
                         </label>
                       </div>
 
-                      {/* College & Department Selection - Redesigned */}
+                      {/* Cascading Selection Flow */}
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                          <Label className="text-sm font-semibold">تخصيص الكليات والأقسام</Label>
-                          <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-full">
+                          <Label className="text-sm font-semibold text-slate-700">
+                            {specificRoleConfig.student ? "تخصيص الكليات والأقسام والمستويات" : "تخصيص الكليات والأقسام"}
+                          </Label>
+                          <span className="text-xs bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full font-medium">
                             {selectedColleges.length} كليات • {selectedDepartments.length} أقسام
+                            {specificRoleConfig.student && ` • ${selectedLevels.length} مستويات`}
                           </span>
                         </div>
                         
-                        <div className="border rounded-lg bg-slate-50/50 flex flex-col h-[280px]">
-                          {/* Colleges List */}
-                          <div className="p-3 border-b bg-white">
-                            <Label className="text-xs text-muted-foreground mb-2 block">الكليات المستهدفة (اختر كلية لعرض أقسامها)</Label>
-                            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+                        <div className="border border-slate-200 rounded-xl bg-slate-50/30 flex h-[350px] overflow-hidden shadow-inner">
+                          {/* Column 1: Colleges */}
+                          <div className={`${specificRoleConfig.student ? 'w-1/3' : 'w-1/2'} flex flex-col bg-white border-l border-slate-200`}>
+                            <div className="p-3 bg-slate-50/80 border-b border-slate-200 flex items-center justify-between shrink-0">
+                              <Label className="text-xs font-bold text-slate-700">1. الكليات المستهدفة</Label>
+                              <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold">
+                                {selectedColleges.length} محدد
+                              </span>
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-2.5 space-y-1 scrollbar-thin">
                               {colleges.length === 0 ? (
                                 <p className="text-xs text-muted-foreground p-2">لا توجد كليات</p>
                               ) : (
-                                colleges.map((college: any) => (
-                                  <label 
-                                    key={college.college_id} 
-                                    className={`flex items-center gap-2 whitespace-nowrap cursor-pointer px-3 py-1.5 rounded-full border text-xs transition-colors ${selectedColleges.includes(college.college_id) ? 'bg-primary text-white border-primary' : 'hover:bg-slate-100 bg-white'}`}
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      checked={selectedColleges.includes(college.college_id)}
-                                      onChange={(e) => {
-                                        if (e.target.checked) {
-                                          setSelectedColleges([...selectedColleges, college.college_id])
-                                        } else {
-                                          setSelectedColleges(selectedColleges.filter((id: number) => id !== college.college_id))
-                                          // Optional: auto-remove deps if college removed
-                                          // setSelectedDepartments(selectedDepartments.filter(depId => !departments.find(d => d.department_id === depId && d.college_id === college.college_id)))
-                                        }
-                                      }}
-                                      className="sr-only" // Hidden visually, handles state
-                                    />
-                                    <span>{college.name}</span>
-                                    {selectedColleges.includes(college.college_id) && <Check className="w-3 h-3" />}
-                                  </label>
-                                ))
+                                colleges.map((college: any) => {
+                                  const isSelected = selectedColleges.includes(college.college_id);
+                                  return (
+                                    <label 
+                                      key={college.college_id} 
+                                      className={`flex items-center gap-2.5 p-2 rounded-lg cursor-pointer border transition-all text-xs ${
+                                        isSelected 
+                                          ? 'bg-primary/5 border-primary/30 text-primary font-semibold' 
+                                          : 'bg-transparent border-transparent hover:bg-slate-50 text-slate-700'
+                                      }`}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={isSelected}
+                                        onChange={(e) => {
+                                          if (e.target.checked) {
+                                            setSelectedColleges([...selectedColleges, college.college_id]);
+                                          } else {
+                                            setSelectedColleges(selectedColleges.filter((id: number) => id !== college.college_id));
+                                            // Cascade deselect: departments and levels of this college
+                                            const collegeDepts = departments.filter((d: any) => d.college_id === college.college_id);
+                                            const collegeDeptIds = collegeDepts.map((d: any) => d.department_id);
+                                            setSelectedDepartments(prev => prev.filter(id => !collegeDeptIds.includes(id)));
+                                            const collegeLevels = collegeDepts.flatMap((d: any) => d.levels || []);
+                                            const collegeLevelIds = collegeLevels.map((l: any) => l.level_id);
+                                            setSelectedLevels(prev => prev.filter(id => !collegeLevelIds.includes(id)));
+                                          }
+                                        }}
+                                        className="w-4 h-4 accent-primary rounded text-primary"
+                                      />
+                                      <span className="truncate flex-1">{college.name}</span>
+                                    </label>
+                                  );
+                                })
                               )}
                             </div>
                           </div>
 
-                          {/* Departments List */}
-                          <div className="p-3 flex-1 overflow-y-auto">
-                            <Label className="text-xs text-muted-foreground mb-3 block">الأقسام التابعة للكليات المحددة</Label>
-                            {selectedColleges.length === 0 ? (
-                              <div className="h-full flex flex-col items-center justify-center text-muted-foreground opacity-50">
-                                <Building2 className="w-8 h-8 mb-2" />
-                                <p className="text-sm">الرجاء اختيار كلية واحدة على الأقل من الأعلى</p>
-                              </div>
-                            ) : departments.filter((d: any) => selectedColleges.includes(d.college_id)).length === 0 ? (
-                              <p className="text-sm text-center text-muted-foreground mt-4">لا توجد أقسام مسجلة في الكليات المحددة</p>
-                            ) : (
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                {colleges.filter((c: any) => selectedColleges.includes(c.college_id)).map((college: any) => {
-                                  const collegeDepts = departments.filter((dept: any) => dept.college_id === college.college_id);
-                                  if (collegeDepts.length === 0) return null;
-                                  
-                                  return (
-                                    <div key={college.college_id} className="mb-2">
-                                      <p className="text-xs font-semibold text-primary/80 mb-2 truncate bg-primary/5 px-2 py-1 rounded w-fit">{college.name}</p>
-                                      <div className="space-y-1.5 pr-2 border-r-2 border-slate-200">
-                                        {collegeDepts.map((dept: any) => (
-                                          <label key={dept.department_id} className="flex items-center gap-2 cursor-pointer hover:bg-white p-1.5 rounded border border-transparent hover:border-slate-200 hover:shadow-sm transition-all">
-                                            <input
-                                              type="checkbox"
-                                              checked={selectedDepartments.includes(dept.department_id)}
-                                              onChange={(e) => {
-                                                if (e.target.checked) {
-                                                  setSelectedDepartments([...selectedDepartments, dept.department_id])
-                                                } else {
-                                                  setSelectedDepartments(selectedDepartments.filter((id: any) => id !== dept.department_id))
-                                                }
-                                              }}
-                                              className="w-4 h-4 accent-primary rounded text-primary"
-                                            />
-                                            <span className="text-sm truncate flex-1" title={dept.dept_name}>{dept.dept_name}</span>
-                                          </label>
-                                        ))}
+                          {/* Column 2: Departments */}
+                          <div className={`${specificRoleConfig.student ? 'w-1/3 border-l border-slate-200' : 'w-1/2'} flex flex-col bg-white`}>
+                            <div className="p-3 bg-slate-50/80 border-b border-slate-200 flex items-center justify-between shrink-0">
+                              <Label className="text-xs font-bold text-slate-700">2. الأقسام المستهدفة</Label>
+                              <span className="text-[10px] bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-bold">
+                                {selectedDepartments.length} محدد
+                              </span>
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-2.5 space-y-3 scrollbar-thin">
+                              {selectedColleges.length === 0 ? (
+                                <div className="h-full flex flex-col items-center justify-center text-slate-400 py-12">
+                                  <Building2 className="w-8 h-8 mb-2 opacity-40 text-slate-500" />
+                                  <p className="text-[11px] text-center text-slate-400 px-4">الرجاء اختيار كلية واحدة على الأقل من القائمة الأولى</p>
+                                </div>
+                              ) : (
+                                colleges
+                                  .filter((c: any) => selectedColleges.includes(c.college_id))
+                                  .map((college: any) => {
+                                    const collegeDepts = departments.filter((d: any) => d.college_id === college.college_id);
+                                    if (collegeDepts.length === 0) return null;
+                                    return (
+                                      <div key={college.college_id} className="space-y-1">
+                                        <p className="text-[10px] font-bold text-primary mb-1 border-b border-slate-100 pb-0.5">{college.name}</p>
+                                        {collegeDepts.map((dept: any) => {
+                                          const isSelected = selectedDepartments.includes(dept.department_id);
+                                          const isAcademic = dept.is_academic !== false;
+                                          return (
+                                            <label 
+                                              key={dept.department_id} 
+                                              className={`flex items-center gap-2 p-1.5 rounded cursor-pointer transition-all text-xs hover:bg-slate-50 ${
+                                                isSelected ? 'font-semibold text-slate-950 bg-slate-50' : 'text-slate-600'
+                                              }`}
+                                            >
+                                              <input
+                                                type="checkbox"
+                                                checked={isSelected}
+                                                onChange={(e) => {
+                                                  if (e.target.checked) {
+                                                    setSelectedDepartments([...selectedDepartments, dept.department_id]);
+                                                  } else {
+                                                    setSelectedDepartments(selectedDepartments.filter((id: any) => id !== dept.department_id));
+                                                    // Cascade deselect: levels under this department
+                                                    const deptLevels = dept.levels || [];
+                                                    const deptLevelIds = deptLevels.map((l: any) => l.level_id);
+                                                    setSelectedLevels(prev => prev.filter(id => !deptLevelIds.includes(id)));
+                                                  }
+                                                }}
+                                                className="w-3.5 h-3.5 accent-primary rounded text-primary"
+                                              />
+                                              <span className="truncate flex-1">{dept.dept_name}</span>
+                                              {!isAcademic && (
+                                                <span className="text-[8px] bg-orange-50 text-orange-600 px-1 py-0.5 rounded shrink-0">إداري</span>
+                                              )}
+                                            </label>
+                                          );
+                                        })}
                                       </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
+                                    );
+                                  })
+                              )}
+                            </div>
                           </div>
+
+                          {/* Column 3: Academic Levels */}
+                          {specificRoleConfig.student && (
+                            <div className="w-1/3 flex flex-col bg-white">
+                              <div className="p-3 bg-slate-50/80 border-b border-slate-200 flex items-center justify-between shrink-0">
+                                <Label className="text-xs font-bold text-slate-700">3. المستويات المستهدفة</Label>
+                                <span className="text-[10px] bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full font-bold">
+                                  {selectedLevels.length} محدد
+                                </span>
+                              </div>
+                              <div className="flex-1 overflow-y-auto p-2.5 space-y-3 scrollbar-thin">
+                                {selectedDepartments.length === 0 ? (
+                                  <div className="h-full flex flex-col items-center justify-center text-slate-400 py-12">
+                                    <Users className="w-8 h-8 mb-2 opacity-40 text-slate-500" />
+                                    <p className="text-[11px] text-center text-slate-400 px-4">الرجاء اختيار قسم واحد على الأقل من القائمة الثانية</p>
+                                  </div>
+                                ) : (
+                                  departments
+                                    .filter((d: any) => selectedDepartments.includes(d.department_id))
+                                    .map((dept: any) => {
+                                      const deptLevels = dept.levels || [];
+                                      if (deptLevels.length === 0) return null;
+                                      return (
+                                        <div key={dept.department_id} className="space-y-1">
+                                          <p className="text-[10px] font-bold text-orange-600 mb-1 border-b border-slate-100 pb-0.5">{dept.dept_name}</p>
+                                          {deptLevels.map((level: any) => {
+                                            const isSelected = selectedLevels.includes(level.level_id);
+                                            return (
+                                              <label 
+                                                key={level.level_id} 
+                                                className={`flex items-center gap-2 p-1.5 rounded cursor-pointer transition-all text-xs hover:bg-slate-50 ${
+                                                  isSelected ? 'font-semibold text-slate-950 bg-slate-50' : 'text-slate-600'
+                                                }`}
+                                              >
+                                                <input
+                                                  type="checkbox"
+                                                  checked={isSelected}
+                                                  onChange={(e) => {
+                                                    if (e.target.checked) {
+                                                      setSelectedLevels([...selectedLevels, level.level_id]);
+                                                    } else {
+                                                      setSelectedLevels(selectedLevels.filter((id: number) => id !== level.level_id));
+                                                    }
+                                                  }}
+                                                  className="w-3.5 h-3.5 accent-orange-500 rounded text-orange-500"
+                                                />
+                                                <span className="truncate flex-1">{level.name}</span>
+                                              </label>
+                                            );
+                                          })}
+                                        </div>
+                                      );
+                                    })
+                                )}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1139,7 +1293,7 @@ export default function FormBuilderEditor({ formId, onBack, currentUserId }: For
                 </div>
               </div>
 
-              <DialogFooter className="p-4 border-t bg-gray-50 gap-2 sm:gap-0">
+              <DialogFooter className="p-4 border-t bg-slate-50 gap-2 sm:gap-0">
                 <Button variant="outline" size="sm" onClick={() => setShowPublishConfirm(false)}>
                   إلغاء
                 </Button>

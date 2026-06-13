@@ -1,4 +1,4 @@
-﻿"use server"
+"use server"
 
 import { db } from "@/lib/db"
 import { revalidatePath } from "next/cache"
@@ -229,12 +229,12 @@ export async function notifyRequestStatusChange(
 
                     // Improved Header with Table (Better for PDF)
                     const headerHtml = `
-                        <table style="width: 100%; border-bottom: 3px solid #f97316; padding-bottom: 10px; margin-bottom: 30px; font-family: 'Cairo', sans-serif;">
+                        <table style="width: 100%; border-bottom: 4px solid #f97316; padding-bottom: 10px; margin-bottom: 30px; font-family: 'Cairo', sans-serif;">
                             <tr>
                                 <td style="text-align: right; width: 35%; vertical-align: top;">
                                     <div style="font-weight: bold; font-size: 14pt; color: #0f172a; margin-bottom: 4px;">الجمهورية اليمنية</div>
-                                    <div style="font-size: 11pt; color: #334155;">وزارة التعليم العالي والبحث العلمي</div>
-                                    <div style="font-size: 11pt; color: #334155;">والتعليم الفني والتدريب المهني</div>
+                                    <div style="font-size: 11pt; color: #334155; line-height: 1.4;">وزارة التعليم العالي والبحث العلمي</div>
+                                    <div style="font-size: 11pt; color: #334155; line-height: 1.4;">والتعليم الفني والتدريب المهني</div>
                                     <div style="font-size: 18pt; font-weight: bold; color: #0f172a; margin-top: 8px;">جامعة العرب</div>
                                 </td>
                                 <td style="text-align: center; width: 30%; vertical-align: middle;">
@@ -242,8 +242,9 @@ export async function notifyRequestStatusChange(
                                 </td>
                                 <td style="text-align: left; width: 35%; vertical-align: top; direction: ltr;">
                                     <div style="font-weight: bold; font-size: 14pt; color: #0f172a; margin-bottom: 4px;">Republic of Yemen</div>
-                                    <div style="font-size: 11pt; color: #334155;">Ministry of Higher Education &</div>
-                                    <div style="font-size: 11pt; color: #334155;">Scientific Research</div>
+                                    <div style="font-size: 11pt; color: #334155; line-height: 1.4;">Ministry of Higher Education &</div>
+                                    <div style="font-size: 11pt; color: #334155; line-height: 1.4;">Scientific Research</div>
+                                    <div style="font-size: 11pt; color: #334155; line-height: 1.4;">Technical and Vocational Training</div>
                                     <div style="font-size: 18pt; font-weight: bold; color: #0f172a; margin-top: 8px;">AL-ARAB UNIVERSITY</div>
                                 </td>
                             </tr>

@@ -1,4 +1,4 @@
-﻿"use server"
+"use server"
 
 import { db } from "@/lib/db"
 import { revalidatePath } from "next/cache"
@@ -91,7 +91,9 @@ export async function getAllFormTemplates(page: number = 1, limit: number = 20, 
                     const conf = t.audience_config as any
                     if (!conf) return 'all_students'
 
-                    if ((conf.colleges && conf.colleges.length > 0) || (conf.departments && conf.departments.length > 0)) {
+                    if ((conf.colleges && conf.colleges.length > 0) || 
+                        (conf.departments && conf.departments.length > 0) || 
+                        (conf.levels && conf.levels.length > 0)) {
                         return 'specific'
                     }
 
@@ -479,9 +481,19 @@ export async function deleteFormTemplate(formId: number, requesterId?: string) {
         }
 
         // Hard delete
+        const requestTypeId = form?.request_type_id
+
         await db.form_templates.delete({
             where: { form_id: formId }
         })
+
+        if (requestTypeId) {
+            await db.request_types.delete({
+                where: { type_id: requestTypeId }
+            }).catch(err => {
+                console.error("Failed to delete request type:", err)
+            })
+        }
 
         if (requesterId) {
              const executor = await db.users.findUnique({ where: { university_id: requesterId } })
@@ -553,13 +565,20 @@ export async function getAvailableFormTemplates(userId: string) {
             }
         })
 
+        // Fetch all departments and levels for hierarchical targeting check
+        const allDepts = await db.departments.findMany({
+            select: { department_id: true, college_id: true }
+        })
+        const allLevels = await db.levels.findMany({
+            select: { level_id: true, department_id: true }
+        })
+
         // Filter based on audience config
         const availableTemplates = allTemplates.filter(template => {
             if (!template.audience_config) return true // No restrictions
 
             const config = template.audience_config as any
 
-            // Check role
             // Check role - use relaxed matching (case-insensitive includes)
             const roleName = user.roles.role_name.toLowerCase()
             const isStudentRole = roleName.includes('student') || roleName === 'student'
@@ -568,15 +587,53 @@ export async function getAvailableFormTemplates(userId: string) {
             if (isStudentRole && config.student === false) return false
             if (isEmployeeRole && config.employee === false) return false
 
-            // Check college
-            if (config.colleges && config.colleges.length > 0) {
-                const userCollegeId = user.departments_users_department_idTodepartments?.colleges?.college_id
-                if (!userCollegeId || !config.colleges.includes(userCollegeId)) return false
-            }
+            const hasColleges = config.colleges && config.colleges.length > 0
+            const hasDepts = config.departments && config.departments.length > 0
+            const hasLevels = config.levels && config.levels.length > 0
 
-            // Check department
-            if (config.departments && config.departments.length > 0) {
-                if (!user.department_id || !config.departments.includes(user.department_id)) return false
+            if (hasColleges || hasDepts || hasLevels) {
+                const userCollegeId = user.departments_users_department_idTodepartments?.colleges?.college_id || user.departments_users_department_idTodepartments?.college_id
+
+                // 1. College Check
+                if (hasColleges) {
+                    if (!userCollegeId || !config.colleges.includes(userCollegeId)) {
+                        return false
+                    }
+                }
+
+                // 2. Department Check
+                if (hasDepts) {
+                    // Find if any targeted department belongs to the user's college
+                    const targetedDeptsInUserCollege = allDepts.filter(d => 
+                        d.college_id === userCollegeId && 
+                        config.departments.includes(d.department_id)
+                    )
+
+                    if (targetedDeptsInUserCollege.length > 0) {
+                        // Admin specifically targeted some departments in the user's college.
+                        // So the user's department MUST be one of them.
+                        if (!user.department_id || !config.departments.includes(user.department_id)) {
+                            return false
+                        }
+                    }
+                }
+
+                // 3. Level Check
+                if (hasLevels) {
+                    // Find if any targeted level belongs to the user's department
+                    const targetedLevelsInUserDept = allLevels.filter(l => 
+                        l.department_id === user.department_id && 
+                        config.levels.includes(l.level_id)
+                    )
+
+                    if (targetedLevelsInUserDept.length > 0) {
+                        // Admin specifically targeted some levels in the user's department.
+                        // So the user's level MUST be one of them.
+                        if (!user.level_id || !config.levels.includes(user.level_id)) {
+                            return false
+                        }
+                    }
+                }
             }
 
             return true

@@ -954,7 +954,7 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                                         <Button
                                           onClick={() => openActionDialog('reject_with_changes')}
                                           variant="outline"
-                                          className="w-full h-11 border-orange-200 text-orange-600 bg-orange-50/50 hover:bg-orange-500 hover:text-white hover:border-orange-500 transition-all shadow-sm"
+                                          className="w-full h-11 border-orange-200 text-orange-600 bg-orange-50/50 hover:bg-orange-100 hover:text-orange-700 hover:border-orange-300 transition-all shadow-sm"
                                         >
                                           <Redo2 className="w-4 h-4 me-2" />
                                           إعادة للتعديل
@@ -962,7 +962,7 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                                         <Button
                                           onClick={() => openActionDialog('reject')}
                                           variant="outline"
-                                          className="w-full h-11 border-red-200 text-red-600 bg-red-50/30 hover:bg-red-500 hover:text-white hover:border-red-500 transition-all shadow-sm"
+                                          className="w-full h-11 border-red-200 text-red-600 bg-red-50/30 hover:bg-red-100 hover:text-red-700 hover:border-red-300 transition-all shadow-sm"
                                         >
                                           <XCircle className="w-4 h-4 me-2" />
                                           رفض نهائي
@@ -1378,7 +1378,7 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                       }}
                       className={`text-xs px-3 py-1.5 rounded-full border transition-all flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-orange-500/50 ${
                         isSelected 
-                          ? 'bg-orange-500 text-white border-orange-600 shadow-sm font-medium' 
+                          ? 'bg-orange-100 text-orange-800 border-orange-300 shadow-sm font-semibold' 
                           : 'bg-white text-slate-600 border-orange-200 hover:border-orange-400 hover:bg-orange-50 hover:text-orange-700'
                       }`}
                     >

@@ -15,13 +15,13 @@
   --primary: #1b9d91;
   --primary-foreground: oklch(0.985 0 0);
   /* Updated secondary color to orange (Al-Arab University branding) */
-  --secondary: #f4802a;
+  --secondary: #F7941D;
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.556 0 0);
   /* Updated accent to orange for consistency */
-  --accent: #f4802a;
-  --accent-foreground: oklch(0.205 0 0);
+  --accent: #FEF3E6;
+  --accent-foreground: #D97E10;
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(0.922 0 0);
@@ -55,12 +55,12 @@
   --primary: #1b9d91;
   --primary-foreground: oklch(0.145 0 0);
   /* Dark mode orange secondary */
-  --secondary: #f4802a;
+  --secondary: #F7941D;
   --secondary-foreground: oklch(0.145 0 0);
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
-  --accent: #f4802a;
-  --accent-foreground: oklch(0.145 0 0);
+  --accent: #2D1E10;
+  --accent-foreground: #F7941D;
   --destructive: oklch(0.396 0.141 25.723);
   --destructive-foreground: oklch(0.637 0.237 25.331);
   --border: oklch(0.269 0 0);
@@ -133,6 +133,7 @@
   body {
     background-color: var(--background);
     color: var(--foreground);
+    pointer-events: auto !important;
   }
 }
 

@@ -5,10 +5,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion"
-import { Loader2, GraduationCap, Users, Building2, School, Layers, CheckSquare } from "lucide-react"
+import { Loader2, GraduationCap, Users, Building2, School, Layers, CheckSquare, Search, X } from "lucide-react"
 import { getStudentsForPromotion } from "@/app/actions/absences"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Input } from "@/components/ui/input"
 
 export type PromotionScope = 'level' | 'department' | 'global'
 
@@ -26,6 +27,7 @@ export function PromoteStudentsDialog({ isOpen, onClose, onConfirm, scope, scope
     const [loading, setLoading] = useState(false)
     const [saving, setSaving] = useState(false)
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+    const [searchQuery, setSearchQuery] = useState("")
 
     useEffect(() => {
         if (isOpen) {
@@ -33,6 +35,7 @@ export function PromoteStudentsDialog({ isOpen, onClose, onConfirm, scope, scope
         } else {
             setStudents([])
             setSelectedIds(new Set())
+            setSearchQuery("")
         }
     }, [isOpen, scope, scopeId])
 
@@ -69,9 +72,17 @@ export function PromoteStudentsDialog({ isOpen, onClose, onConfirm, scope, scope
         setSelectedIds(next)
     }
 
+    const filteredStudents = students.filter(student => {
+        if (!searchQuery.trim()) return true
+        const q = searchQuery.toLowerCase().trim()
+        const nameMatch = student.full_name && student.full_name.toLowerCase().includes(q)
+        const idMatch = student.university_id && student.university_id.toString().includes(q)
+        return nameMatch || idMatch
+    })
+
     type GroupedStudents = Record<string, Record<string, Record<string, any[]>>>
 
-    const grouped: GroupedStudents = students.reduce((acc: GroupedStudents, student: any) => {
+    const grouped: GroupedStudents = filteredStudents.reduce((acc: GroupedStudents, student: any) => {
         const collegeName = student.college_name || "كلية غير محددة"
         const deptName = student.dept_name || "قسم غير محدد"
         const levelName = student.level_name || "مستوى غير محدد"
@@ -84,7 +95,7 @@ export function PromoteStudentsDialog({ isOpen, onClose, onConfirm, scope, scope
         return acc
     }, {} as GroupedStudents)
 
-    const allSelected = students.length > 0 && selectedIds.size === students.length
+    const allSelected = filteredStudents.length > 0 && filteredStudents.every(s => selectedIds.has(s.user_id))
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
@@ -115,30 +126,67 @@ export function PromoteStudentsDialog({ isOpen, onClose, onConfirm, scope, scope
                         </div>
                     ) : (
                         <>
-                            <div className="bg-white border border-slate-200 p-4 m-5 rounded-2xl flex justify-between items-center shadow-sm">
-                                <label htmlFor="select-all" className="flex items-center gap-3 cursor-pointer group">
-                                    <div className={`flex items-center justify-center w-6 h-6 rounded-md border-2 transition-colors ${allSelected ? 'bg-primary border-primary' : 'border-slate-300 group-hover:border-primary'}`}>
-                                        <Checkbox 
-                                            id="select-all" 
-                                            checked={allSelected} 
-                                            onCheckedChange={(c) => toggleGroup(students.map(s => s.user_id), !!c)}
-                                            className="opacity-0 absolute"
-                                        />
-                                        {allSelected && <CheckSquare className="w-4 h-4 text-white" />}
-                                    </div>
-                                    <span className="text-lg font-bold text-slate-800 group-hover:text-primary transition-colors">
-                                        تحديد الكل ({students.length} طالب)
-                                    </span>
-                                </label>
-                                <Badge variant="default" className="text-sm px-4 py-1.5 shadow-sm">
-                                    المحدد للترقية: {selectedIds.size}
-                                </Badge>
+                            {/* Search Input Container */}
+                            <div className="px-5 pt-5 pb-1 flex gap-2">
+                                <div className="relative flex-1">
+                                    <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 h-5 w-5" />
+                                    <Input
+                                        placeholder="ابحث عن طالب باسمه أو رقمه الجامعي..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        className="pr-10 pl-10 h-11 bg-white border-slate-200 text-slate-800 placeholder:text-slate-400 focus-visible:border-primary focus-visible:ring-primary/20 transition-all rounded-xl text-base"
+                                    />
+                                    {searchQuery && (
+                                        <button 
+                                            type="button"
+                                            onClick={() => setSearchQuery("")}
+                                            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                                        >
+                                            <X className="w-5 h-5" />
+                                        </button>
+                                    )}
+                                </div>
                             </div>
-                            
-                            <div className="flex-1 overflow-y-auto px-5 pb-5">
-                                <Accordion type="multiple" defaultValue={Object.keys(grouped)} className="w-full space-y-4">
-                                    {Object.entries(grouped).map(([collegeName, depts]: [string, Record<string, Record<string, any[]>>]) => {
-                                        const collegeStudents = Object.values(depts).flatMap((levels: Record<string, any[]>) => Object.values(levels).flat())
+
+                            {filteredStudents.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-20 text-muted-foreground flex-1">
+                                    <Search className="w-16 h-16 mb-4 opacity-20 text-slate-400" />
+                                    <p className="text-lg font-bold text-slate-700">لا توجد نتائج تطابق "{searchQuery}"</p>
+                                    <p className="text-sm mt-1 text-slate-500 font-medium">تأكد من كتابة الاسم بشكل صحيح أو جرب البحث عن طالب آخر.</p>
+                                    <Button 
+                                        variant="link" 
+                                        onClick={() => setSearchQuery("")} 
+                                        className="mt-4 text-primary font-black hover:no-underline"
+                                    >
+                                        مسح البحث
+                                    </Button>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="bg-white border border-slate-200 p-4 m-5 rounded-2xl flex justify-between items-center shadow-sm">
+                                        <label htmlFor="select-all" className="flex items-center gap-3 cursor-pointer group">
+                                            <div className={`flex items-center justify-center w-6 h-6 rounded-md border-2 transition-colors ${allSelected ? 'bg-primary border-primary' : 'border-slate-300 group-hover:border-primary'}`}>
+                                                <Checkbox 
+                                                    id="select-all" 
+                                                    checked={allSelected} 
+                                                    onCheckedChange={(c) => toggleGroup(filteredStudents.map(s => s.user_id), !!c)}
+                                                    className="opacity-0 absolute"
+                                                />
+                                                {allSelected && <CheckSquare className="w-4 h-4 text-white" />}
+                                            </div>
+                                            <span className="text-lg font-bold text-slate-800 group-hover:text-primary transition-colors">
+                                                تحديد الكل ({filteredStudents.length} طالب)
+                                            </span>
+                                        </label>
+                                        <Badge variant="default" className="text-sm px-4 py-1.5 shadow-sm">
+                                            المحدد للترقية: {selectedIds.size}
+                                        </Badge>
+                                    </div>
+                                    
+                                    <div className="flex-1 overflow-y-auto px-5 pb-5">
+                                        <Accordion key={searchQuery} type="multiple" defaultValue={Object.keys(grouped)} className="w-full space-y-4">
+                                            {Object.entries(grouped).map(([collegeName, depts]: [string, Record<string, Record<string, any[]>>]) => {
+                                                const collegeStudents = Object.values(depts).flatMap((levels: Record<string, any[]>) => Object.values(levels).flat())
                                         
                                         return (
                                             <AccordionItem value={collegeName} key={collegeName} className="border-0 shadow-sm rounded-2xl bg-white overflow-hidden">
@@ -250,8 +298,10 @@ export function PromoteStudentsDialog({ isOpen, onClose, onConfirm, scope, scope
                                             </AccordionItem>
                                         )
                                     })}
-                                </Accordion>
-                            </div>
+                                        </Accordion>
+                                    </div>
+                                </>
+                            )}
                         </>
                     )}
                 </div>

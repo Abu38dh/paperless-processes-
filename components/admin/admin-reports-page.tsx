@@ -18,7 +18,6 @@ interface AdminReportsPageProps {
   currentUserId?: string
 }
 
-// ─── CSV Export Helper ──────────────────────────────────────────────────────
 function exportToCSV(filename: string, headers: string[], rows: (string | number)[][]) {
   const escape = (v: string | number) => {
     const s = String(v ?? "").replace(/"/g, '""')

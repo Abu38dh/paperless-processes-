@@ -1,8 +1,10 @@
 "use client"
 
-import { LogOut, User, Menu } from "lucide-react"
+import { useState, useEffect } from "react"
+import { LogOut, User, Menu, Calendar } from "lucide-react"
 import { translateRole } from "@/lib/translations"
 import Image from "next/image"
+import { getCurrentTerm } from "@/app/actions/terms"
 
 interface HeaderProps {
   userType: string
@@ -19,6 +21,18 @@ export default function Header({
   onLogout,
   onMenuClick,
 }: HeaderProps) {
+  const [mounted, setMounted] = useState(false)
+  const [termName, setTermName] = useState<string>("الفصل الدراسي الحالي")
+
+  useEffect(() => {
+    setMounted(true)
+    getCurrentTerm().then((res) => {
+      if (res.success && res.data?.name) {
+        setTermName(res.data.name)
+      }
+    })
+  }, [])
+
   return (
     <header
       dir="rtl"
@@ -60,6 +74,21 @@ export default function Header({
           <p className="text-[11px] text-[#6B8F8E] leading-tight">Al-Arab University</p>
         </div>
       </div>
+
+      {/* Center: Academic Info Badge */}
+      {mounted && (
+        <div className="hidden md:flex items-center gap-3 bg-[#F4F8F8] border border-[#E2EDEC] rounded-xl px-4 py-2 text-xs font-medium shadow-[0_1px_2px_rgba(0,168,157,0.02)]">
+          <span className="flex items-center gap-1.5 text-[#00A89D]">
+            <span className="w-2 h-2 rounded-full bg-[#00A89D] animate-pulse"></span>
+            {termName}
+          </span>
+          <span className="w-px h-3.5 bg-[#E2EDEC]"></span>
+          <span className="text-[#6B8F8E] flex items-center gap-1.5">
+            <Calendar className="w-3.5 h-3.5" />
+            {new Date().toLocaleDateString('ar-SA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+          </span>
+        </div>
+      )}
 
       {/* Left: User info + Logout */}
       <div className="flex items-center gap-2">

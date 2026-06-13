@@ -30,8 +30,8 @@
   --muted:                  #F4F8F8;
   --muted-foreground:       #6B8F8E;
 
-  --accent:                 #F7941D;
-  --accent-foreground:      #FFFFFF;
+  --accent:                 #FEF3E6;
+  --accent-foreground:      #D97E10;
 
   --destructive:            #DC2626;
   --destructive-foreground: #FFFFFF;
@@ -74,8 +74,8 @@
   --secondary-foreground:   #66CCC7;
   --muted:                  #1A3533;
   --muted-foreground:       #7AABA9;
-  --accent:                 #F7941D;
-  --accent-foreground:      #FFFFFF;
+  --accent:                 #2D1E10;
+  --accent-foreground:      #F7941D;
   --destructive:            #991B1B;
   --destructive-foreground: #FCA5A5;
   --border:                 #1E3C3A;
@@ -138,6 +138,7 @@
   }
   body {
     @apply bg-background text-foreground;
+    pointer-events: auto !important;
   }
 }
 

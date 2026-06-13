@@ -84,6 +84,16 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
   })
   const [editingStepIndex, setEditingStepIndex] = useState<number | null>(null)
 
+  const sanitizeSteps = (stepList: any[]) => {
+    return stepList.map((step, idx) => {
+      const isLast = idx === stepList.length - 1;
+      return {
+        ...step,
+        is_final: isLast ? (step.is_final || false) : false
+      };
+    });
+  };
+
   useEffect(() => {
     fetchData()
   }, [])
@@ -226,59 +236,10 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
     }
   }
 
-  // Handle changes to step fields (Live Update)
+  // Handle changes to step fields
   const handleFieldChange = (field: keyof typeof currentStep, value: any) => {
     const updatedStep = { ...currentStep, [field]: value }
     setCurrentStep(updatedStep)
-
-    // If we are in edit mode, update the steps list immediately
-    if (editingStepIndex !== null) {
-      const newSteps = [...steps]
-      const currentSequence = newSteps[editingStepIndex].sequence_order
-
-      // Parse ID
-      let roleId = 0
-      let userId: number | null = null
-
-      if (updatedStep.approverId.startsWith('role_')) {
-        roleId = parseInt(updatedStep.approverId.split('_')[1])
-      } else if (updatedStep.approverId.startsWith('user_')) {
-        userId = parseInt(updatedStep.approverId.split('_')[1])
-      }
-
-      // Find objects for UI display
-      const selectedRole = roleId ? roles.find(r => r.role_id === roleId) : null
-      const selectedUser = userId ? users.find(u => u.user_id === userId) : null
-
-      // Parse Escalation ID
-      let escRoleId: number | null = null
-      let escUserId: number | null = null
-      let escToNext = false
-      
-      if (updatedStep.escalatorId === 'next_step') {
-        escToNext = true
-      } else if (updatedStep.escalatorId.startsWith('role_')) {
-        escRoleId = parseInt(updatedStep.escalatorId.split('_')[1])
-      } else if (updatedStep.escalatorId.startsWith('user_')) {
-        escUserId = parseInt(updatedStep.escalatorId.split('_')[1])
-      }
-
-      newSteps[editingStepIndex] = {
-        step_id: newSteps[editingStepIndex].step_id,
-        name: updatedStep.name,
-        approver_role_id: roleId,
-        approver_user_id: userId,
-        roles: selectedRole, // Attach role object for UI
-        users: selectedUser, // Attach user object for UI
-        sla_hours: updatedStep.slaUnit === 'days' ? (updatedStep.sla || 0) * 24 : (updatedStep.sla || 0),
-        sequence_order: currentSequence,
-        is_final: updatedStep.isFinal,
-        escalation_role_id: escRoleId,
-        escalation_user_id: escUserId,
-        escalate_to_next: escToNext
-      }
-      setSteps(newSteps)
-    }
   }
 
   const handleAddStep = () => {
@@ -314,22 +275,22 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
       escUserId = parseInt(currentStep.escalatorId.split('_')[1])
     }
 
-    // Only for adding new steps
     if (editingStepIndex === null) {
+      const hasEscalation = currentStep.escalatorId && currentStep.escalatorId !== 'none'
       const newStep = {
         name: currentStep.name,
         approver_role_id: roleId,
         approver_user_id: userId,
         roles: selectedRole, // Attach role object for UI
         users: selectedUser, // Attach user object for UI
-        sla_hours: currentStep.slaUnit === 'days' ? currentStep.sla * 24 : currentStep.sla,
+        sla_hours: hasEscalation ? (currentStep.slaUnit === 'days' ? currentStep.sla * 24 : currentStep.sla) : null,
         sequence_order: steps.length + 1,
         is_final: currentStep.isFinal,
-        escalation_role_id: escRoleId,
-        escalation_user_id: escUserId,
-        escalate_to_next: escToNext
+        escalation_role_id: hasEscalation ? escRoleId : null,
+        escalation_user_id: hasEscalation ? escUserId : null,
+        escalate_to_next: hasEscalation ? escToNext : false
       }
-      setSteps([...steps, newStep])
+      setSteps(sanitizeSteps([...steps, newStep]))
       toast({ title: "تمت الإضافة", description: "تم إضافة الخطوة بنجاح" })
 
       // Reset form after add
@@ -343,6 +304,27 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
         escalatorId: ""
       })
     } else {
+      const updatedSteps = [...steps]
+      const currentSequence = updatedSteps[editingStepIndex].sequence_order
+      const hasEscalation = currentStep.escalatorId && currentStep.escalatorId !== 'none'
+
+      updatedSteps[editingStepIndex] = {
+        step_id: updatedSteps[editingStepIndex].step_id,
+        name: currentStep.name,
+        approver_role_id: roleId,
+        approver_user_id: userId,
+        roles: selectedRole,
+        users: selectedUser,
+        sla_hours: hasEscalation ? (currentStep.slaUnit === 'days' ? currentStep.sla * 24 : currentStep.sla) : null,
+        sequence_order: currentSequence,
+        is_final: currentStep.isFinal,
+        escalation_role_id: hasEscalation ? escRoleId : null,
+        escalation_user_id: hasEscalation ? escUserId : null,
+        escalate_to_next: hasEscalation ? escToNext : false
+      }
+      setSteps(sanitizeSteps(updatedSteps))
+      toast({ title: "تم التعديل", description: "تم تعديل الخطوة بنجاح" })
+
       setCurrentStep({
         name: "",
         approverId: "",
@@ -392,7 +374,7 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
     newSteps.forEach((step, i) => {
       step.sequence_order = i + 1
     })
-    setSteps(newSteps)
+    setSteps(sanitizeSteps(newSteps))
     if (editingStepIndex === index) {
       setEditingStepIndex(null)
       setCurrentStep({ name: "", approverId: "", roleId: "", sla: 48, slaUnit: "hours", isFinal: false, escalatorId: "" })
@@ -411,7 +393,7 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
       step.sequence_order = i + 1
     })
 
-    setSteps(newSteps)
+    setSteps(sanitizeSteps(newSteps))
   }
 
   const sensors = useSensors(
@@ -431,11 +413,11 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
 
         const newItems = arrayMove(items, oldIndex, newIndex);
 
-        // Re-assign sequence order
-        return newItems.map((item, index) => ({
+        // Re-assign sequence order and sanitize final status
+        return sanitizeSteps(newItems.map((item, index) => ({
           ...item,
           sequence_order: index + 1
-        }));
+        })));
       });
     }
   };
@@ -486,36 +468,39 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
   }
 
   if (showAddWorkflow) {
+    const isLastStepFinal = steps.length > 0 && steps[steps.length - 1].is_final
+    const isEditingLastStep = editingStepIndex !== null && editingStepIndex === steps.length - 1
+
     return (
       <div className="space-y-6 p-6 min-h-screen bg-gray-50/50" dir="rtl">
-        {/* Header with Navigation */}
-        <div className="flex items-center justify-between bg-white p-4 rounded-xl border shadow-sm">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span>إدارة مسارات العمل</span>
-            <ArrowRight className="w-4 h-4 rotate-180" />
-            <span className="font-semibold text-foreground">{editingWorkflow ? 'تعديل مسار' : 'مسار جديد'}</span>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={resetForm}>
-              إلغاء
-            </Button>
-            <Button onClick={handleSaveWorkflow} className="bg-primary hover:bg-primary/90">
-              <Save className="w-4 h-4 ml-2" />
-              حفظ المسار
-            </Button>
-          </div>
-        </div>
-
-        {/* Workflow Name Input */}
-        <Card className="border-none shadow-sm">
-          <CardContent className="p-6">
-            <Label className="text-sm font-medium mb-2 block" required>اسم مسار العمل</Label>
-            <Input
-              placeholder="مثال: طلب عذر غياب"
-              value={workflowName}
-              onChange={(e) => setWorkflowName(e.target.value)}
-              className="max-w-md"
-            />
+        {/* Combined Header & Workflow Name Card */}
+        <Card className="bg-white rounded-xl border shadow-sm overflow-hidden">
+          <CardContent className="p-6 space-y-6">
+            <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span>إدارة مسارات العمل</span>
+                <ArrowRight className="w-4 h-4 rotate-180" />
+                <span className="font-semibold text-foreground">{editingWorkflow ? 'تعديل مسار' : 'مسار جديد'}</span>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={resetForm}>
+                  إلغاء
+                </Button>
+                <Button onClick={handleSaveWorkflow} className="bg-primary hover:bg-primary/90">
+                  <Save className="w-4 h-4 ml-2" />
+                  حفظ المسار
+                </Button>
+              </div>
+            </div>
+            <div>
+              <Label className="text-sm font-medium mb-2 block" required>اسم مسار العمل</Label>
+              <Input
+                placeholder="مثال: طلب عذر غياب"
+                value={workflowName}
+                onChange={(e) => setWorkflowName(e.target.value)}
+                className="max-w-md"
+              />
+            </div>
           </CardContent>
         </Card>
 
@@ -646,14 +631,6 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
-                        <SelectLabel>الأدوار الوظيفية</SelectLabel>
-                        {roles.map((role: any) => (
-                          <SelectItem key={`role_${role.role_id}`} value={`role_${role.role_id}`}>
-                            {role.role_name}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                      <SelectGroup>
                         <SelectLabel>المستخدمين</SelectLabel>
                         {users.map((user: any) => (
                           <SelectItem key={`user_${user.user_id}`} value={`user_${user.user_id}`}>
@@ -663,34 +640,6 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
                       </SelectGroup>
                     </SelectContent>
                   </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">المهلة</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      type="number"
-                      min="1"
-                      value={currentStep.sla}
-                      onChange={(e) => handleFieldChange('sla', parseInt(e.target.value) || 0)}
-                      className="flex-1 bg-gray-50 focus:bg-white"
-                    />
-                    <Select
-                      value={currentStep.slaUnit}
-                      onValueChange={(value) => handleFieldChange('slaUnit', value)}
-                    >
-                      <SelectTrigger className="w-24 mt-1">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="hours">ساعة</SelectItem>
-                        <SelectItem value="days">يوم</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    التصعيد بعد {currentStep.sla} {currentStep.slaUnit === 'days' ? 'يوم' : 'ساعة'}
-                  </p>
                 </div>
 
                 <div className="space-y-2">
@@ -706,15 +655,6 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
                       <SelectItem value="none">لا يوجد تصعيد</SelectItem>
                       <SelectItem value="next_step" className="font-semibold text-teal-700">الخطوة التالية (تلقائي)</SelectItem>
                       <SelectGroup>
-                        <SelectLabel>الأدوار الوظيفية</SelectLabel>
-                        <SelectItem value="role_1">رئيس القسم (تلقائي لمقدم الطلب)</SelectItem>
-                        {roles.map((role: any) => (
-                          <SelectItem key={`esc_role_${role.role_id}`} value={`role_${role.role_id}`}>
-                            {role.role_name}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                      <SelectGroup>
                         <SelectLabel>مستخدم معين</SelectLabel>
                         {users.map((user: any) => (
                           <SelectItem key={`esc_user_${user.user_id}`} value={`user_${user.user_id}`}>
@@ -726,14 +666,45 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
                   </Select>
                 </div>
 
+                {currentStep.escalatorId && currentStep.escalatorId !== "none" && (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">المهلة</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        type="number"
+                        min="1"
+                        value={currentStep.sla}
+                        onChange={(e) => handleFieldChange('sla', parseInt(e.target.value) || 0)}
+                        className="flex-1 bg-gray-50 focus:bg-white"
+                      />
+                      <Select
+                        value={currentStep.slaUnit}
+                        onValueChange={(value) => handleFieldChange('slaUnit', value)}
+                      >
+                        <SelectTrigger className="w-24 mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="hours">ساعة</SelectItem>
+                          <SelectItem value="days">يوم</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      التصعيد بعد {currentStep.sla} {currentStep.slaUnit === 'days' ? 'يوم' : 'ساعة'}
+                    </p>
+                  </div>
+                )}
+
                 <div className="pt-4 space-y-3 border-t">
                   <label className="flex items-start gap-3 cursor-pointer group">
                     <div className="relative flex items-center">
                       <input
                         type="checkbox"
-                        className="peer h-5 w-5 cursor-pointer appearance-none rounded-md border border-gray-300 transition-all checked:border-teal-600 checked:bg-teal-600"
+                        className="peer h-5 w-5 cursor-pointer appearance-none rounded-md border border-gray-300 transition-all checked:border-teal-600 checked:bg-teal-600 disabled:opacity-50 disabled:cursor-not-allowed"
                         checked={currentStep.isFinal || false}
                         onChange={(e) => handleFieldChange('isFinal', e.target.checked)}
+                        disabled={editingStepIndex !== null && !isEditingLastStep}
                       />
                       <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 peer-checked:opacity-100">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
@@ -744,6 +715,11 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
                     <div className="flex-1">
                       <span className="block text-sm font-medium text-gray-700 group-hover:text-teal-700 transition-colors">خطوة الموافقة النهائية؟</span>
                       <span className="block text-xs text-muted-foreground mt-0.5">تحديد الطلب كموافق عليه وتوليد PDF وإرسال إخطار</span>
+                      {editingStepIndex !== null && !isEditingLastStep && (
+                        <span className="block text-[10px] text-red-500 mt-1 font-medium">
+                          * لا يمكن تفعيل الموافقة النهائية إلا لآخر خطوة في المسار.
+                        </span>
+                      )}
                     </div>
                   </label>
 
@@ -767,16 +743,17 @@ export default function WorkflowsEditor({ onBack, currentUserId }: WorkflowsEdit
                   </label>
                 </div>
 
-                <Button onClick={handleAddStep} className="w-full mt-4 bg-teal-600 hover:bg-teal-700 text-white">
-                  + إضافة خطوة جديدة
-                </Button>
-
-                {editingStepIndex !== null && (
-                  <p className="text-xs text-center text-teal-600 mt-2 font-medium">
-                    * يتم حفظ التعديلات تلقائياً
-                  </p>
+                {editingStepIndex === null && isLastStepFinal ? (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800 mt-4 leading-relaxed">
+                    * تم تحديد الخطوة الأخيرة كموافقة نهائية. لا يمكن إضافة خطوات بعدها. للتمكن من الإضافة، قم بتعديل الخطوة الأخيرة وإلغاء خيار الموافقة النهائية.
+                  </div>
+                ) : (
+                  <Button onClick={handleAddStep} className="w-full mt-4 bg-teal-600 hover:bg-teal-700 text-white">
+                    {editingStepIndex !== null ? "حفظ التعديلات" : "+ إضافة خطوة جديدة"}
+                  </Button>
                 )}
-              </CardContent>
+
+               </CardContent>
             </Card>
           </div>
 

@@ -20,6 +20,7 @@ tsconfig.tsbuildinfo
 # Backup files
 *.backup.tsx
 *.backup.ts
+*.bak
 
 # WhatsApp bot session & cache (large browser data)
 whatsapp-bot/.wwebjs_auth/

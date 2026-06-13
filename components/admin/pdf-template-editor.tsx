@@ -338,38 +338,30 @@ export default function PdfTemplateEditor({
         <div className="flex-1 overflow-auto bg-slate-100 p-8 rounded-lg">
           <div className="w-full max-w-[210mm] bg-white shadow-2xl rounded-sm border border-slate-300 min-h-[297mm]">
             {/* Paper Header */}
-            <div className="relative p-8 bg-white overflow-hidden">
-              {/* Gradient top accent */}
-              <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#1b9d91] via-[#1b9d91]/70 to-[#f97316]"></div>
-
-              <div className="flex items-center justify-between gap-6 mt-1">
+            <div className="p-8 bg-white border-b-4 border-[#f97316] pb-[15px] mb-[30px]" dir="rtl">
+              <div className="flex justify-between items-start gap-6">
                 {/* Right side - Arabic */}
-                <div className="text-right flex flex-col justify-center flex-1">
-                  <div className="text-base font-black text-slate-900">الجمهورية اليمنية</div>
-                  <div className="text-xs font-semibold text-slate-600 mt-1">وزارة التعليم العالي والبحث العلمي</div>
-                  <div className="text-xs font-semibold text-slate-600 mt-0.5">والتعليم الفني والتدريب المهني</div>
-                  <div className="w-8 h-0.5 bg-[#f97316] my-2.5 ml-auto rounded-full"></div>
-                  <div className="text-2xl font-black text-[#1b9d91]">جامعة العرب</div>
+                <div className="text-right flex-1">
+                  <div className="font-bold text-[16px] text-[#0f172a] mb-[4px]">الجمهورية اليمنية</div>
+                  <div className="text-[12px] text-[#334155] leading-[1.4]">وزارة التعليم العالي والبحث العلمي</div>
+                  <div className="text-[12px] text-[#334155] leading-[1.4]">والتعليم الفني والتدريب المهني</div>
+                  <div className="text-[22px] font-bold text-[#0f172a] mt-[10px]">جامعة العرب</div>
                 </div>
 
                 {/* Center - Logo */}
-                <div className="flex-shrink-0 flex items-center justify-center px-2">
-                  <img src="/university-logo.png" alt="AL-ARAB UNIVERSITY" className="w-28 h-28 object-contain" />
+                <div className="shrink-0 mx-[20px]">
+                  <img src="/university-logo.png" alt="AL-ARAB UNIVERSITY" className="w-[110px] h-[110px] object-contain" />
                 </div>
 
                 {/* Left side - English */}
-                <div className="text-left flex flex-col justify-center flex-1" dir="ltr">
-                  <div className="text-base font-black text-slate-900">Republic of Yemen</div>
-                  <div className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider mt-1">Ministry of Higher Education</div>
-                  <div className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider mt-0.5">& Scientific Research</div>
-                  <div className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider mt-0.5">Vocational Training</div>
-                  <div className="w-8 h-0.5 bg-[#f97316] my-2.5 mr-auto rounded-full"></div>
-                  <div className="text-xl font-black text-[#1b9d91] uppercase">Al-Arab University</div>
+                <div className="text-left flex-1" dir="ltr">
+                  <div className="font-bold text-[16px] text-[#0f172a] mb-[4px]">Republic of Yemen</div>
+                  <div className="text-[12px] text-[#334155] leading-[1.4]">Ministry of Higher Education &</div>
+                  <div className="text-[12px] text-[#334155] leading-[1.4]">Scientific Research</div>
+                  <div className="text-[12px] text-[#334155] leading-[1.4]">Technical and Vocational Training</div>
+                  <div className="text-[22px] font-bold text-[#0f172a] mt-[10px]">AL-ARAB UNIVERSITY</div>
                 </div>
               </div>
-
-              {/* Bottom subtle border */}
-              <div className="absolute bottom-0 left-8 right-8 h-px bg-slate-200"></div>
             </div>
 
             {/* Editor Area */}
@@ -551,38 +543,30 @@ export default function PdfTemplateEditor({
           <div className="flex-1 overflow-y-auto p-8 flex justify-center bg-slate-100/50">
              <div className="bg-white shadow-2xl w-[794px] min-h-[1123px] origin-top transform scale-90 flex flex-col">
                 {/* Paper Header */}
-                <div className="relative p-10 bg-white shrink-0 overflow-hidden">
-                  {/* Decorative top accent */}
-                  <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#1b9d91] via-[#1b9d91]/80 to-[#f97316]"></div>
-                  
-                  <div className="flex items-center justify-between gap-6 relative z-10">
+                <div className="p-10 bg-white shrink-0 border-b-4 border-[#f97316] pb-[15px] mb-[30px]" dir="rtl">
+                  <div className="flex justify-between items-start gap-6 relative z-10">
                     {/* Right side - Arabic */}
-                    <div className="text-right flex flex-col justify-center flex-1">
-                      <div className="text-lg font-black text-slate-900 tracking-tight">الجمهورية اليمنية</div>
-                      <div className="text-xs font-bold text-slate-700 mt-1.5">وزارة التعليم العالي والبحث العلمي</div>
-                      <div className="text-xs font-bold text-slate-700 mt-0.5">والتعليم الفني والتدريب المهني</div>
-                      <div className="w-10 h-0.5 bg-[#f97316] my-3 ml-auto rounded-full"></div>
-                      <div className="text-2xl font-black text-[#1b9d91]">جامعة العرب</div>
+                    <div className="text-right flex-1">
+                      <div className="font-bold text-[16px] text-[#0f172a] mb-[4px]">الجمهورية اليمنية</div>
+                      <div className="text-[12px] text-[#334155] leading-[1.4]">وزارة التعليم العالي والبحث العلمي</div>
+                      <div className="text-[12px] text-[#334155] leading-[1.4]">والتعليم الفني والتدريب المهني</div>
+                      <div className="text-[22px] font-bold text-[#0f172a] mt-[10px]">جامعة العرب</div>
                     </div>
                     
                     {/* Center - Logo */}
-                    <div className="flex-shrink-0 flex items-center justify-center px-4">
-                      <img src="/university-logo.png" alt="AL-ARAB UNIVERSITY" className="w-[120px] h-[120px] object-contain drop-shadow-sm" />
+                    <div className="shrink-0 mx-[20px]">
+                      <img src="/university-logo.png" alt="AL-ARAB UNIVERSITY" className="w-[110px] h-[110px] object-contain" />
                     </div>
                     
                     {/* Left side - English */}
-                    <div className="text-left flex flex-col justify-center flex-1" dir="ltr">
-                      <div className="text-lg font-black text-slate-900 tracking-tight">Republic of Yemen</div>
-                      <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mt-1.5">Ministry of Higher Education</div>
-                      <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mt-0.5">& Scientific Research</div>
-                      <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mt-0.5">Vocational Training</div>
-                      <div className="w-10 h-0.5 bg-[#f97316] my-3 mr-auto rounded-full"></div>
-                      <div className="text-xl font-black text-[#1b9d91] tracking-tight uppercase">Al-Arab University</div>
+                    <div className="text-left flex-1" dir="ltr">
+                      <div className="font-bold text-[16px] text-[#0f172a] mb-[4px]">Republic of Yemen</div>
+                      <div className="text-[12px] text-[#334155] leading-[1.4]">Ministry of Higher Education &</div>
+                      <div className="text-[12px] text-[#334155] leading-[1.4]">Scientific Research</div>
+                      <div className="text-[12px] text-[#334155] leading-[1.4]">Technical and Vocational Training</div>
+                      <div className="text-[22px] font-bold text-[#0f172a] mt-[10px]">AL-ARAB UNIVERSITY</div>
                     </div>
                   </div>
-
-                  {/* Bottom Border */}
-                  <div className="absolute bottom-0 left-10 right-10 h-px bg-slate-200"></div>
                 </div>
 
                 {/* Content */}

@@ -7,6 +7,7 @@ import { ArrowRight, Users, CheckCircle, XCircle, RotateCcw, Clock, TrendingUp, 
 import { getAllEmployeesKPIs } from "@/app/actions/reports"
 import { getAllTerms } from "@/app/actions/terms"
 import { TableSkeleton } from "@/components/ui/loading-skeleton"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface EmployeeKpiDashboardProps {
   onBack: () => void
@@ -37,9 +38,11 @@ function formatHours(hours: number | null): string {
 }
 
 function exportToCSV(rows: KpiRow[]) {
-  const BOM = "\uFEFF"
   const headers = ["الاسم", "الرقم الجامعي", "الدور", "إجمالي المستلمة", "المقبولة", "المرفوضة", "المعادة", "إجمالي المعالجة", "معدل الوارد/يوم", "معدل المعالجة/يوم", "متوسط سرعة الإنجاز"]
-  const escape = (v: string | number) => `"${String(v ?? "").replace(/"/g, '""')}"`
+  const escape = (v: string | number) => {
+    const s = String(v ?? "").replace(/"/g, '""')
+    return `"${s}"`
+  }
   const csvRows = rows.map(r => [
     r.name,
     r.universityId,
@@ -52,9 +55,19 @@ function exportToCSV(rows: KpiRow[]) {
     r.dailyInRate,
     r.dailyProcessed,
     formatHours(r.avgResolutionHours)
-  ].map(escape).join(","))
-  const csv = BOM + [headers.map(escape).join(","), ...csvRows].join("\n")
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
+  ].map(escape).join("\t"))
+  
+  const content = [headers.map(escape).join("\t"), ...csvRows].join("\r\n")
+
+  // Create UTF-16LE array with BOM for Excel compatibility
+  const buffer = new ArrayBuffer(content.length * 2 + 2);
+  const view = new Uint16Array(buffer);
+  view[0] = 0xFEFF; // BOM
+  for (let i = 0; i < content.length; i++) {
+    view[i + 1] = content.charCodeAt(i);
+  }
+
+  const blob = new Blob([view], { type: "text/csv;charset=utf-16le;" })
   const url = URL.createObjectURL(blob)
   const a = document.createElement("a")
   a.href = url
@@ -76,13 +89,22 @@ export default function EmployeeKpiDashboard({ onBack, currentUserId }: Employee
       if (termsResult.success && termsResult.data) {
         setTerms(termsResult.data as any[])
       }
-      await fetchKpis(undefined)
+      await fetchKpis(undefined, false)
     }
     init()
   }, [])
 
-  const fetchKpis = async (termId?: number) => {
-    setLoading(true)
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchKpis(selectedTermId, true)
+      }
+    }, 5000)
+    return () => clearInterval(intervalId)
+  }, [selectedTermId])
+
+  const fetchKpis = async (termId?: number, silent = false) => {
+    if (!silent) setLoading(true)
     setError(null)
     const result = await getAllEmployeesKPIs(termId)
     if (result.success && result.data) {
@@ -90,12 +112,12 @@ export default function EmployeeKpiDashboard({ onBack, currentUserId }: Employee
     } else {
       setError(result.error || "فشل في تحميل البيانات")
     }
-    setLoading(false)
+    if (!silent) setLoading(false)
   }
 
   const handleTermChange = (termId?: number) => {
     setSelectedTermId(termId)
-    fetchKpis(termId)
+    fetchKpis(termId, false)
   }
 
   // Summary stats
@@ -116,21 +138,23 @@ export default function EmployeeKpiDashboard({ onBack, currentUserId }: Employee
           <p className="text-muted-foreground text-sm">إحصائيات تفصيلية لإنتاجية كل موظف في معالجة الطلبات</p>
         </div>
         <div className="flex gap-2 items-center flex-wrap">
-          {/* Term filter */}
-          <select
-            className="select-field"
-            value={selectedTermId ?? ""}
-            onChange={e => handleTermChange(e.target.value ? Number(e.target.value) : undefined)}
+          <Select
+            value={selectedTermId?.toString() ?? "__all__"}
+            onValueChange={val => handleTermChange(val === "__all__" ? undefined : Number(val))}
+            dir="rtl"
           >
-            <option value="">كل الأترام</option>
-            {terms.map((t: any) => (
-              <option key={t.term_id} value={t.term_id}>{t.name}</option>
-            ))}
-          </select>
-          <Button variant="outline" size="sm" className="gap-2" onClick={() => fetchKpis(selectedTermId)}>
-            <RefreshCw className="w-4 h-4" />
-            تحديث
-          </Button>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="اختر الترم" />
+            </SelectTrigger>
+            <SelectContent dir="rtl">
+              <SelectItem value="__all__">كل الأترام</SelectItem>
+              {terms.map((t: any) => (
+                <SelectItem key={t.term_id} value={t.term_id.toString()}>
+                  {t.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {kpis.length > 0 && (
             <Button variant="outline" size="sm" className="gap-2" onClick={() => exportToCSV(kpis)}>
               <Download className="w-4 h-4" />
