@@ -174,6 +174,7 @@ export async function saveFormTemplate(data: {
     signature_url?: string
     stamp_url?: string
     requesterId?: string
+    generate_document?: boolean
 }) {
     try {
         let finalAudienceConfig = data.audience_config
@@ -230,13 +231,14 @@ export async function saveFormTemplate(data: {
                     request_type_id: data.request_type_id,
                     pdf_template: data.pdf_template,
                     signature_url: data.signature_url,
-                    stamp_url: data.stamp_url
+                    stamp_url: data.stamp_url,
+                    generate_document: data.generate_document
                 }
             })
 
             if (data.requesterId) {
                 const executor = await db.users.findUnique({ where: { university_id: data.requesterId } })
-                await logAuditAction(executor?.user_id, 'UPDATE', 'FORM_TEMPLATE', updated.name, { updated_fields: ['name', 'schema', 'audience_config', 'pdf_template', 'signature_url', 'stamp_url'] })
+                await logAuditAction(executor?.user_id, 'UPDATE', 'FORM_TEMPLATE', updated.name, { updated_fields: ['name', 'schema', 'audience_config', 'pdf_template', 'signature_url', 'stamp_url', 'generate_document'] })
             }
 
             // revalidatePath('/admin')
@@ -252,7 +254,8 @@ export async function saveFormTemplate(data: {
                     request_type_id: data.request_type_id,
                     pdf_template: data.pdf_template,
                     signature_url: data.signature_url,
-                    stamp_url: data.stamp_url
+                    stamp_url: data.stamp_url,
+                    generate_document: data.generate_document
                 }
             })
 

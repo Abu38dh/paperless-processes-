@@ -194,9 +194,10 @@ export async function notifyRequestStatusChange(
         // WhatsApp Integration (Queue)
         if (newStatus === 'approved' && request.users.phone) {
              let pdfPath = null;
+             const generateDoc = request.form_templates?.generate_document !== false;
              
-             // Generate PDF if template exists
-             if (request.form_templates?.pdf_template) {
+             // Generate PDF if template exists and generation is enabled
+             if (generateDoc && request.form_templates?.pdf_template) {
                 try {
                     const template = request.form_templates.pdf_template;
                     // Replace variables
@@ -256,7 +257,7 @@ export async function notifyRequestStatusChange(
                         <div style="margin-top: 50px; display: flex; justify-content: space-between; page-break-inside: avoid;">
                             <div style="text-align: center; width: 40%;">
                                 <div style="font-weight: bold; margin-bottom: 60px;">المختص</div>
-                                <div>...........................</div>
+                                  <div>...........................</div>
                             </div>
                             <div style="text-align: center; width: 40%;">
                                 <div style="font-weight: bold; margin-bottom: 60px;">العميد / المدير المختص</div>
@@ -300,9 +301,6 @@ export async function notifyRequestStatusChange(
                     const filePath = path.join(uploadDir, fileName);
                     fs.writeFileSync(filePath, pdfBuffer);
 
-                    // pdfPath = filePath; // Internal path
-                    // For WhatsApp Bot, we might need absolute path or URL.
-                    // Bot is running locally so absolute path is fine.
                     pdfPath = filePath;
 
                 } catch (err) {
@@ -311,22 +309,28 @@ export async function notifyRequestStatusChange(
              }
 
              const requestLink = `${appUrl}/requests/${request.request_id}`;
-             const wapMessage = `*جامعة العرب - مسار*\n\nعزيزي الطالب/ة ${request.users.full_name}،\n\nتمت *الموافقة* على طلبك رقم *${request.reference_no}* (${request.form_templates?.name}).\n\nتجدون مرفقاً نسخة من القرار الرسمي.\n\nرابط الطلب: ${requestLink}`
+             const wapMessage = generateDoc
+                 ? `*جامعة العرب - مسار*\n\nعزيزي الطالب/ة ${request.users.full_name}،\n\nتمت *الموافقة* على طلبك رقم *${request.reference_no}* (${request.form_templates?.name}).\n\nتجدون مرفقاً نسخة من القرار الرسمي.\n\nرابط الطلب: ${requestLink}`
+                 : `*جامعة العرب - مسار*\n\nعزيزي الطالب/ة ${request.users.full_name}،\n\nتمت *الموافقة* على طلبك رقم *${request.reference_no}* (${request.form_templates?.name}).\n\nرابط الطلب: ${requestLink}`;
              
-             // Pass pdfPath to queue
+             // Pass pdfPath to queue (can be null if generateDoc is false)
              await queueWhatsAppMessage(request.users.phone, wapMessage, pdfPath)
              
              // Send Email
              const userEmail = (request.users as any).email;
              if (userEmail) {
                 const emailSubject = `تمت الموافقة على طلبك رقم ${request.reference_no}`;
-                const emailText = `عزيزي الطالب/ة ${request.users.full_name}،\n\nنود إبلاغك بأنه تمت الموافقة على طلبك رقم ${request.reference_no} (${request.form_templates?.name}).\n\nيمكنك متابعة وتنزيل القرار الرسمي وتفاصيل الطلب من خلال الرابط التالي:\n${requestLink}\n\nمع تحيات،\nنظام مسار - جامعة العرب`;
+                const emailText = generateDoc
+                    ? `عزيزي الطالب/ة ${request.users.full_name}،\n\nنود إبلاغك بأنه تمت الموافقة على طلبك رقم ${request.reference_no} (${request.form_templates?.name}).\n\nيمكنك متابعة وتنزيل القرار الرسمي وتفاصيل الطلب من خلال الرابط التالي:\n${requestLink}\n\nمع تحيات،\nنظام مسار - جامعة العرب`
+                    : `عزيزي الطالب/ة ${request.users.full_name}،\n\nنود إبلاغك بأنه تمت الموافقة على طلبك رقم ${request.reference_no} (${request.form_templates?.name}).\n\nيمكنك متابعة تفاصيل الطلب من خلال الرابط التالي:\n${requestLink}\n\nمع تحيات،\nنظام مسار - جامعة العرب`;
                 const emailHtml = `
                 <div dir="rtl" style="font-family: Arial, sans-serif; line-height: 1.8; color: #333; text-align: right; margin: 20px;">
                     <p>عزيزي الطالب/ة <strong>${request.users.full_name}</strong>،</p>
                     <p>نود إبلاغك بأنه تمت <strong>الموافقة</strong> على طلبك رقم <strong>${request.reference_no}</strong> (${request.form_templates?.name}).</p>
-                    <p>يمكنك الدخول للنظام لمتابعة وتنزيل القرار الرسمي وتفاصيل الطلب:</p>
-                    <p style="margin: 20px 0;"><a href="${requestLink}" style="display: inline-block; padding: 10px 20px; background-color: #0f172a; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold;">عرض القرار وتفاصيل الطلب</a></p>
+                    ${generateDoc
+                        ? `<p>يمكنك الدخول للنظام لمتابعة وتنزيل القرار الرسمي وتفاصيل الطلب:</p>`
+                        : `<p>يمكنك الدخول للنظام لمتابعة تفاصيل الطلب:</p>`}
+                    <p style="margin: 20px 0;"><a href="${requestLink}" style="display: inline-block; padding: 10px 20px; background-color: #0f172a; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold;">${generateDoc ? 'عرض القرار وتفاصيل الطلب' : 'عرض تفاصيل الطلب'}</a></p>
                     <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
                     <p style="color: #666; font-size: 14px;">مع تحيات،<br/><strong>نظام مسار - جامعة العرب</strong></p>
                 </div>

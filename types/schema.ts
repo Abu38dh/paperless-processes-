@@ -1,4 +1,4 @@
-﻿export interface User {
+export interface User {
     id: string
     university_id: string
     full_name: string
@@ -48,6 +48,7 @@ export interface Request {
     formId?: string
     college?: string // Applicant's college name
     department?: string // Applicant's department name
+    generateDocument?: boolean
 }
 
 export interface RequestStats {

@@ -149,35 +149,18 @@ export async function getEmployeeRequests(employeeId: string) {
 
         const requests = await db.requests.findMany({
             where: { requester_id: user.user_id },
-            select: {
-                request_id: true,
-                status: true,
-                submitted_at: true,
-                reference_no: true,
-                form_id: true,
-                submission_data: true,
-                form_templates: {
-                    select: { name: true, schema: true }
-                },
+            include: {
+                form_templates: true,
                 users: {
-                    select: { 
-                        full_name: true,
-                        university_id: true,
-                        email: true,
-                        phone: true,
+                    include: {
                         departments_users_department_idTodepartments: {
-                            select: {
-                                dept_name: true,
-                                colleges: {
-                                    select: { name: true }
-                                }
+                            include: {
+                                colleges: true
                             }
                         }
                     }
                 },
-                workflow_steps: {
-                    select: { name: true }
-                }
+                workflow_steps: true
             },
             orderBy: { submitted_at: 'desc' },
             take: 50
@@ -201,7 +184,9 @@ export async function getEmployeeRequests(employeeId: string) {
                     priority: "normal",
                     description: "",
                     submissionData: subData || {},
-                    formSchema: r.form_templates?.schema,
+                    formSchema: r.form_templates?.schema || undefined,
+                    pdfTemplate: r.form_templates?.pdf_template || null,
+                    generateDocument: (r.form_templates as any)?.generate_document !== false,
                     reference_no: r.reference_no,
                     formId: r.form_id?.toString() || "",
                     users: r.users, // Include users for request detailing

@@ -33,6 +33,8 @@ export async function getStudentDashboardData(studentId: string, page: number = 
                             pdf_template: true,
                             // @ts-ignore
                             schema: true,
+                            // @ts-ignore
+                            generate_document: true,
                             request_types: {
                                 select: {
                                     workflows: {

@@ -55,6 +55,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { saveFormTemplate, publishFormTemplate, getFormTemplate } from "@/app/actions/forms"
 import { getAllColleges, getOrganizationStructure } from "@/app/actions/organizations"
 
+import { Switch } from "@/components/ui/switch"
 import { WorkflowSelectionDialog } from "@/components/admin/workflow-selection-dialog"
 import PdfTemplateEditor from "@/components/admin/pdf-template-editor"
 
@@ -92,6 +93,7 @@ export default function FormBuilderEditor({ formId, onBack, currentUserId }: For
   const [formName, setFormName] = useState("")
   const [fields, setFields] = useState<FormField[]>([])
   const [pdfTemplate, setPdfTemplate] = useState<string | undefined>(undefined)
+  const [generateDocument, setGenerateDocument] = useState<boolean>(true)
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null)
   const [draggedFieldId, setDraggedFieldId] = useState<string | null>(null)
   const [showPreview, setShowPreview] = useState(false)
@@ -148,6 +150,10 @@ export default function FormBuilderEditor({ formId, onBack, currentUserId }: For
         // Load PDF Template
         if ((result.data as any).pdf_template) {
             setPdfTemplate((result.data as any).pdf_template)
+        }
+
+        if ((result.data as any).generate_document !== undefined) {
+            setGenerateDocument((result.data as any).generate_document !== false)
         }
 
         // Load Signature and Stamp
@@ -365,7 +371,8 @@ export default function FormBuilderEditor({ formId, onBack, currentUserId }: For
         requesterId: currentUserId,
         pdf_template: pdfTemplate,
         signature_url: signatures.length > 0 ? JSON.stringify(signatures) : undefined,
-        stamp_url: stamps.length > 0 ? JSON.stringify(stamps) : undefined
+        stamp_url: stamps.length > 0 ? JSON.stringify(stamps) : undefined,
+        generate_document: generateDocument
       })
 
       if (result.success && result.data) {
@@ -519,7 +526,8 @@ export default function FormBuilderEditor({ formId, onBack, currentUserId }: For
           name: formName,
           schema: fields,
           requesterId: currentUserId,
-        pdf_template: pdfTemplate
+          pdf_template: pdfTemplate,
+          generate_document: generateDocument
         })
 
         if (!saveResult.success || !saveResult.data) {
@@ -1343,16 +1351,57 @@ export default function FormBuilderEditor({ formId, onBack, currentUserId }: For
             onConfirm={handleWorkflowConfirm}
           />
 
-            <TabsContent value="template" className="flex-1 overflow-hidden p-0 data-[state=inactive]:hidden">
-              <div className="h-full p-6">
-                <PdfTemplateEditor 
-                  template={pdfTemplate || undefined}
-                  onTemplateChange={setPdfTemplate}
-                  signatures={signatures}
-                  stamps={stamps}
-                  onSignaturesChange={setSignatures}
-                  onStampsChange={setStamps}
-                />
+            <TabsContent value="template" className="flex-1 overflow-y-auto p-6 data-[state=inactive]:hidden">
+              <div className="w-full space-y-6">
+                {/* Premium Switch Section */}
+                <div className="bg-slate-50/50 border border-slate-200 rounded-xl p-4 shadow-sm flex items-center justify-between gap-4 transition-all hover:bg-slate-50/80" dir="rtl">
+                  <div className="flex items-center gap-3 text-right">
+                    <div className="p-2 bg-primary/10 text-primary rounded-lg shrink-0">
+                      <FileText className="w-5 h-5" />
+                    </div>
+                    <div className="text-right">
+                      <Label className="text-sm font-bold text-slate-800 block text-right">توليد وثيقة رسمية عند موافقة الجامعة</Label>
+                      <p className="text-xs text-slate-500 text-right mt-0.5" dir="rtl">
+                        عند تفعيل هذا الخيار، سيقوم النظام تلقائياً بتوليد وثيقة قرار/إفادة رسمية بصيغة PDF للطالب عند الموافقة النهائية على طلبه وإرسالها له عبر واتساب والبريد الإلكتروني.
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={generateDocument}
+                    onCheckedChange={setGenerateDocument}
+                    className="cursor-pointer shrink-0"
+                  />
+                </div>
+
+                {generateDocument ? (
+                  <div className="border border-slate-100 rounded-xl bg-white overflow-hidden shadow-sm">
+                    <PdfTemplateEditor 
+                      template={pdfTemplate || undefined}
+                      onTemplateChange={setPdfTemplate}
+                      signatures={signatures}
+                      stamps={stamps}
+                      onSignaturesChange={setSignatures}
+                      onStampsChange={setStamps}
+                    />
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center p-12 text-center bg-slate-50 border-2 border-dashed rounded-xl min-h-[300px]">
+                    <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-4">
+                      <FileText className="w-8 h-8" />
+                    </div>
+                    <h3 className="font-bold text-slate-700 text-lg mb-1">إصدار الوثيقة الرسمية غير نشط</h3>
+                    <p className="text-sm text-slate-500 max-w-md">
+                      تم إلغاء تفعيل توليد وثيقة رسمية لهذا النموذج. عند الموافقة على الطلب، سيتم تغيير حالته فقط دون تصدير أي وثائق PDF رسمية.
+                    </p>
+                    <Button 
+                      onClick={() => setGenerateDocument(true)}
+                      className="mt-4 bg-primary text-white"
+                      size="sm"
+                    >
+                      تفعيل إصدار الوثيقة
+                    </Button>
+                  </div>
+                )}
               </div>
             </TabsContent>
           </Tabs>

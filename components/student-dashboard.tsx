@@ -112,6 +112,7 @@ export default function StudentDashboard({ onLogout, userData }: StudentDashboar
           formSchema: r.form_templates?.schema || null,
           reference_no: r.reference_no,
           pdfTemplate: r.form_templates?.pdf_template,
+          generateDocument: r.form_templates?.generate_document !== false,
           applicant: userData.full_name,
           term_id: r.term_id ?? null,
           users: r.users, // Pass the users object containing college/dept info

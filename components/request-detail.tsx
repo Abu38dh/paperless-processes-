@@ -39,6 +39,9 @@ import { translateRole } from "@/lib/translations"
 export default function RequestDetail({ request, onEdit, onBack, userId, showHistory = true, hideActivityLog = false }: RequestDetailProps) {
 // ... existing code ...
 
+  const pdfTemplate = request.pdfTemplate || (request as any).form_templates?.pdf_template;
+  const generateDocument = request.generateDocument !== false && (request as any).form_templates?.generate_document !== false;
+
   const [history, setHistory] = useState<RequestAction[]>([])
   const [filePreview, setFilePreview] = useState<{ open: boolean; type: 'image' | 'pdf' | 'other'; content: string; name: string } | null>(null)
 
@@ -56,7 +59,7 @@ export default function RequestDetail({ request, onEdit, onBack, userId, showHis
 
   const handleDownloadOfficialPDF = async () => {
     // Fallback template if none exists
-    const templateToUse = request.pdfTemplate || `
+    const templateToUse = pdfTemplate || `
       <div style="text-align: right; direction: rtl; font-family: 'Arial', sans-serif; padding: 20px;">
         <h2 style="text-align: center; margin-bottom: 30px; font-size: 24px; font-weight: bold; color: #0f172a;">وثيقة طلب رسمي</h2>
         
@@ -179,7 +182,7 @@ export default function RequestDetail({ request, onEdit, onBack, userId, showHis
                 {config.label}
               </div>
             </div>
-            {request.status === 'approved' && request.pdfTemplate && (
+            {request.status === 'approved' && generateDocument && pdfTemplate && (
               <Button onClick={handleDownloadOfficialPDF} variant="outline" className="gap-2 bg-white/20 text-white border-white/40 hover:bg-white/30 backdrop-blur-sm shrink-0">
                 <FileText className="w-4 h-4" />
                 تحميل الوثيقة الرسمية
@@ -604,12 +607,12 @@ export default function RequestDetail({ request, onEdit, onBack, userId, showHis
       {request.workflow && request.workflow.length > 0 && <RequestTracking workflow={request.workflow} />
       }
 
-      {((request.status === "approved") || 
+      {((request.status === "approved" && generateDocument && pdfTemplate) || 
         ((request.status === "returned" || (request.status as string) === "rejected_with_changes") && onEdit)) && (
         <div className="space-y-3">
           <h3 className="font-semibold text-foreground">الإجراءات</h3>
           <div className="flex gap-3">
-            {request.status === "approved" && (
+            {request.status === "approved" && generateDocument && pdfTemplate && (
               <Button onClick={handleDownloadOfficialPDF} className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground">
                 <Download className="w-4 h-4" />
                 تحميل الموافقة (PDF)

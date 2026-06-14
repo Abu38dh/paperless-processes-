@@ -64,18 +64,19 @@ model departments {
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model form_templates {
-  form_id         Int            @id @default(autoincrement())
-  request_type_id Int?           @unique
-  name            String         @db.VarChar
-  audience_config Json?          @db.Json
-  pdf_template    String?        @db.Text
-  signature_url   String?        @db.VarChar
-  stamp_url       String?        @db.VarChar
-  is_active       Boolean?       @default(true)
-  schema          Json?          @db.Json
-  created_at      DateTime?      @default(now()) @db.Timestamp(6)
-  request_types   request_types? @relation(fields: [request_type_id], references: [type_id], onDelete: NoAction, onUpdate: NoAction)
-  requests        requests[]
+  form_id           Int            @id @default(autoincrement())
+  request_type_id   Int?           @unique
+  name              String         @db.VarChar
+  audience_config   Json?          @db.Json
+  pdf_template      String?        @db.Text
+  signature_url     String?        @db.VarChar
+  stamp_url         String?        @db.VarChar
+  is_active         Boolean?       @default(true)
+  schema            Json?          @db.Json
+  generate_document Boolean?       @default(true)
+  created_at        DateTime?      @default(now()) @db.Timestamp(6)
+  request_types     request_types? @relation(fields: [request_type_id], references: [type_id], onDelete: NoAction, onUpdate: NoAction)
+  requests          requests[]
 }
 
 model notifications {
