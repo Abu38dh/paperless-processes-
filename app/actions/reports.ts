@@ -40,7 +40,7 @@ export async function getSLAComplianceReport(startDate?: Date, endDate?: Date) {
 
             const timeDiff = firstAction.getTime() - submittedAt.getTime()
             const hoursElapsed = timeDiff / (1000 * 60 * 60)
-            const slaHours = request.workflow_steps.sla_hours || 0
+            const slaHours = request.workflow_steps?.sla_hours || 0
 
             return {
                 requestId: request.request_id,

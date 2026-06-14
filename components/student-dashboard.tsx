@@ -118,12 +118,30 @@ export default function StudentDashboard({ onLogout, userData }: StudentDashboar
           users: r.users, // Pass the users object containing college/dept info
           attachments: r.attachments || [], // Pass attachments from admin/employee uploads
           workflow: (() => {
-            const steps = r.form_templates?.request_types?.workflows?.workflow_steps || [];
+            let steps = [...(r.form_templates?.request_types?.workflows?.workflow_steps || [])];
             const currentStepId = r.current_step_id;
             const requestStatus = r.status;
 
             // Find current step index
-            const currentStepIndex = steps.findIndex((s: any) => s.step_id === currentStepId);
+            let currentStepIndex = steps.findIndex((s: any) => s.step_id === currentStepId);
+
+            // If the current step is an ad-hoc/escalated step (not found in the default steps list)
+            if (currentStepIndex === -1 && currentStepId && r.workflow_steps) {
+              const originalStepIndex = steps.findIndex((s: any) => 
+                s.order === r.workflow_steps.order || 
+                s.name === r.workflow_steps.name?.replace(" (تصعيد)", "")
+              );
+              if (originalStepIndex !== -1) {
+                steps[originalStepIndex] = {
+                  ...steps[originalStepIndex],
+                  step_id: r.workflow_steps.step_id,
+                  name: r.workflow_steps.name,
+                  users: r.workflow_steps.users,
+                  roles: r.workflow_steps.roles
+                };
+                currentStepIndex = originalStepIndex;
+              }
+            }
 
             return steps.map((step: any, index: number) => {
               let status = "pending";

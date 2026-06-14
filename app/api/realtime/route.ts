@@ -1,4 +1,4 @@
-﻿import { NextRequest } from "next/server"
+import { NextRequest } from "next/server"
 import { auth } from "@/auth"
 import { firestore } from "@/lib/firebase-admin"
 
@@ -34,9 +34,19 @@ export async function GET(req: NextRequest) {
             console.log(`[SSE] 🚀 Connection Established: ${universityId} (${roleName})`)
 
             // Heartbeat interval (more frequent in dev)
-            const keepAlive = setInterval(() => {
+            const keepAlive = setInterval(async () => {
                 controller.enqueue(encoder.encode(": keep-alive\n\n"))
-            }, 15000)
+                
+                // In development, run the escalation check automatically in the background
+                if (process.env.NODE_ENV === 'development') {
+                    try {
+                        const { performEscalationCheck } = await import("../cron/escalate/route")
+                        await performEscalationCheck()
+                    } catch (e) {
+                        console.error("[SSE Dev Auto-Escalation Check] Failed:", e)
+                    }
+                }
+            }, 10000)
 
             const unsubscribes: (() => void)[] = []
 

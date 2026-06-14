@@ -58,7 +58,12 @@ export async function getStudentDashboardData(studentId: string, page: number = 
                     workflow_steps: {
                         select: {
                             step_id: true,
-                            name: true
+                            name: true,
+                            order: true,
+                            approver_role_id: true,
+                            approver_user_id: true,
+                            roles: { select: { role_name: true } },
+                            users: { select: { full_name: true } }
                         }
                     },
                     attachments: {
