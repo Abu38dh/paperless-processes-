@@ -197,30 +197,64 @@ async function main() {
         { dept: deptAdminAccounting, subjects: [{ name: 'مبادئ المحاسبة', code: 'ACC101' }, { name: 'المحاسبة المالية', code: 'ACC102' }] },
     ]
 
+    const levelNames = [
+        'المستوى الأول',
+        'المستوى الثاني',
+        'المستوى الثالث',
+        'المستوى الرابع',
+        'المستوى الخامس'
+    ]
+
     for (const item of depts) {
-        const level = await prisma.levels.create({
-            data: {
-                name: 'المستوى الأول',
-                order: 1,
-                department_id: item.dept.department_id,
-                show_absences: true
-            }
-        })
-        const term = await prisma.level_terms.create({
-            data: {
-                level_id: level.level_id,
-                name: 'الفصل الدراسي الأول',
-                order: 1
-            }
-        })
-        for (const sub of item.subjects) {
-            await prisma.subjects.create({
+        // Dentistry gets 5 levels, others get 4
+        const numLevels = item.dept.department_id === deptDentOral.department_id ? 5 : 4;
+        
+        for (let i = 0; i < numLevels; i++) {
+            const level = await prisma.levels.create({
                 data: {
-                    term_id: term.term_id,
-                    name: sub.name,
-                    code: sub.code
+                    name: levelNames[i],
+                    order: i + 1,
+                    department_id: item.dept.department_id,
+                    show_absences: true
                 }
             })
+            
+            const term1 = await prisma.level_terms.create({
+                data: {
+                    level_id: level.level_id,
+                    name: 'الفصل الدراسي الأول',
+                    order: 1
+                }
+            })
+            
+            const term2 = await prisma.level_terms.create({
+                data: {
+                    level_id: level.level_id,
+                    name: 'الفصل الدراسي الثاني',
+                    order: 2
+                }
+            })
+            
+            // Add specific subjects for Level 1, and generic subjects for others
+            if (i === 0) {
+                for (const sub of item.subjects) {
+                    await prisma.subjects.create({
+                        data: {
+                            term_id: term1.term_id,
+                            name: sub.name,
+                            code: sub.code
+                        }
+                    })
+                }
+            } else {
+                await prisma.subjects.create({
+                    data: {
+                        term_id: term1.term_id,
+                        name: `مادة تجريبية (${levelNames[i]})`,
+                        code: `SUB-${item.dept.department_id}-${i}`
+                    }
+                })
+            }
         }
     }
     console.log('- Levels, terms, and subjects seeded successfully.')
