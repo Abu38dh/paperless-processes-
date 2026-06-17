@@ -514,15 +514,36 @@ export async function processRequest(requestId: string, action: 'approve' | 'rej
                 const absenceField = schema.find(f => f.type === 'absence_picker')
                 if (absenceField) {
                     const absenceData = (request.submission_data as any)?.[absenceField.key]
-                    if (absenceData && absenceData.subjectId && absenceData.date) {
+                    if (absenceData) {
                         const studentUser = await db.users.findUnique({ where: { user_id: request.requester_id } })
                         if (studentUser && studentUser.university_id) {
-                            await markAbsenceExcusedByRequest(
-                                studentUser.university_id,
-                                absenceData.subjectId,
-                                [absenceData.date],
-                                request.request_id
-                            ).catch(err => console.error("Auto Absence Linkage Error:", err))
+                            if (Array.isArray(absenceData)) {
+                                // Group by subjectId to batch markAbsenceExcusedByRequest calls
+                                const bySubject: Record<number, string[]> = {}
+                                for (const item of absenceData) {
+                                    if (item.subjectId && item.date) {
+                                        if (!bySubject[item.subjectId]) bySubject[item.subjectId] = []
+                                        bySubject[item.subjectId].push(item.date)
+                                    }
+                                }
+                                for (const [subIdStr, dates] of Object.entries(bySubject)) {
+                                    const subId = parseInt(subIdStr)
+                                    await markAbsenceExcusedByRequest(
+                                        studentUser.university_id,
+                                        subId,
+                                        dates,
+                                        request.request_id
+                                    ).catch(err => console.error("Auto Absence Linkage Error for subId:", subId, err))
+                                }
+                            } else if (absenceData.subjectId && absenceData.date) {
+                                // Fallback / Backward Compatibility for single absence object
+                                await markAbsenceExcusedByRequest(
+                                    studentUser.university_id,
+                                    absenceData.subjectId,
+                                    [absenceData.date],
+                                    request.request_id
+                                ).catch(err => console.error("Auto Absence Linkage Error:", err))
+                            }
                         }
                     }
                 }

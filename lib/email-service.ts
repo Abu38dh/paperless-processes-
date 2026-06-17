@@ -1,4 +1,4 @@
-﻿import nodemailer from 'nodemailer';
+import nodemailer from 'nodemailer';
 
 // Create a reusable transporter object using SMTP transport
 // We configure this using environment variables.
@@ -34,7 +34,7 @@ export async function sendEmail(to: string, subject: string, text: string, html?
 
   try {
     const info = await transporter.sendMail({
-      from: `"${process.env.SMTP_FROM_NAME || 'نظام طلبات جامعة العرب'}" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+      from: `"${process.env.SMTP_FROM_NAME || 'نظام مسار - جامعة العرب'}" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
       to,
       subject,
       text, // plain text body

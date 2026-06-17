@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import type React from "react"
 
@@ -52,13 +52,22 @@ export default function RequestSubmissionForm({
           setFormSchema(result.data.schema as any[])
           setFormName(result.data.name)
 
+          const schemaArray = Array.isArray(result.data.schema) ? result.data.schema : (typeof result.data.schema === 'string' ? JSON.parse(result.data.schema) : []);
+
           // Pre-fill data if editing
           if (isEditing && initialData) {
-            setFormData(initialData)
+            const formattedData = { ...initialData }
+            schemaArray.forEach((field: any) => {
+              if (field.type === 'absence_picker' && formattedData[field.key]) {
+                if (!Array.isArray(formattedData[field.key])) {
+                  formattedData[field.key] = [formattedData[field.key]]
+                }
+              }
+            })
+            setFormData(formattedData)
           }
 
           // Check if form has absence_picker and fetch subjects
-          const schemaArray = Array.isArray(result.data.schema) ? result.data.schema : (typeof result.data.schema === 'string' ? JSON.parse(result.data.schema) : []);
           const hasAbsencePicker = schemaArray.some((f: any) => f.type === 'absence_picker')
           if (hasAbsencePicker) {
             setFetchingSubjects(true)
@@ -96,7 +105,15 @@ export default function RequestSubmissionForm({
     try {
       // Validate required fields
       const missingFields = formSchema
-        .filter(field => field.required && !formData[field.key])
+        .filter(field => {
+          if (!field.required) return false
+          const val = formData[field.key]
+          if (val === undefined || val === null || val === '') return true
+          if (field.type === 'absence_picker') {
+            return !Array.isArray(val) || val.length === 0
+          }
+          return false
+        })
         .map(field => field.label)
 
       if (missingFields.length > 0) {
@@ -368,40 +385,125 @@ export default function RequestSubmissionForm({
                               جاري جلب المواد المسجلة...
                             </div>
                           ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-4">
+                              {/* Display existing added absences */}
                               <div className="space-y-2">
-                                <Label className="text-sm font-semibold">المادة (التي فيها الغياب)</Label>
-                                <select
-                                  value={formData[field.key]?.subjectId || ""}
-                                  onChange={(e) => {
-                                    const selectedId = parseInt(e.target.value);
-                                    const subjectName = studentSubjects.find((s: any) => s.subject_id === selectedId)?.name || "";
-                                    handleInputChange(field.key, { ...formData[field.key], subjectId: selectedId, subjectName });
-                                  }}
-                                  className="select-field"
-                                  required={field.required}
-                                >
-                                  <option value="">اختر المادة...</option>
-                                  {studentSubjects.map((s: any) => (
-                                    <option key={s.subject_id} value={s.subject_id}>
-                                      {s.name} {s.code ? `(${s.code})` : ""}
-                                    </option>
-                                  ))}
-                                </select>
+                                <Label className="text-base font-semibold text-emerald-900">الغيابات المحددة للمواساة/العذر:</Label>
+                                {!Array.isArray(formData[field.key]) || formData[field.key].length === 0 ? (
+                                  <div className="text-sm text-emerald-800 bg-emerald-50 border border-emerald-100 p-4 rounded-lg text-center font-medium">
+                                    لم يتم تحديد أي غيابات بعد. الرجاء إضافة مادة وتاريخ غياب بالأسفل.
+                                  </div>
+                                ) : (
+                                  <div className="border border-emerald-200 rounded-lg overflow-hidden bg-white shadow-sm">
+                                    <table className="w-full text-sm">
+                                      <thead className="bg-emerald-50 text-emerald-900 border-b border-emerald-200">
+                                        <tr>
+                                          <th className="text-right p-3 font-semibold">المادة</th>
+                                          <th className="text-right p-3 font-semibold">تاريخ الغياب</th>
+                                          <th className="text-center p-3 font-semibold w-24">إجراء</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-emerald-100">
+                                        {(formData[field.key] as any[]).map((item: any, idx: number) => (
+                                          <tr key={idx} className="hover:bg-emerald-50/20">
+                                            <td className="p-3 font-medium text-slate-800">
+                                              {item.subjectName}
+                                            </td>
+                                            <td className="p-3 font-mono text-slate-600">
+                                              {item.date}
+                                            </td>
+                                            <td className="p-3 text-center">
+                                              <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => {
+                                                  const newList = (formData[field.key] as any[]).filter((_, i) => i !== idx);
+                                                  handleInputChange(field.key, newList);
+                                                }}
+                                                className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 h-8 w-8 rounded-full"
+                                              >
+                                                ✕
+                                              </Button>
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                )}
                               </div>
-                              <div className="space-y-2">
-                                <Label className="text-sm font-semibold">تاريخ الغياب</Label>
-                                <Input
-                                  type="date"
-                                  value={formData[field.key]?.date || ""}
-                                  onChange={(e) => handleInputChange(field.key, { ...formData[field.key], date: e.target.value })}
-                                  required={field.required}
-                                  className="text-right h-11 text-base"
-                                />
+
+                              {/* Form to add a new absence row */}
+                              <div className="bg-white border border-emerald-100 p-4 rounded-lg shadow-sm space-y-3">
+                                <h4 className="text-sm font-bold text-emerald-800">إضافة غياب جديد</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+                                  <div className="space-y-1.5 md:col-span-2">
+                                    <Label className="text-xs font-semibold text-slate-600">المادة</Label>
+                                    <select
+                                      id="add-absence-subject"
+                                      className="select-field w-full"
+                                      defaultValue=""
+                                    >
+                                      <option value="">اختر المادة...</option>
+                                      {studentSubjects.map((s: any) => (
+                                        <option key={s.subject_id} value={s.subject_id}>
+                                          {s.name} {s.code ? `(${s.code})` : ""}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div className="space-y-1.5 md:col-span-2">
+                                    <Label className="text-xs font-semibold text-slate-600">تاريخ الغياب</Label>
+                                    <Input
+                                      id="add-absence-date"
+                                      type="date"
+                                      className="text-right h-11 text-base w-full bg-background border border-input rounded-md px-3"
+                                    />
+                                  </div>
+                                  <div className="md:col-span-1">
+                                    <Button
+                                      type="button"
+                                      onClick={() => {
+                                        const subjectSelect = document.getElementById('add-absence-subject') as HTMLSelectElement;
+                                        const dateInput = document.getElementById('add-absence-date') as HTMLInputElement;
+                                        
+                                        const subjectId = parseInt(subjectSelect?.value || "");
+                                        const date = dateInput?.value;
+
+                                        if (!subjectId || !date) {
+                                          alert("الرجاء اختيار المادة وتحديد تاريخ الغياب");
+                                          return;
+                                        }
+
+                                        const subjectName = studentSubjects.find((s: any) => s.subject_id === subjectId)?.name || "";
+                                        
+                                        const currentList = Array.isArray(formData[field.key]) ? formData[field.key] : [];
+                                        
+                                        // Avoid duplicate entries
+                                        const isDuplicate = currentList.some((item: any) => item.subjectId === subjectId && item.date === date);
+                                        if (isDuplicate) {
+                                          alert("هذا الغياب مضاف بالفعل في القائمة");
+                                          return;
+                                        }
+
+                                        const newList = [...currentList, { subjectId, subjectName, date }];
+                                        handleInputChange(field.key, newList);
+
+                                        // Reset inputs
+                                        if (subjectSelect) subjectSelect.value = "";
+                                        if (dateInput) dateInput.value = "";
+                                      }}
+                                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold h-11"
+                                    >
+                                      إضافة
+                                    </Button>
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           )}
-                          <p className="text-xs text-emerald-700 font-medium">✨ النظام سيقوم بمعالجة غيابك آلياً عند قبول هذا الطلب</p>
+                          <p className="text-xs text-emerald-700 font-medium">✨ النظام سيقوم بمعالجة جميع الغيابات المحددة آلياً عند قبول هذا الطلب</p>
                         </div>
                       )}
                     </>

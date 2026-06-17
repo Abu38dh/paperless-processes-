@@ -416,7 +416,7 @@ export async function getStudentAbsences(studentUniversityId: string, isStudentV
                     } : null
                 } : null
             },
-            subjects: (isHidden && isStudentView) ? [] : result,
+            subjects: result,
             isHidden: isHidden
         }
     } catch (e) {

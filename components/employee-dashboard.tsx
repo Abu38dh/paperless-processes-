@@ -785,8 +785,12 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
                                                   return isNaN(d.getTime()) ? String(value) : d.toLocaleDateString('ar-EG')
                                                 } catch { return String(value) }
                                               })() :
-                                                field.type === 'absence_picker' && typeof value === 'object' && value !== null ? (
-                                                  `المادة: ${(value as any).subjectName || (value as any).subjectId}، التاريخ: ${(value as any).date}`
+                                                field.type === 'absence_picker' && (typeof value === 'object' || Array.isArray(value)) && value !== null ? (
+                                                  Array.isArray(value) ? (
+                                                    value.map((item: any) => `المادة: ${item.subjectName || item.subjectId}، التاريخ: ${item.date}`).join(' | ')
+                                                  ) : (
+                                                    `المادة: ${(value as any).subjectName || (value as any).subjectId}، التاريخ: ${(value as any).date}`
+                                                  )
                                                 ) :
                                                   typeof value === 'object' ? JSON.stringify(value) : String(value)}
                                         </span>

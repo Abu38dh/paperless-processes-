@@ -397,8 +397,12 @@ export default function RequestDetail({ request, onEdit, onBack, userId, showHis
                             })()
                           ) :
                             field.type === 'date' ? new Date(value).toLocaleDateString('ar-EG') :
-                            field.type === 'absence_picker' && typeof value === 'object' && value !== null ? (
-                               `المادة: ${(value as any).subjectName || (value as any).subjectId}، التاريخ: ${(value as any).date}`
+                            field.type === 'absence_picker' && (typeof value === 'object' || Array.isArray(value)) && value !== null ? (
+                              Array.isArray(value) ? (
+                                value.map((item: any) => `المادة: ${item.subjectName || item.subjectId}، التاريخ: ${item.date}`).join(' | ')
+                              ) : (
+                                `المادة: ${(value as any).subjectName || (value as any).subjectId}، التاريخ: ${(value as any).date}`
+                              )
                             ) :
                               typeof value === 'object' ? JSON.stringify(value) : String(value)}
                       </span>
@@ -451,8 +455,12 @@ export default function RequestDetail({ request, onEdit, onBack, userId, showHis
                     if (!displayLabel && key.startsWith('field_')) return null;
 
                     let displayValue = typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value);
-                    if (schemaField?.type === 'absence_picker' && typeof value === 'object' && value !== null) {
-                        displayValue = `المادة: ${(value as any).subjectName || (value as any).subjectId}، التاريخ: ${(value as any).date}`;
+                    if (schemaField?.type === 'absence_picker' && (typeof value === 'object' || Array.isArray(value)) && value !== null) {
+                        displayValue = Array.isArray(value) ? (
+                            value.map((item: any) => `المادة: ${item.subjectName || item.subjectId}، التاريخ: ${item.date}`).join(' | ')
+                        ) : (
+                            `المادة: ${(value as any).subjectName || (value as any).subjectId}، التاريخ: ${(value as any).date}`
+                        );
                     } else if (key === 'type' && value === 'SYSTEM_DELEGATION') displayValue = "طلب تفويض نظامي"
                     else if (key.includes('date') && typeof value === 'string') {
                       try { displayValue = new Date(value).toLocaleDateString('ar-SA') } catch(e) {}

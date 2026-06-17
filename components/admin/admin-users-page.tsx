@@ -375,6 +375,7 @@ export default function AdminUsersPage({ onBack, currentUserId }: AdminUserPageP
       const result = await updateUser(expandedUserId, {
         full_name: expandedUserData.full_name,
         email: expandedUserData.email,
+        phone: expandedUserData.phone,
         role_id: expandedUserData.role_id,
         department_id: expandedUserData.department_id,
         level_id: expandedUserData.level_id ?? null,

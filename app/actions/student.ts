@@ -204,7 +204,7 @@ export async function submitRequest(data: any) {
         try {
             const now = new Date().toISOString()
             const termRows = await db.$queryRawUnsafe<{term_id: number}[]>(
-                `SELECT term_id FROM terms WHERE start_date <= $1 AND end_date >= $1 ORDER BY start_date DESC LIMIT 1`,
+                `SELECT term_id FROM terms WHERE start_date <= $1::timestamp AND end_date >= $1::timestamp ORDER BY start_date DESC LIMIT 1`,
                 now
             )
             if (termRows[0]?.term_id) {

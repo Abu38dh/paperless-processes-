@@ -191,7 +191,7 @@ export async function notifyRequestStatusChange(
         // Trigger Real-time Sync for requester
         await triggerSync('user', request.users.university_id)
 
-        // WhatsApp Integration (Queue)
+        // WhatsApp Integration (Queue) - Approved
         if (newStatus === 'approved' && request.users.phone) {
              let pdfPath = null;
              const generateDoc = request.form_templates?.generate_document !== false;
@@ -315,10 +315,14 @@ export async function notifyRequestStatusChange(
              
              // Pass pdfPath to queue (can be null if generateDoc is false)
              await queueWhatsAppMessage(request.users.phone, wapMessage, pdfPath)
-             
-             // Send Email
+        }
+        
+        // Email Notification - Approved
+        if (newStatus === 'approved') {
              const userEmail = (request.users as any).email;
              if (userEmail) {
+                const generateDoc = request.form_templates?.generate_document !== false;
+                const requestLink = `${appUrl}/requests/${request.request_id}`;
                 const emailSubject = `تمت الموافقة على طلبك رقم ${request.reference_no}`;
                 const emailText = generateDoc
                     ? `عزيزي الطالب/ة ${request.users.full_name}،\n\nنود إبلاغك بأنه تمت الموافقة على طلبك رقم ${request.reference_no} (${request.form_templates?.name}).\n\nيمكنك متابعة وتنزيل القرار الرسمي وتفاصيل الطلب من خلال الرابط التالي:\n${requestLink}\n\nمع تحيات،\nنظام مسار - جامعة العرب`
@@ -351,10 +355,18 @@ export async function notifyRequestStatusChange(
             const wapMessage = `*جامعة العرب - مسار*\n\nعزيزي الطالب/ة ${request.users.full_name}،\n\nتم *إعادة* طلبك رقم *${request.reference_no}* للتعديل.\n\n📝 *الملاحظات:*\n${comment}\n\nيرجى الدخول للموقع لتعديل الطلب وإعادة إرساله.\n\nرابط الموقع: ${appUrl}`
 
             await queueWhatsAppMessage(request.users.phone, wapMessage)
-            
-            // Send Email
+        }
+        
+        // Email Notification - Returned for Modification
+        if (newStatus === 'returned') {
             const userEmail = (request.users as any).email;
             if (userEmail) {
+                // Fetch the last action to get the comment
+                const lastAction = await db.request_actions.findFirst({
+                    where: { request_id: requestId },
+                    orderBy: { created_at: 'desc' }
+                });
+                const comment = lastAction?.comment || "لا توجد ملاحظات إضافية";
                 const emailSubject = `إعادة طلبك رقم ${request.reference_no} للتعديل`;
                 const emailText = `عزيزي الطالب/ة ${request.users.full_name}،\n\nتبين لنا أن طلبك رقم ${request.reference_no} (${request.form_templates?.name}) بحاجة لبعض التعديلات قبل القدرة على الموافقة عليه.\n\nالملاحظات من الموظف المختص:\n${comment}\n\nيرجى الدخول للنظام وإجراء التعديلات المطلوبة لإعادة التقديم.\nرابط الموقع: ${appUrl}\n\nمع تحيات،\nنظام مسار - جامعة العرب`;
                 const emailHtml = `
@@ -387,10 +399,18 @@ export async function notifyRequestStatusChange(
             const wapMessage = `*جامعة العرب - مسار*\n\nعزيزي الطالب/ة ${request.users.full_name}،\n\nنأسف لإبلاغك بأنه تم *رفض* طلبك رقم *${request.reference_no}* (${request.form_templates?.name}).\n\n*سبب الرفض:*\n${reason}\n\nيمكنك التواصل مع الجهة المختصة للاستفسار.\n\nرابط الموقع: ${appUrl}`
 
             await queueWhatsAppMessage(request.users.phone, wapMessage)
-            
-            // Send Email
+        }
+        
+        // Email Notification - Rejected
+        if (newStatus === 'rejected') {
             const userEmail = (request.users as any).email;
             if (userEmail) {
+                // Fetch the last action to get the rejection reason
+                const lastAction = await db.request_actions.findFirst({
+                    where: { request_id: requestId },
+                    orderBy: { created_at: 'desc' }
+                });
+                const reason = lastAction?.comment || "لا يوجد سبب محدد";
                 const emailSubject = `تم رفض طلبك رقم ${request.reference_no}`;
                 const emailText = `عزيزي الطالب/ة ${request.users.full_name}،\n\nنأسف لإبلاغك بأنه تم رفض طلبك رقم ${request.reference_no} (${request.form_templates?.name}).\n\nسبب الرفض الموجه من الموظف المختص:\n${reason}\n\nللتفاصيل، يمكنك التواصل مع شؤون الطلاب أو زيارة الرابط أدناه:\n${appUrl}\n\nمع تحيات،\nنظام مسار - جامعة العرب`;
                 const emailHtml = `

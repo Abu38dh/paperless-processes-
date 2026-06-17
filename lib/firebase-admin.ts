@@ -1,4 +1,4 @@
-﻿import "server-only"
+import "server-only"
 import admin from 'firebase-admin'
 import fs from 'fs'
 import path from 'path'
