@@ -177,6 +177,137 @@ async function main() {
     })
     console.log('- Departments created successfully.')
 
+    // Curriculum Data from User Images
+    const itSubjects = [
+        { levelIndex: 0, termIndex: 0, subjects: [
+            { name: 'Islamic Culture 1', code: 'SLM111' },
+            { name: 'Arabic Language 1', code: 'ARAB112' },
+            { name: 'English Language 1', code: 'ENG113' },
+            { name: 'Computer skills', code: 'IT114' },
+            { name: 'Differential Calculus', code: 'EIT115' },
+            { name: 'General physics', code: 'EIT116' },
+            { name: 'IT Fundamentals', code: 'IT117' }
+        ]},
+        { levelIndex: 0, termIndex: 1, subjects: [
+            { name: 'Islamic Culture 2', code: 'SLM121' },
+            { name: 'Arabic Language 2', code: 'ARAB122' },
+            { name: 'English Language 2', code: 'ENG123' },
+            { name: 'Communication Skills', code: 'COM124' },
+            { name: 'Integral Calculus', code: 'EIT125' },
+            { name: 'Computer Programming 1', code: 'IT126' },
+            { name: 'Discrete Structures', code: 'IT127' }
+        ]},
+        { levelIndex: 1, termIndex: 0, subjects: [
+            { name: 'Technical writing', code: 'EIT211' },
+            { name: 'Differential Equations', code: 'EIT212' },
+            { name: 'Principle of economics', code: 'IT213' },
+            { name: 'Computer Programming 2', code: 'IT214' },
+            { name: 'Digital Logic', code: 'IT215' },
+            { name: 'Principles of management and business', code: 'IT216' },
+            { name: 'Human-Computer Interaction', code: 'IT217' }
+        ]},
+        { levelIndex: 1, termIndex: 1, subjects: [
+            { name: 'Introduction to Probability & Statistics', code: 'EIT221' },
+            { name: 'Linear Algebra', code: 'EIT222' },
+            { name: 'Professional Ethics', code: 'IT223' },
+            { name: 'Computer Architecture & Organization', code: 'IT224' },
+            { name: 'Visual Programming', code: 'IT225' },
+            { name: 'Data Structures', code: 'IT226' }
+        ]},
+        { levelIndex: 2, termIndex: 0, subjects: [
+            { name: 'Learning & Thinking & Research', code: 'EIT311' },
+            { name: 'Systems Analysis & Design', code: 'IT312' },
+            { name: 'Introduction to Database', code: 'IT313' },
+            { name: 'Web Systems', code: 'IT314' },
+            { name: 'Computer Networks', code: 'IT315' }
+        ]},
+        { levelIndex: 2, termIndex: 1, subjects: [
+            { name: 'Software Engineering Principles', code: 'IT321' },
+            { name: 'Information Security', code: 'IT322' },
+            { name: 'Project Management', code: 'IT323' },
+            { name: 'Web Applications Development', code: 'IT324' },
+            { name: 'Database Administration', code: 'IT325' }
+        ]}
+    ];
+
+    const interiorSubjects = [
+        { levelIndex: 0, termIndex: 0, subjects: [
+            { name: 'Islamic Culture 1', code: 'SLM111' },
+            { name: 'Arabic Language 1', code: 'ARAB112' },
+            { name: 'English Language 1', code: 'ENG113' },
+            { name: 'Computer Skills', code: 'IT114' },
+            { name: 'Deferential Calculus', code: 'EIT115' },
+            { name: 'General physics', code: 'EIT116' },
+            { name: 'Principles Interior design 1', code: 'IDE117' },
+            { name: 'Free Hand Drawing 1', code: 'IDE118' }
+        ]},
+        { levelIndex: 0, termIndex: 1, subjects: [
+            { name: 'Islamic Culture 2', code: 'SLM121' },
+            { name: 'Arabic Language 2', code: 'ARAB122' },
+            { name: 'English Language 2', code: 'ENG123' },
+            { name: 'Communication Skills', code: 'COM124' },
+            { name: 'Integral Calculus', code: 'EIT125' },
+            { name: 'History of Interior Design 1', code: 'IDE126' },
+            { name: 'Principles interior design 2', code: 'IDE127' },
+            { name: 'Free Hand Drawing 2', code: 'IDE128' }
+        ]},
+        { levelIndex: 1, termIndex: 0, subjects: [
+            { name: 'Technical Writing', code: 'EIT211' },
+            { name: 'Interior Design 1', code: 'IDE212' },
+            { name: 'Computer Aided Interior Design 1', code: 'IDE213' },
+            { name: 'History of Interior Design 2', code: 'IDE214' },
+            { name: 'Color Theory in Design Interior', code: 'IDE215' },
+            { name: 'Building Construction', code: 'ARE316' }
+        ]},
+        { levelIndex: 1, termIndex: 1, subjects: [
+            { name: 'Environment and behaviors in interior design', code: 'IDE221' },
+            { name: 'Design Interior -2', code: 'IDE222' },
+            { name: 'Computer Aided Interior Design 2', code: 'IDE223' },
+            { name: 'Islamic History of Interior Design', code: 'IDE224' },
+            { name: 'Model-Making for interior design', code: 'IDE225' },
+            { name: 'Building system and Technology', code: 'IDE226' }
+        ]}
+    ];
+
+    const aiSubjects = [
+        { levelIndex: 0, termIndex: 0, subjects: [
+            { name: 'Islamic Culture 1', code: 'SLM111' },
+            { name: 'Arabic Language 1', code: 'ARAB112' },
+            { name: 'English Language 1', code: 'ENG113' },
+            { name: 'Computer skills', code: 'IT114' },
+            { name: 'Differential Calculus', code: 'EIT115' },
+            { name: 'Computer Programming 1', code: 'AI116' },
+            { name: 'IT Fundamentals', code: 'IT117' }
+        ]},
+        { levelIndex: 0, termIndex: 1, subjects: [
+            { name: 'Islamic Culture 2', code: 'SLM121' },
+            { name: 'Arabic Language 2', code: 'ARAB122' },
+            { name: 'English Language 2', code: 'ENG123' },
+            { name: 'Integral Calculus', code: 'EIT125' },
+            { name: 'Computer Programming 2', code: 'AI125' },
+            { name: 'Fundamentals of Artificial Intelligence', code: 'AI126' },
+            { name: 'Discrete Structures', code: 'IT127' }
+        ]},
+        { levelIndex: 1, termIndex: 0, subjects: [
+            { name: 'Technical Writing', code: 'EIT211' },
+            { name: 'Differential Equations', code: 'EIT212' },
+            { name: 'Introduction to Probability & Statistics', code: 'EIT221' },
+            { name: 'General Physics', code: 'EIT116' },
+            { name: 'Data Structures', code: 'AI215' },
+            { name: 'Artificial Intelligence', code: 'AI216' },
+            { name: 'Human-Computer Interaction', code: 'IT217' }
+        ]},
+        { levelIndex: 1, termIndex: 1, subjects: [
+            { name: 'Communication skills', code: 'COM124' },
+            { name: 'Linear Algebra', code: 'EIT222' },
+            { name: 'Introduction to Database', code: 'IT313' },
+            { name: 'Computer Architecture & Organization', code: 'IT224' },
+            { name: 'Digital Image Processing', code: 'AI225' },
+            { name: 'Algorithm Design and Analysis', code: 'AI226' },
+            { name: 'Machine Learning', code: 'AI227' }
+        ]}
+    ];
+
     // 5. Seed academic levels, terms and subjects
     console.log('5. Seeding academic levels, terms, and subjects...')
     const depts = [
@@ -187,8 +318,8 @@ async function main() {
         { dept: deptMedTherapy, subjects: [{ name: 'العلاج الطبيعي الأساسي', code: 'THE101' }] },
         { dept: deptDentOral, subjects: [{ name: 'تشريح الأسنان', code: 'DEN101' }] },
         { dept: deptEngCyber, subjects: [{ name: 'مقدمة في الأمن السيبراني', code: 'CYB101' }, { name: 'أمن الشبكات', code: 'CYB102' }] },
-        { dept: deptEngAI, subjects: [{ name: 'مقدمة في الذكاء الاصطناعي', code: 'AI101' }, { name: 'تعلم الآلة', code: 'AI102' }] },
-        { dept: deptEngIT, subjects: [{ name: 'مقدمة في تقنية المعلومات', code: 'IT101' }, { name: 'تصميم مواقع الويب', code: 'IT102' }] },
+        { dept: deptEngAI, subjects: [{ name: 'مقدمة في الذكاء الاصطناعي', code: 'AI101' }] },
+        { dept: deptEngIT, subjects: [{ name: 'مقدمة في تقنية المعلومات', code: 'IT101' }] },
         { dept: deptEngMining, subjects: [{ name: 'هندسة التعدين والمناجم', code: 'MIN101' }] },
         { dept: deptEngInterior, subjects: [{ name: 'مبادئ التصميم الداخلي', code: 'INT101' }] },
         { dept: deptEngCivil, subjects: [{ name: 'الهندسة المدنية الأساسية', code: 'CIV101' }] },
@@ -234,10 +365,36 @@ async function main() {
                     order: 2
                 }
             })
-            
-            // Add specific subjects for Level 1, and generic subjects for others
-            if (i === 0) {
-                for (const sub of item.subjects) {
+
+            // Check if this department has specific subjects in our data
+            let currentSubjects1: { name: string, code: string }[] = []
+            let currentSubjects2: { name: string, code: string }[] = []
+
+            if (item.dept.department_id === deptEngIT.department_id) {
+                const spec1 = itSubjects.find(x => x.levelIndex === i && x.termIndex === 0)
+                const spec2 = itSubjects.find(x => x.levelIndex === i && x.termIndex === 1)
+                if (spec1) currentSubjects1 = spec1.subjects
+                if (spec2) currentSubjects2 = spec2.subjects
+            } else if (item.dept.department_id === deptEngInterior.department_id) {
+                const spec1 = interiorSubjects.find(x => x.levelIndex === i && x.termIndex === 0)
+                const spec2 = interiorSubjects.find(x => x.levelIndex === i && x.termIndex === 1)
+                if (spec1) currentSubjects1 = spec1.subjects
+                if (spec2) currentSubjects2 = spec2.subjects
+            } else if (item.dept.department_id === deptEngAI.department_id) {
+                const spec1 = aiSubjects.find(x => x.levelIndex === i && x.termIndex === 0)
+                const spec2 = aiSubjects.find(x => x.levelIndex === i && x.termIndex === 1)
+                if (spec1) currentSubjects1 = spec1.subjects
+                if (spec2) currentSubjects2 = spec2.subjects
+            }
+
+            // Fallback for Level 1 if no specific subjects found
+            if (currentSubjects1.length === 0 && i === 0) {
+                currentSubjects1 = item.subjects
+            }
+
+            // If we have subjects for Term 1, insert them
+            if (currentSubjects1.length > 0) {
+                for (const sub of currentSubjects1) {
                     await prisma.subjects.create({
                         data: {
                             term_id: term1.term_id,
@@ -247,11 +404,34 @@ async function main() {
                     })
                 }
             } else {
+                // Generic Term 1 subject
                 await prisma.subjects.create({
                     data: {
                         term_id: term1.term_id,
-                        name: `مادة تجريبية (${levelNames[i]})`,
-                        code: `SUB-${item.dept.department_id}-${i}`
+                        name: `مادة تجريبية 1 (${levelNames[i]})`,
+                        code: `SUB-${item.dept.department_id}-${i}-1`
+                    }
+                })
+            }
+
+            // If we have subjects for Term 2, insert them
+            if (currentSubjects2.length > 0) {
+                for (const sub of currentSubjects2) {
+                    await prisma.subjects.create({
+                        data: {
+                            term_id: term2.term_id,
+                            name: sub.name,
+                            code: sub.code
+                        }
+                    })
+                }
+            } else {
+                // Generic Term 2 subject
+                await prisma.subjects.create({
+                    data: {
+                        term_id: term2.term_id,
+                        name: `مادة تجريبية 2 (${levelNames[i]})`,
+                        code: `SUB-${item.dept.department_id}-${i}-2`
                     }
                 })
             }
