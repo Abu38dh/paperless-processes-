@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -15,6 +15,8 @@ import { useToast } from "@/components/ui/use-toast"
 import { Checkbox } from "@/components/ui/checkbox"
 import { format } from "date-fns"
 import { arSA } from "date-fns/locale"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar } from "@/components/ui/calendar"
 import {
     AlertDialog,
     AlertDialogAction,
@@ -200,25 +202,57 @@ export default function DelegationRequest({ userData }: DelegationRequestProps) 
                                 </Select>
                             </div>
                             <div className="grid grid-cols-2 gap-2">
-                                <div className="space-y-2">
+                                <div className="space-y-2 flex flex-col">
                                     <Label>من تاريخ <span className="text-red-500">*</span></Label>
-                                    <Input
-                                        type="date"
-                                        value={startDate}
-                                        onChange={e => setStartDate(e.target.value)}
-                                        min={new Date().toISOString().split('T')[0]}
-                                        required
-                                    />
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                                variant={"outline"}
+                                                className={`w-full justify-start text-right font-normal border-input rounded-md bg-background focus:ring-ring/50 focus:ring-[3px] focus:outline-none transition-[color,box-shadow] h-10 px-3 ${!startDate && "text-muted-foreground"}`}
+                                            >
+                                                <CalendarIcon className="ml-2 h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                                {startDate ? (
+                                                    format(new Date(startDate), "PPP", { locale: arSA })
+                                                ) : (
+                                                    <span>من تاريخ...</span>
+                                                )}
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar
+                                                mode="single"
+                                                selected={startDate ? new Date(startDate) : undefined}
+                                                onSelect={(date) => setStartDate(date ? format(date, "yyyy-MM-dd") : "")}
+                                                initialFocus
+                                            />
+                                        </PopoverContent>
+                                    </Popover>
                                 </div>
-                                <div className="space-y-2">
+                                <div className="space-y-2 flex flex-col">
                                     <Label>إلى تاريخ <span className="text-red-500">*</span></Label>
-                                    <Input
-                                        type="date"
-                                        value={endDate}
-                                        onChange={e => setEndDate(e.target.value)}
-                                        min={startDate}
-                                        required
-                                    />
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                                variant={"outline"}
+                                                className={`w-full justify-start text-right font-normal border-input rounded-md bg-background focus:ring-ring/50 focus:ring-[3px] focus:outline-none transition-[color,box-shadow] h-10 px-3 ${!endDate && "text-muted-foreground"}`}
+                                            >
+                                                <CalendarIcon className="ml-2 h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                                {endDate ? (
+                                                    format(new Date(endDate), "PPP", { locale: arSA })
+                                                ) : (
+                                                    <span>إلى تاريخ...</span>
+                                                )}
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar
+                                                mode="single"
+                                                selected={endDate ? new Date(endDate) : undefined}
+                                                onSelect={(date) => setEndDate(date ? format(date, "yyyy-MM-dd") : "")}
+                                                initialFocus
+                                            />
+                                        </PopoverContent>
+                                    </Popover>
                                 </div>
                             </div>
                         </div>

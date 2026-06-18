@@ -1,4 +1,4 @@
-﻿import puppeteer from 'puppeteer';
+import puppeteer from 'puppeteer';
 
 interface GeneratePdfOptions {
   htmlContent: string;
@@ -35,6 +35,13 @@ export async function generatePdfServer({ htmlContent, landscape = false }: Gene
             font-family: 'Cairo', sans-serif;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
+          }
+          img:not([src*="logo"]) {
+            mix-blend-mode: multiply !important;
+            filter: contrast(250%) brightness(125%) grayscale(100%) !important;
+          }
+          img[src*="logo"] {
+            mix-blend-mode: multiply !important;
           }
           @page {
             size: A4;

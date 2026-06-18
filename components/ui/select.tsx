@@ -78,7 +78,7 @@ function SelectContent({
         className={cn(
           // Container
           'relative z-50 bg-white text-[#1C2E2D]',
-          'min-w-[8rem] max-h-[--radix-select-content-available-height]',
+          'min-w-[8rem] max-h-[var(--radix-select-content-available-height)]',
           'rounded-xl border border-[#E2EDEC] shadow-lg shadow-[#00A89D]/8',
           'overflow-x-hidden overflow-y-auto',
           // Animations
@@ -89,7 +89,7 @@ function SelectContent({
           'data-[side=left]:slide-in-from-right-2',
           'data-[side=right]:slide-in-from-left-2',
           'data-[side=top]:slide-in-from-bottom-2',
-          'origin-[--radix-select-content-transform-origin]',
+          'origin-[var(--radix-select-content-transform-origin)]',
           position === 'popper' &&
             'data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1',
           className,

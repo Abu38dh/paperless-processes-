@@ -44,9 +44,12 @@ export async function getUserNotifications(userId: string, limit: number = 20) {
 async function triggerSync(type: 'user' | 'role', id: string | number) {
     try {
         const docId = `${type}_${id}`
-        await firestore.collection('signals').doc(docId).set({
+        // Fire-and-forget: Do not await Firestore write to avoid blocking server action response
+        firestore.collection('signals').doc(docId).set({
             last_update: FieldValue.serverTimestamp()
-        }, { merge: true })
+        }, { merge: true }).catch((error: any) => {
+            console.error(`[Realtime] Failed to trigger sync for ${type}_${id}:`, error)
+        })
     } catch (error) {
         console.error(`[Realtime] Failed to trigger sync for ${type}_${id}:`, error)
     }
@@ -189,247 +192,255 @@ export async function notifyRequestStatusChange(
         })
 
         // Trigger Real-time Sync for requester
-        await triggerSync('user', request.users.university_id)
+        await triggerSync('user', request.users.university_id);
 
-        // WhatsApp Integration (Queue) - Approved
-        if (newStatus === 'approved' && request.users.phone) {
-             let pdfPath = null;
-             const generateDoc = request.form_templates?.generate_document !== false;
-             
-             // Generate PDF if template exists and generation is enabled
-             if (generateDoc && request.form_templates?.pdf_template) {
-                try {
-                    const template = request.form_templates.pdf_template;
-                    // Replace variables
-                    const data = {
-                        StudentName: request.users.full_name,
-                        UniversityID: request.users.university_id,
-                        RequestID: request.reference_no,
-                        RequestDate: new Date(request.submitted_at || new Date()).toLocaleDateString('ar-SA'),
-                        RequestType: request.form_templates.name,
-                        College: request.users.departments_users_department_idTodepartments?.colleges?.name || "---",
-                        Department: request.users.departments_users_department_idTodepartments?.dept_name || "---"
-                    };
+        // Run slow third-party integrations (WhatsApp, SMTP Email, PDF compilation) in the background
+        // so that the server action can finish and return a response immediately.
+        (async () => {
+            try {
+                // WhatsApp Integration (Queue) - Approved
+                if (newStatus === 'approved' && request.users.phone) {
+                     let pdfPath = null;
+                     const generateDoc = request.form_templates?.generate_document !== false;
+                     
+                     // Generate PDF if template exists and generation is enabled
+                     if (generateDoc && request.form_templates?.pdf_template) {
+                        try {
+                            const template = request.form_templates.pdf_template;
+                            // Replace variables
+                            const data = {
+                                StudentName: request.users.full_name,
+                                UniversityID: request.users.university_id,
+                                RequestID: request.reference_no,
+                                RequestDate: new Date(request.submitted_at || new Date()).toLocaleDateString('ar-SA'),
+                                RequestType: request.form_templates.name,
+                                College: request.users.departments_users_department_idTodepartments?.colleges?.name || "---",
+                                Department: request.users.departments_users_department_idTodepartments?.dept_name || "---"
+                            };
 
-                    let content = template;
-                    Object.keys(data).forEach(key => {
-                        const regex = new RegExp(`{${key}}`, 'gi');
-                        // @ts-ignore
-                        content = content.replace(regex, data[key]);
-                    });
+                            let content = template;
+                            Object.keys(data).forEach(key => {
+                                const regex = new RegExp(`{${key}}`, 'gi');
+                                // @ts-ignore
+                                content = content.replace(regex, data[key]);
+                            });
 
-                    // Helper to get Base64 Logo
-                    let logoSrc = "";
-                    try {
-                        const logoPath = path.join(process.cwd(), 'public', 'university-logo.png');
-                        if (fs.existsSync(logoPath)) {
-                            const logoBase64 = fs.readFileSync(logoPath).toString('base64');
-                            logoSrc = `data:image/png;base64,${logoBase64}`;
+                            // Helper to get Base64 Logo
+                            let logoSrc = "";
+                            try {
+                                const logoPath = path.join(process.cwd(), 'public', 'university-logo.png');
+                                if (fs.existsSync(logoPath)) {
+                                    const logoBase64 = fs.readFileSync(logoPath).toString('base64');
+                                    logoSrc = `data:image/png;base64,${logoBase64}`;
+                                }
+                            } catch (e) { console.error("Logo load failed", e); }
+
+                            // Improved Header with Table (Better for PDF)
+                            const headerHtml = `
+                                <table style="width: 100%; border-bottom: 4px solid #f97316; padding-bottom: 10px; margin-bottom: 30px; font-family: 'Cairo', sans-serif;">
+                                    <tr>
+                                        <td style="text-align: right; width: 35%; vertical-align: top;">
+                                            <div style="font-weight: bold; font-size: 14pt; color: #0f172a; margin-bottom: 4px;">الجمهورية اليمنية</div>
+                                            <div style="font-size: 11pt; color: #334155; line-height: 1.4;">وزارة التعليم العالي والبحث العلمي</div>
+                                            <div style="font-size: 11pt; color: #334155; line-height: 1.4;">والتعليم الفني والتدريب المهني</div>
+                                            <div style="font-size: 18pt; font-weight: bold; color: #0f172a; margin-top: 8px;">جامعة العرب</div>
+                                        </td>
+                                        <td style="text-align: center; width: 30%; vertical-align: middle;">
+                                            ${logoSrc ? `<img src="${logoSrc}" style="width: 110px; height: auto;" />` : ''}
+                                        </td>
+                                        <td style="text-align: left; width: 35%; vertical-align: top; direction: ltr;">
+                                            <div style="font-weight: bold; font-size: 14pt; color: #0f172a; margin-bottom: 4px;">Republic of Yemen</div>
+                                            <div style="font-size: 11pt; color: #334155; line-height: 1.4;">Ministry of Higher Education &</div>
+                                            <div style="font-size: 11pt; color: #334155; line-height: 1.4;">Scientific Research</div>
+                                            <div style="font-size: 11pt; color: #334155; line-height: 1.4;">Technical and Vocational Training</div>
+                                            <div style="font-size: 18pt; font-weight: bold; color: #0f172a; margin-top: 8px;">AL-ARAB UNIVERSITY</div>
+                                        </td>
+                                    </tr>
+                                </table>
+                            `;
+
+                            // Footer with Signature placeholders
+                            const footerHtml = `
+                                <div style="margin-top: 50px; display: flex; justify-content: space-between; page-break-inside: avoid;">
+                                    <div style="text-align: center; width: 40%;">
+                                        <div style="font-weight: bold; margin-bottom: 60px;">المختص</div>
+                                          <div>...........................</div>
+                                    </div>
+                                    <div style="text-align: center; width: 40%;">
+                                        <div style="font-weight: bold; margin-bottom: 60px;">العميد / المدير المختص</div>
+                                        <div>...........................</div>
+                                    </div>
+                                </div>
+                                <div style="margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 10px; text-align: center; font-size: 10pt; color: #64748b;">
+                                    وثيقة إلكترونية صادرة من نظام مسار - جامعة العرب
+                                    <br/>
+                                    الرقم المرجعي: ${request.reference_no} | التاريخ: ${new Date().toLocaleDateString('ar-SA')}
+                                </div>
+                            `;
+
+                            // Combined HTML with Container
+                            const html = `
+                                <div style="width: 100%; max-width: 210mm; margin: 0 auto; padding: 40px; box-sizing: border-box;">
+                                    ${headerHtml}
+                                    
+                                    <div style="text-align: center; margin-bottom: 30px;">
+                                        <h1 style="font-size: 24pt; font-weight: bold; text-decoration: underline; text-underline-offset: 8px;">قرار إداري / إفادة</h1>
+                                    </div>
+
+                                    <div style="font-size: 14pt; line-height: 2; text-align: justify; min-height: 200px;">
+                                        ${content}
+                                    </div>
+
+                                    ${footerHtml}
+                                </div>
+                            `;
+
+                            // Generate
+                            const { generatePdfServer } = await import('@/lib/server-pdf-generator');
+                            const pdfBuffer = await generatePdfServer({ htmlContent: html });
+
+                            // Save to public/uploads/generated-pdfs
+                            const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'generated-pdfs');
+                            if (!fs.existsSync(uploadDir)) {
+                                fs.mkdirSync(uploadDir, { recursive: true });
+                            }
+                            const fileName = `Decision-${request.reference_no}.pdf`;
+                            const filePath = path.join(uploadDir, fileName);
+                            fs.writeFileSync(filePath, pdfBuffer);
+
+                            pdfPath = filePath;
+
+                        } catch (err) {
+                            console.error("Failed to generate PDF for WhatsApp:", err);
                         }
-                    } catch (e) { console.error("Logo load failed", e); }
+                     }
 
-                    // Improved Header with Table (Better for PDF)
-                    const headerHtml = `
-                        <table style="width: 100%; border-bottom: 4px solid #f97316; padding-bottom: 10px; margin-bottom: 30px; font-family: 'Cairo', sans-serif;">
-                            <tr>
-                                <td style="text-align: right; width: 35%; vertical-align: top;">
-                                    <div style="font-weight: bold; font-size: 14pt; color: #0f172a; margin-bottom: 4px;">الجمهورية اليمنية</div>
-                                    <div style="font-size: 11pt; color: #334155; line-height: 1.4;">وزارة التعليم العالي والبحث العلمي</div>
-                                    <div style="font-size: 11pt; color: #334155; line-height: 1.4;">والتعليم الفني والتدريب المهني</div>
-                                    <div style="font-size: 18pt; font-weight: bold; color: #0f172a; margin-top: 8px;">جامعة العرب</div>
-                                </td>
-                                <td style="text-align: center; width: 30%; vertical-align: middle;">
-                                    ${logoSrc ? `<img src="${logoSrc}" style="width: 110px; height: auto;" />` : ''}
-                                </td>
-                                <td style="text-align: left; width: 35%; vertical-align: top; direction: ltr;">
-                                    <div style="font-weight: bold; font-size: 14pt; color: #0f172a; margin-bottom: 4px;">Republic of Yemen</div>
-                                    <div style="font-size: 11pt; color: #334155; line-height: 1.4;">Ministry of Higher Education &</div>
-                                    <div style="font-size: 11pt; color: #334155; line-height: 1.4;">Scientific Research</div>
-                                    <div style="font-size: 11pt; color: #334155; line-height: 1.4;">Technical and Vocational Training</div>
-                                    <div style="font-size: 18pt; font-weight: bold; color: #0f172a; margin-top: 8px;">AL-ARAB UNIVERSITY</div>
-                                </td>
-                            </tr>
-                        </table>
-                    `;
-
-                    // Footer with Signature placeholders
-                    const footerHtml = `
-                        <div style="margin-top: 50px; display: flex; justify-content: space-between; page-break-inside: avoid;">
-                            <div style="text-align: center; width: 40%;">
-                                <div style="font-weight: bold; margin-bottom: 60px;">المختص</div>
-                                  <div>...........................</div>
-                            </div>
-                            <div style="text-align: center; width: 40%;">
-                                <div style="font-weight: bold; margin-bottom: 60px;">العميد / المدير المختص</div>
-                                <div>...........................</div>
-                            </div>
-                        </div>
-                        <div style="margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 10px; text-align: center; font-size: 10pt; color: #64748b;">
-                            وثيقة إلكترونية صادرة من نظام مسار - جامعة العرب
-                            <br/>
-                            الرقم المرجعي: ${request.reference_no} | التاريخ: ${new Date().toLocaleDateString('ar-SA')}
-                        </div>
-                    `;
-
-                    // Combined HTML with Container
-                    const html = `
-                        <div style="width: 100%; max-width: 210mm; margin: 0 auto; padding: 40px; box-sizing: border-box;">
-                            ${headerHtml}
-                            
-                            <div style="text-align: center; margin-bottom: 30px;">
-                                <h1 style="font-size: 24pt; font-weight: bold; text-decoration: underline; text-underline-offset: 8px;">قرار إداري / إفادة</h1>
-                            </div>
-
-                            <div style="font-size: 14pt; line-height: 2; text-align: justify; min-height: 200px;">
-                                ${content}
-                            </div>
-
-                            ${footerHtml}
-                        </div>
-                    `;
-
-                    // Generate
-                    const { generatePdfServer } = await import('@/lib/server-pdf-generator');
-                    const pdfBuffer = await generatePdfServer({ htmlContent: html });
-
-                    // Save to public/uploads/generated-pdfs
-                    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'generated-pdfs');
-                    if (!fs.existsSync(uploadDir)) {
-                        fs.mkdirSync(uploadDir, { recursive: true });
-                    }
-                    const fileName = `Decision-${request.reference_no}.pdf`;
-                    const filePath = path.join(uploadDir, fileName);
-                    fs.writeFileSync(filePath, pdfBuffer);
-
-                    pdfPath = filePath;
-
-                } catch (err) {
-                    console.error("Failed to generate PDF for WhatsApp:", err);
+                     const requestLink = `${appUrl}/requests/${request.request_id}`;
+                     const wapMessage = generateDoc
+                         ? `*جامعة العرب - مسار*\n\nعزيزي الطالب/ة ${request.users.full_name}،\n\nتمت *الموافقة* على طلبك رقم *${request.reference_no}* (${request.form_templates?.name}).\n\nتجدون مرفقاً نسخة من القرار الرسمي.\n\nرابط الطلب: ${requestLink}`
+                         : `*جامعة العرب - مسار*\n\nعزيزي الطالب/ة ${request.users.full_name}،\n\nتمت *الموافقة* على طلبك رقم *${request.reference_no}* (${request.form_templates?.name}).\n\nرابط الطلب: ${requestLink}`;
+                     
+                     // Pass pdfPath to queue (can be null if generateDoc is false)
+                     await queueWhatsAppMessage(request.users.phone, wapMessage, pdfPath)
                 }
-             }
+                
+                // Email Notification - Approved
+                if (newStatus === 'approved') {
+                     const userEmail = (request.users as any).email;
+                     if (userEmail) {
+                        const generateDoc = request.form_templates?.generate_document !== false;
+                        const requestLink = `${appUrl}/requests/${request.request_id}`;
+                        const emailSubject = `تمت الموافقة على طلبك رقم ${request.reference_no}`;
+                        const emailText = generateDoc
+                            ? `عزيزي الطالب/ة ${request.users.full_name}،\n\nنود إبلاغك بأنه تمت الموافقة على طلبك رقم ${request.reference_no} (${request.form_templates?.name}).\n\nيمكنك متابعة وتنزيل القرار الرسمي وتفاصيل الطلب من خلال الرابط التالي:\n${requestLink}\n\nمع تحيات،\nنظام مسار - جامعة العرب`
+                            : `عزيزي الطالب/ة ${request.users.full_name}،\n\nنود إبلاغك بأنه تمت الموافقة على طلبك رقم ${request.reference_no} (${request.form_templates?.name}).\n\nيمكنك متابعة تفاصيل الطلب من خلال الرابط التالي:\n${requestLink}\n\nمع تحيات،\nنظام مسار - جامعة العرب`;
+                        const emailHtml = `
+                        <div dir="rtl" style="font-family: Arial, sans-serif; line-height: 1.8; color: #333; text-align: right; margin: 20px;">
+                            <p>عزيزي الطالب/ة <strong>${request.users.full_name}</strong>،</p>
+                            <p>نود إبلاغك بأنه تمت <strong>الموافقة</strong> على طلبك رقم <strong>${request.reference_no}</strong> (${request.form_templates?.name}).</p>
+                            ${generateDoc
+                                ? `<p>يمكنك الدخول للنظام لمتابعة وتنزيل القرار الرسمي وتفاصيل الطلب:</p>`
+                                : `<p>يمكنك الدخول للنظام لمتابعة تفاصيل الطلب:</p>`}
+                            <p style="margin: 20px 0;"><a href="${requestLink}" style="display: inline-block; padding: 10px 20px; background-color: #0f172a; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold;">${generateDoc ? 'عرض القرار وتفاصيل الطلب' : 'عرض تفاصيل الطلب'}</a></p>
+                            <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
+                            <p style="color: #666; font-size: 14px;">مع تحيات،<br/><strong>نظام مسار - جامعة العرب</strong></p>
+                        </div>
+                        `;
+                        await sendEmail(userEmail, emailSubject, emailText, emailHtml);
+                     }
+                }
 
-             const requestLink = `${appUrl}/requests/${request.request_id}`;
-             const wapMessage = generateDoc
-                 ? `*جامعة العرب - مسار*\n\nعزيزي الطالب/ة ${request.users.full_name}،\n\nتمت *الموافقة* على طلبك رقم *${request.reference_no}* (${request.form_templates?.name}).\n\nتجدون مرفقاً نسخة من القرار الرسمي.\n\nرابط الطلب: ${requestLink}`
-                 : `*جامعة العرب - مسار*\n\nعزيزي الطالب/ة ${request.users.full_name}،\n\nتمت *الموافقة* على طلبك رقم *${request.reference_no}* (${request.form_templates?.name}).\n\nرابط الطلب: ${requestLink}`;
-             
-             // Pass pdfPath to queue (can be null if generateDoc is false)
-             await queueWhatsAppMessage(request.users.phone, wapMessage, pdfPath)
-        }
-        
-        // Email Notification - Approved
-        if (newStatus === 'approved') {
-             const userEmail = (request.users as any).email;
-             if (userEmail) {
-                const generateDoc = request.form_templates?.generate_document !== false;
-                const requestLink = `${appUrl}/requests/${request.request_id}`;
-                const emailSubject = `تمت الموافقة على طلبك رقم ${request.reference_no}`;
-                const emailText = generateDoc
-                    ? `عزيزي الطالب/ة ${request.users.full_name}،\n\nنود إبلاغك بأنه تمت الموافقة على طلبك رقم ${request.reference_no} (${request.form_templates?.name}).\n\nيمكنك متابعة وتنزيل القرار الرسمي وتفاصيل الطلب من خلال الرابط التالي:\n${requestLink}\n\nمع تحيات،\nنظام مسار - جامعة العرب`
-                    : `عزيزي الطالب/ة ${request.users.full_name}،\n\nنود إبلاغك بأنه تمت الموافقة على طلبك رقم ${request.reference_no} (${request.form_templates?.name}).\n\nيمكنك متابعة تفاصيل الطلب من خلال الرابط التالي:\n${requestLink}\n\nمع تحيات،\nنظام مسار - جامعة العرب`;
-                const emailHtml = `
-                <div dir="rtl" style="font-family: Arial, sans-serif; line-height: 1.8; color: #333; text-align: right; margin: 20px;">
-                    <p>عزيزي الطالب/ة <strong>${request.users.full_name}</strong>،</p>
-                    <p>نود إبلاغك بأنه تمت <strong>الموافقة</strong> على طلبك رقم <strong>${request.reference_no}</strong> (${request.form_templates?.name}).</p>
-                    ${generateDoc
-                        ? `<p>يمكنك الدخول للنظام لمتابعة وتنزيل القرار الرسمي وتفاصيل الطلب:</p>`
-                        : `<p>يمكنك الدخول للنظام لمتابعة تفاصيل الطلب:</p>`}
-                    <p style="margin: 20px 0;"><a href="${requestLink}" style="display: inline-block; padding: 10px 20px; background-color: #0f172a; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold;">${generateDoc ? 'عرض القرار وتفاصيل الطلب' : 'عرض تفاصيل الطلب'}</a></p>
-                    <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
-                    <p style="color: #666; font-size: 14px;">مع تحيات،<br/><strong>نظام مسار - جامعة العرب</strong></p>
-                </div>
-                `;
-                await sendEmail(userEmail, emailSubject, emailText, emailHtml);
-             }
-        }
+                // WhatsApp Integration (Queue) - Returned for Modification
+                if (newStatus === 'returned' && request.users.phone) {
+                    // Fetch the last action to get the comment
+                    const lastAction = await db.request_actions.findFirst({
+                        where: { request_id: requestId },
+                        orderBy: { created_at: 'desc' }
+                    });
+                    const comment = lastAction?.comment || "لا توجد ملاحظات إضافية";
 
-        // WhatsApp Integration (Queue) - Returned for Modification
-        if (newStatus === 'returned' && request.users.phone) {
-            // Fetch the last action to get the comment
-            const lastAction = await db.request_actions.findFirst({
-                where: { request_id: requestId },
-                orderBy: { created_at: 'desc' }
-            });
-            const comment = lastAction?.comment || "لا توجد ملاحظات إضافية";
+                    const wapMessage = `*جامعة العرب - مسار*\n\nعزيزي الطالب/ة ${request.users.full_name}،\n\nتم *إعادة* طلبك رقم *${request.reference_no}* للتعديل.\n\n📝 *الملاحظات:*\n${comment}\n\nيرجى الدخول للموقع لتعديل الطلب وإعادة إرساله.\n\nرابط الموقع: ${appUrl}`
 
-            const wapMessage = `*جامعة العرب - مسار*\n\nعزيزي الطالب/ة ${request.users.full_name}،\n\nتم *إعادة* طلبك رقم *${request.reference_no}* للتعديل.\n\n📝 *الملاحظات:*\n${comment}\n\nيرجى الدخول للموقع لتعديل الطلب وإعادة إرساله.\n\nرابط الموقع: ${appUrl}`
+                    await queueWhatsAppMessage(request.users.phone, wapMessage)
+                }
+                
+                // Email Notification - Returned for Modification
+                if (newStatus === 'returned') {
+                    const userEmail = (request.users as any).email;
+                    if (userEmail) {
+                        // Fetch the last action to get the comment
+                        const lastAction = await db.request_actions.findFirst({
+                            where: { request_id: requestId },
+                            orderBy: { created_at: 'desc' }
+                        });
+                        const comment = lastAction?.comment || "لا توجد ملاحظات إضافية";
+                        const emailSubject = `إعادة طلبك رقم ${request.reference_no} للتعديل`;
+                        const emailText = `عزيزي الطالب/ة ${request.users.full_name}،\n\nتبين لنا أن طلبك رقم ${request.reference_no} (${request.form_templates?.name}) بحاجة لبعض التعديلات قبل القدرة على الموافقة عليه.\n\nالملاحظات من الموظف المختص:\n${comment}\n\nيرجى الدخول للنظام وإجراء التعديلات المطلوبة لإعادة التقديم.\nرابط الموقع: ${appUrl}\n\nمع تحيات،\nنظام مسار - جامعة العرب`;
+                        const emailHtml = `
+                        <div dir="rtl" style="font-family: Arial, sans-serif; line-height: 1.8; color: #333; text-align: right; margin: 20px;">
+                            <p>عزيزي الطالب/ة <strong>${request.users.full_name}</strong>،</p>
+                            <p>تبين لنا أن طلبك رقم <strong>${request.reference_no}</strong> (${request.form_templates?.name}) بحاجة لبعض التعديلات قبل القدرة على الموافقة عليه.</p>
+                            <div style="background-color: #fff7ed; border-right: 4px solid #f97316; padding: 15px; margin: 20px 0; border-radius: 4px;">
+                                <p style="margin-top: 0; font-weight: bold; color: #c2410c;">الملاحظات من الموظف المختص:</p>
+                                <p style="margin-bottom: 0; white-space: pre-wrap;">${comment}</p>
+                            </div>
+                            <p>يرجى الدخول للنظام وإجراء التعديلات المطلوبة لإعادة التقديم:</p>
+                            <p style="margin: 20px 0;"><a href="${appUrl}" style="display: inline-block; padding: 10px 20px; background-color: #f97316; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold;">تعديل الطلب</a></p>
+                            <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
+                            <p style="color: #666; font-size: 14px;">مع تحيات،<br/><strong>نظام مسار - جامعة العرب</strong></p>
+                        </div>
+                        `;
+                        await sendEmail(userEmail, emailSubject, emailText, emailHtml);
+                    }
+                }
 
-            await queueWhatsAppMessage(request.users.phone, wapMessage)
-        }
-        
-        // Email Notification - Returned for Modification
-        if (newStatus === 'returned') {
-            const userEmail = (request.users as any).email;
-            if (userEmail) {
-                // Fetch the last action to get the comment
-                const lastAction = await db.request_actions.findFirst({
-                    where: { request_id: requestId },
-                    orderBy: { created_at: 'desc' }
-                });
-                const comment = lastAction?.comment || "لا توجد ملاحظات إضافية";
-                const emailSubject = `إعادة طلبك رقم ${request.reference_no} للتعديل`;
-                const emailText = `عزيزي الطالب/ة ${request.users.full_name}،\n\nتبين لنا أن طلبك رقم ${request.reference_no} (${request.form_templates?.name}) بحاجة لبعض التعديلات قبل القدرة على الموافقة عليه.\n\nالملاحظات من الموظف المختص:\n${comment}\n\nيرجى الدخول للنظام وإجراء التعديلات المطلوبة لإعادة التقديم.\nرابط الموقع: ${appUrl}\n\nمع تحيات،\nنظام مسار - جامعة العرب`;
-                const emailHtml = `
-                <div dir="rtl" style="font-family: Arial, sans-serif; line-height: 1.8; color: #333; text-align: right; margin: 20px;">
-                    <p>عزيزي الطالب/ة <strong>${request.users.full_name}</strong>،</p>
-                    <p>تبين لنا أن طلبك رقم <strong>${request.reference_no}</strong> (${request.form_templates?.name}) بحاجة لبعض التعديلات قبل القدرة على الموافقة عليه.</p>
-                    <div style="background-color: #fff7ed; border-right: 4px solid #f97316; padding: 15px; margin: 20px 0; border-radius: 4px;">
-                        <p style="margin-top: 0; font-weight: bold; color: #c2410c;">الملاحظات من الموظف المختص:</p>
-                        <p style="margin-bottom: 0; white-space: pre-wrap;">${comment}</p>
-                    </div>
-                    <p>يرجى الدخول للنظام وإجراء التعديلات المطلوبة لإعادة التقديم:</p>
-                    <p style="margin: 20px 0;"><a href="${appUrl}" style="display: inline-block; padding: 10px 20px; background-color: #f97316; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold;">تعديل الطلب</a></p>
-                    <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
-                    <p style="color: #666; font-size: 14px;">مع تحيات،<br/><strong>نظام مسار - جامعة العرب</strong></p>
-                </div>
-                `;
-                await sendEmail(userEmail, emailSubject, emailText, emailHtml);
+                // WhatsApp Integration (Queue) - Rejected
+                if (newStatus === 'rejected' && request.users.phone) {
+                    // Fetch the last action to get the rejection reason
+                    const lastAction = await db.request_actions.findFirst({
+                        where: { request_id: requestId },
+                        orderBy: { created_at: 'desc' }
+                    });
+                    const reason = lastAction?.comment || "لا يوجد سبب محدد";
+
+                    const wapMessage = `*جامعة العرب - مسار*\n\nعزيزي الطالب/ة ${request.users.full_name}،\n\nنأسف لإبلاغك بأنه تم *رفض* طلبك رقم *${request.reference_no}* (${request.form_templates?.name}).\n\n*سبب الرفض:*\n${reason}\n\nيمكنك التواصل مع الجهة المختصة للاستفسار.\n\nرابط الموقع: ${appUrl}`
+
+                    await queueWhatsAppMessage(request.users.phone, wapMessage)
+                }
+                
+                // Email Notification - Rejected
+                if (newStatus === 'rejected') {
+                    const userEmail = (request.users as any).email;
+                    if (userEmail) {
+                        // Fetch the last action to get the rejection reason
+                        const lastAction = await db.request_actions.findFirst({
+                            where: { request_id: requestId },
+                            orderBy: { created_at: 'desc' }
+                        });
+                        const reason = lastAction?.comment || "لا يوجد سبب محدد";
+                        const emailSubject = `تم رفض طلبك رقم ${request.reference_no}`;
+                        const emailText = `عزيزي الطالب/ة ${request.users.full_name}،\n\nنأسف لإبلاغك بأنه تم رفض طلبك رقم ${request.reference_no} (${request.form_templates?.name}).\n\nسبب الرفض الموجه من الموظف المختص:\n${reason}\n\nللتفاصيل، يمكنك التواصل مع شؤون الطلاب أو زيارة الرابط أدناه:\n${appUrl}\n\nمع تحيات،\nنظام مسار - جامعة العرب`;
+                        const emailHtml = `
+                        <div dir="rtl" style="font-family: Arial, sans-serif; line-height: 1.8; color: #333; text-align: right; margin: 20px;">
+                            <p>عزيزي الطالب/ة <strong>${request.users.full_name}</strong>،</p>
+                            <p>نأسف لإبلاغك بأنه تم <strong>رفض</strong> طلبك رقم <strong>${request.reference_no}</strong> (${request.form_templates?.name}).</p>
+                            <div style="background-color: #fef2f2; border-right: 4px solid #ef4444; padding: 15px; margin: 20px 0; border-radius: 4px;">
+                                <p style="margin-top: 0; font-weight: bold; color: #b91c1c;">سبب الرفض الموجه من الموظف المختص:</p>
+                                <p style="margin-bottom: 0; white-space: pre-wrap;">${reason}</p>
+                            </div>
+                            <p>للتفاصيل، يمكنك التواصل مع شؤون الطلاب أو الدخول للنظام:</p>
+                            <p style="margin: 20px 0;"><a href="${appUrl}" style="display: inline-block; padding: 10px 20px; background-color: #e2e8f0; color: #0f172a; text-decoration: none; border-radius: 6px; font-weight: bold;">الدخول للنظام</a></p>
+                            <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
+                            <p style="color: #666; font-size: 14px;">مع تحيات،<br/><strong>نظام مسار - جامعة العرب</strong></p>
+                        </div>
+                        `;
+                        await sendEmail(userEmail, emailSubject, emailText, emailHtml);
+                    }
+                }
+            } catch (bgErr) {
+                console.error("Background notifications processing failed:", bgErr);
             }
-        }
-
-        // WhatsApp Integration (Queue) - Rejected
-        if (newStatus === 'rejected' && request.users.phone) {
-            // Fetch the last action to get the rejection reason
-            const lastAction = await db.request_actions.findFirst({
-                where: { request_id: requestId },
-                orderBy: { created_at: 'desc' }
-            });
-            const reason = lastAction?.comment || "لا يوجد سبب محدد";
-
-            const wapMessage = `*جامعة العرب - مسار*\n\nعزيزي الطالب/ة ${request.users.full_name}،\n\nنأسف لإبلاغك بأنه تم *رفض* طلبك رقم *${request.reference_no}* (${request.form_templates?.name}).\n\n*سبب الرفض:*\n${reason}\n\nيمكنك التواصل مع الجهة المختصة للاستفسار.\n\nرابط الموقع: ${appUrl}`
-
-            await queueWhatsAppMessage(request.users.phone, wapMessage)
-        }
-        
-        // Email Notification - Rejected
-        if (newStatus === 'rejected') {
-            const userEmail = (request.users as any).email;
-            if (userEmail) {
-                // Fetch the last action to get the rejection reason
-                const lastAction = await db.request_actions.findFirst({
-                    where: { request_id: requestId },
-                    orderBy: { created_at: 'desc' }
-                });
-                const reason = lastAction?.comment || "لا يوجد سبب محدد";
-                const emailSubject = `تم رفض طلبك رقم ${request.reference_no}`;
-                const emailText = `عزيزي الطالب/ة ${request.users.full_name}،\n\nنأسف لإبلاغك بأنه تم رفض طلبك رقم ${request.reference_no} (${request.form_templates?.name}).\n\nسبب الرفض الموجه من الموظف المختص:\n${reason}\n\nللتفاصيل، يمكنك التواصل مع شؤون الطلاب أو زيارة الرابط أدناه:\n${appUrl}\n\nمع تحيات،\nنظام مسار - جامعة العرب`;
-                const emailHtml = `
-                <div dir="rtl" style="font-family: Arial, sans-serif; line-height: 1.8; color: #333; text-align: right; margin: 20px;">
-                    <p>عزيزي الطالب/ة <strong>${request.users.full_name}</strong>،</p>
-                    <p>نأسف لإبلاغك بأنه تم <strong>رفض</strong> طلبك رقم <strong>${request.reference_no}</strong> (${request.form_templates?.name}).</p>
-                    <div style="background-color: #fef2f2; border-right: 4px solid #ef4444; padding: 15px; margin: 20px 0; border-radius: 4px;">
-                        <p style="margin-top: 0; font-weight: bold; color: #b91c1c;">سبب الرفض الموجه من الموظف المختص:</p>
-                        <p style="margin-bottom: 0; white-space: pre-wrap;">${reason}</p>
-                    </div>
-                    <p>للتفاصيل، يمكنك التواصل مع شؤون الطلاب أو الدخول للنظام:</p>
-                    <p style="margin: 20px 0;"><a href="${appUrl}" style="display: inline-block; padding: 10px 20px; background-color: #e2e8f0; color: #0f172a; text-decoration: none; border-radius: 6px; font-weight: bold;">الدخول للنظام</a></p>
-                    <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
-                    <p style="color: #666; font-size: 14px;">مع تحيات،<br/><strong>نظام مسار - جامعة العرب</strong></p>
-                </div>
-                `;
-                await sendEmail(userEmail, emailSubject, emailText, emailHtml);
-            }
-        }
+        })();
 
         return { success: true }
     } catch (error) {

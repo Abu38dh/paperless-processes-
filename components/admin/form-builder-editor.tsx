@@ -938,11 +938,14 @@ export default function FormBuilderEditor({ formId, onBack, currentUserId }: For
                         />
                       )}
                       {field.type === "date" && (
-                        <input
-                          type="date"
+                        <Button
                           disabled
-                          className="w-full px-3 py-2 border border-border rounded-lg bg-muted text-muted-foreground"
-                        />
+                          variant="outline"
+                          className="w-full justify-start text-right font-normal border border-border rounded-lg bg-muted text-muted-foreground h-10 px-3 opacity-100"
+                        >
+                          <Calendar className="ml-2 h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <span>تاريخ...</span>
+                        </Button>
                       )}
                       {field.type === "file" && (
                         <input

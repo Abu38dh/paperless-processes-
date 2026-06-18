@@ -220,3 +220,15 @@ select option:checked {
   color: #D97E10;
 }
 
+/* ===== PNG Signature/Stamp Background Removal (Blend Mode) ===== */
+/* Ensures PNG signatures and stamps with white/grey/checkerboard backgrounds blend seamlessly on white/light paper */
+.rich-text-editor img:not([src*="logo"]), 
+.pdf-preview-content img:not([src*="logo"]), 
+.pdf-editor-content img:not([src*="logo"]), 
+.pdf-document-container img:not([src*="logo"]),
+[class*="pdf-"] img:not([src*="logo"]),
+[class*="document-"] img:not([src*="logo"]) {
+  mix-blend-mode: multiply !important;
+  filter: contrast(250%) brightness(125%) grayscale(100%) !important;
+}
+

@@ -113,6 +113,19 @@ export default function PdfTemplateEditor({
       }
   }
 
+  // Listen to selection changes to capture highlight range in real-time before focus leaves the editor
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      if (document.activeElement === editorRef.current) {
+        saveSelection()
+      }
+    }
+    document.addEventListener('selectionchange', handleSelectionChange)
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange)
+    }
+  }, [])
+
   // Force the browser's typing context to match the toolbar
   const enforceToolbarStyles = () => {
       const selection = window.getSelection()
@@ -516,7 +529,7 @@ export default function PdfTemplateEditor({
                   checkActiveStyles()
                 }}
                 onBlur={saveSelection}
-                className="w-full min-h-[500px] resize-none border-none focus:outline-none focus:ring-0 leading-loose p-4"
+                className="rich-text-editor w-full min-h-[500px] resize-none border-none focus:outline-none focus:ring-0 leading-loose p-4"
                 style={{
                   fontSize: '18px',
                   fontFamily: 'serif',
@@ -570,7 +583,7 @@ export default function PdfTemplateEditor({
                 </div>
 
                 {/* Content */}
-                <div className="p-12 flex-1"
+                <div className="p-12 flex-1 pdf-preview-content"
                      dangerouslySetInnerHTML={{ 
                         __html: (template || "")
                             .replace(/{StudentName}/g, 'أحمد محمد عبدالله')

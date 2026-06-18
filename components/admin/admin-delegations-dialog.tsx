@@ -13,6 +13,8 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar } from "@/components/ui/calendar"
 import {
   Select,
   SelectContent,
@@ -21,11 +23,11 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { getAdminDelegations, adminCreateDelegation, adminRevokeDelegation, getApproversList } from "@/app/actions/admin"
-import { getAvailableFormTemplates } from "@/app/actions/forms"
+import { getApprovableFormTemplates } from "@/app/actions/forms"
 import { format } from "date-fns"
 import { arSA } from "date-fns/locale"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Loader2, Trash2, Plus, Calendar, ArrowRightLeft } from "lucide-react"
+import { Loader2, Trash2, Plus, Calendar as CalendarIcon, ArrowRightLeft } from "lucide-react"
 
 interface AdminDelegationsDialogProps {
   user: any
@@ -63,7 +65,7 @@ export function AdminDelegationsDialog({ user, currentUserId, isOpen, onClose }:
     try {
       const [delRes, formsRes, usersRes] = await Promise.all([
         getAdminDelegations(user.user_id),
-        getAvailableFormTemplates(user.university_id),
+        getApprovableFormTemplates(user.university_id),
         getApproversList()
       ])
 
@@ -186,13 +188,57 @@ export function AdminDelegationsDialog({ user, currentUserId, isOpen, onClose }:
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
+                  <div className="space-y-2 flex flex-col">
                     <Label required>تاريخ البداية</Label>
-                    <Input type="date" value={newDelegation.startDate} onChange={e => setNewDelegation({...newDelegation, startDate: e.target.value})} />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={`w-full justify-start text-right font-normal border-input rounded-md bg-background focus:ring-ring/50 focus:ring-[3px] focus:outline-none transition-[color,box-shadow] h-10 px-3 ${!newDelegation.startDate && "text-muted-foreground"}`}
+                        >
+                          <CalendarIcon className="ml-2 h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          {newDelegation.startDate ? (
+                            format(new Date(newDelegation.startDate), "PPP", { locale: arSA })
+                          ) : (
+                            <span>اختر تاريخ البداية...</span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={newDelegation.startDate ? new Date(newDelegation.startDate) : undefined}
+                          onSelect={(date) => setNewDelegation({...newDelegation, startDate: date ? format(date, "yyyy-MM-dd") : ""})}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-2 flex flex-col">
                     <Label required>تاريخ النهاية</Label>
-                    <Input type="date" value={newDelegation.endDate} onChange={e => setNewDelegation({...newDelegation, endDate: e.target.value})} />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={`w-full justify-start text-right font-normal border-input rounded-md bg-background focus:ring-ring/50 focus:ring-[3px] focus:outline-none transition-[color,box-shadow] h-10 px-3 ${!newDelegation.endDate && "text-muted-foreground"}`}
+                        >
+                          <CalendarIcon className="ml-2 h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          {newDelegation.endDate ? (
+                            format(new Date(newDelegation.endDate), "PPP", { locale: arSA })
+                          ) : (
+                            <span>اختر تاريخ النهاية...</span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={newDelegation.endDate ? new Date(newDelegation.endDate) : undefined}
+                          onSelect={(date) => setNewDelegation({...newDelegation, endDate: date ? format(date, "yyyy-MM-dd") : ""})}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
 

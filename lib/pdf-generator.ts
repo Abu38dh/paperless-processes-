@@ -70,6 +70,15 @@ export const generateOfficialPDF = async ({
   // Reconstruct the official header structure (similar to editor preview)
   // Inline styles are critical here for html2canvas to pick them up correctly
   container.innerHTML = `
+    <style>
+      img:not([src*="logo"]) {
+        mix-blend-mode: multiply !important;
+        filter: contrast(250%) brightness(125%) grayscale(100%) !important;
+      }
+      img[src*="logo"] {
+        mix-blend-mode: multiply !important;
+      }
+    </style>
     <div style="width: 210mm; min-height: 297mm; padding: 20mm; background: white; box-sizing: border-box; display: flex; flex-direction: column;">
       
       <!-- Header Section -->

@@ -901,7 +901,7 @@ export async function searchStudents(query: string, employeeId?: string) {
                     OR u.university_id ILIKE ('%' || ${query} || '%')
                   )
                 ORDER BY u.full_name ASC
-                LIMIT 20
+                LIMIT 1000
             `
         } else {
             students = await db.$queryRaw<any[]>`
@@ -920,7 +920,7 @@ export async function searchStudents(query: string, employeeId?: string) {
                     OR u.university_id ILIKE ('%' || ${query} || '%')
                   )
                 ORDER BY u.full_name ASC
-                LIMIT 20
+                LIMIT 1000
             `
         }
 

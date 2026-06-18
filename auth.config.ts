@@ -9,6 +9,11 @@ export const authConfig = {
             const isLoggedIn = !!auth?.user
             const isAdminRoute = nextUrl.pathname.startsWith('/admin')
 
+            // Allow access to the root page (/) so unauthenticated users can view the login form
+            if (nextUrl.pathname === '/') {
+                return true
+            }
+
             if (!isLoggedIn) return false
 
             if (isAdminRoute) {

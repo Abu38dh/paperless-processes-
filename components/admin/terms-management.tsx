@@ -6,9 +6,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { ArrowRight, Plus, Pencil, Trash2, CalendarDays, CheckCircle2, Clock } from "lucide-react"
+import { ArrowRight, Plus, Pencil, Trash2, CalendarDays, CheckCircle2, Clock, Calendar as CalendarIcon } from "lucide-react"
 import { getAllTerms, createTerm, updateTerm, deleteTerm } from "@/app/actions/terms"
 import { cn } from "@/lib/utils"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar } from "@/components/ui/calendar"
+import { format } from "date-fns"
+import { arSA } from "date-fns/locale"
 
 interface TermsManagementPageProps {
   onBack: () => void
@@ -277,23 +281,65 @@ export default function TermsManagementPage({ onBack, currentUserId }: TermsMana
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 flex flex-col">
                 <Label htmlFor="start-date">تاريخ البداية</Label>
-                <Input
-                  id="start-date"
-                  type="date"
-                  value={formData.start_date}
-                  onChange={e => setFormData(prev => ({ ...prev, start_date: e.target.value }))}
-                />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      id="start-date"
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-right font-normal border-input rounded-md bg-background focus:ring-ring/50 focus:ring-[3px] focus:outline-none transition-[color,box-shadow] h-10 px-3",
+                        !formData.start_date && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="ml-2 h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      {formData.start_date ? (
+                        format(new Date(formData.start_date), "PPP", { locale: arSA })
+                      ) : (
+                        <span>اختر تاريخ البداية...</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={formData.start_date ? new Date(formData.start_date) : undefined}
+                      onSelect={(date) => setFormData(prev => ({ ...prev, start_date: date ? format(date, "yyyy-MM-dd") : "" }))}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 flex flex-col">
                 <Label htmlFor="end-date">تاريخ النهاية</Label>
-                <Input
-                  id="end-date"
-                  type="date"
-                  value={formData.end_date}
-                  onChange={e => setFormData(prev => ({ ...prev, end_date: e.target.value }))}
-                />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      id="end-date"
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-right font-normal border-input rounded-md bg-background focus:ring-ring/50 focus:ring-[3px] focus:outline-none transition-[color,box-shadow] h-10 px-3",
+                        !formData.end_date && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="ml-2 h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      {formData.end_date ? (
+                        format(new Date(formData.end_date), "PPP", { locale: arSA })
+                      ) : (
+                        <span>اختر تاريخ النهاية...</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={formData.end_date ? new Date(formData.end_date) : undefined}
+                      onSelect={(date) => setFormData(prev => ({ ...prev, end_date: date ? format(date, "yyyy-MM-dd") : "" }))}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
             {formError && (

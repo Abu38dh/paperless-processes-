@@ -4,7 +4,11 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { ArrowRight, TrendingUp, Users, FileText, CheckCircle, XCircle, Clock, Download, Search, Calendar } from "lucide-react"
+import { ArrowRight, TrendingUp, Users, FileText, CheckCircle, XCircle, Clock, Download, Search, Calendar as CalendarIcon } from "lucide-react"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar } from "@/components/ui/calendar"
+import { format } from "date-fns"
+import { arSA } from "date-fns/locale"
 import { TableSkeleton } from "@/components/ui/loading-skeleton"
 import { ErrorMessage } from "@/components/ui/error-message"
 import { Input } from "@/components/ui/input"
@@ -319,19 +323,54 @@ export default function AdminReportsPage({ onBack, currentUserId }: AdminReports
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <span className="text-orange-800 font-medium text-sm">من:</span>
-              <Input
-                type="date"
-                className="w-[135px] h-10 border-orange-200 focus-visible:ring-orange-500 rounded-xl bg-white text-sm"
-                value={statStartDate}
-                onChange={(e) => setStatStartDate(e.target.value)}
-              />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-[160px] h-10 border-orange-200 focus:ring-orange-500 rounded-xl bg-white text-sm justify-start text-right font-normal text-muted-foreground px-3"
+                  >
+                    <CalendarIcon className="ml-2 h-4 w-4 text-orange-500 flex-shrink-0" />
+                    {statStartDate ? (
+                      format(new Date(statStartDate), "PPP", { locale: arSA })
+                    ) : (
+                      <span>تاريخ البداية...</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={statStartDate ? new Date(statStartDate) : undefined}
+                    onSelect={(date) => setStatStartDate(date ? format(date, "yyyy-MM-dd") : "")}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+
               <span className="text-orange-800 font-medium text-sm">إلى:</span>
-              <Input
-                type="date"
-                className="w-[135px] h-10 border-orange-200 focus-visible:ring-orange-500 rounded-xl bg-white text-sm"
-                value={statEndDate}
-                onChange={(e) => setStatEndDate(e.target.value)}
-              />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-[160px] h-10 border-orange-200 focus:ring-orange-500 rounded-xl bg-white text-sm justify-start text-right font-normal text-muted-foreground px-3"
+                  >
+                    <CalendarIcon className="ml-2 h-4 w-4 text-orange-500 flex-shrink-0" />
+                    {statEndDate ? (
+                      format(new Date(statEndDate), "PPP", { locale: arSA })
+                    ) : (
+                      <span>تاريخ النهاية...</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={statEndDate ? new Date(statEndDate) : undefined}
+                    onSelect={(date) => setStatEndDate(date ? format(date, "yyyy-MM-dd") : "")}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
 

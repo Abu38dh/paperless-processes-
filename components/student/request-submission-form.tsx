@@ -7,7 +7,12 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ArrowRight, Send, UserCheck, Upload } from "lucide-react"
+import { ArrowRight, Send, UserCheck, Upload, CalendarIcon } from "lucide-react"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar } from "@/components/ui/calendar"
+import { format } from "date-fns"
+import { ar } from "date-fns/locale"
+import { cn } from "@/lib/utils"
 
 interface RequestSubmissionFormProps {
   requestType: string
@@ -23,6 +28,7 @@ interface RequestSubmissionFormProps {
 import { submitRequest, updateRequest } from "@/app/actions/student"
 import { getFormTemplate } from "@/app/actions/forms"
 import { getMyAbsences } from "@/app/actions/absences"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export default function RequestSubmissionForm({
   requestType, // This is the formId
@@ -42,6 +48,8 @@ export default function RequestSubmissionForm({
   const [formName, setFormName] = useState("")
   const [studentSubjects, setStudentSubjects] = useState<any[]>([])
   const [fetchingSubjects, setFetchingSubjects] = useState(false)
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string>("")
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
 
   useEffect(() => {
     const fetchFormSchema = async () => {
@@ -241,29 +249,52 @@ export default function RequestSubmissionForm({
                       )}
 
                       {field.type === "date" && (
-                        <Input
-                          type="date"
-                          value={formData[field.key] || ""}
-                          onChange={(e) => handleInputChange(field.key, e.target.value)}
-                          required={field.required}
-                          className="text-right h-11 text-base"
-                        />
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant={"outline"}
+                              className={cn(
+                                "w-full h-11 justify-start text-right font-normal border-input rounded-md bg-background focus:ring-ring/50 focus:ring-[3px] focus:outline-none transition-[color,box-shadow] px-3",
+                                !formData[field.key] && "text-muted-foreground"
+                              )}
+                            >
+                              <CalendarIcon className="ml-2 h-4 w-4 text-muted-foreground flex-shrink-0" />
+                              {formData[field.key] ? (
+                                format(new Date(formData[field.key]), "PPP", { locale: ar })
+                              ) : (
+                                <span>اختر التاريخ...</span>
+                              )}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={formData[field.key] ? new Date(formData[field.key]) : undefined}
+                              onSelect={(date) => {
+                                handleInputChange(field.key, date ? format(date, "yyyy-MM-dd") : "")
+                              }}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
                       )}
 
                       {field.type === "select" && (
-                        <select
+                        <Select
                           value={formData[field.key] || ""}
-                          onChange={(e) => handleInputChange(field.key, e.target.value)}
-                          className="select-field"
-                          required={field.required}
+                          onValueChange={(value) => handleInputChange(field.key, value)}
                         >
-                          <option value="">اختر...</option>
-                          {field.options?.map((opt: any) => (
-                            <option key={opt.id} value={opt.label}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
+                          <SelectTrigger className="w-full h-11 text-base text-right !border-input !rounded-md bg-background focus:ring-ring/50 focus:ring-[3px] focus:outline-none" dir="rtl">
+                            <SelectValue placeholder="اختر..." />
+                          </SelectTrigger>
+                          <SelectContent dir="rtl">
+                            {field.options?.map((opt: any) => (
+                              <SelectItem key={opt.id} value={opt.label} className="text-right">
+                                {opt.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       )}
 
                       {field.type === "radio" && (
@@ -377,8 +408,9 @@ export default function RequestSubmissionForm({
                           </Label>
                         </div>
                       )}
+
                       {field.type === "absence_picker" && (
-                        <div className="bg-emerald-50/50 border border-emerald-100 rounded-lg p-5 space-y-4">
+                        <div className="border border-border rounded-lg p-5 space-y-4 bg-card">
                           {fetchingSubjects ? (
                             <div className="text-sm text-muted-foreground flex items-center gap-2">
                               <span className="w-4 h-4 rounded-full border-2 border-primary border-t-transparent animate-spin inline-block"></span>
@@ -388,24 +420,24 @@ export default function RequestSubmissionForm({
                             <div className="space-y-4">
                               {/* Display existing added absences */}
                               <div className="space-y-2">
-                                <Label className="text-base font-semibold text-emerald-900">الغيابات المحددة للمواساة/العذر:</Label>
+                                <Label className="text-base font-semibold text-foreground">الغيابات المحددة للمواساة/العذر:</Label>
                                 {!Array.isArray(formData[field.key]) || formData[field.key].length === 0 ? (
-                                  <div className="text-sm text-emerald-800 bg-emerald-50 border border-emerald-100 p-4 rounded-lg text-center font-medium">
+                                  <div className="text-sm text-muted-foreground bg-muted/50 border border-border p-4 rounded-lg text-center font-medium">
                                     لم يتم تحديد أي غيابات بعد. الرجاء إضافة مادة وتاريخ غياب بالأسفل.
                                   </div>
                                 ) : (
-                                  <div className="border border-emerald-200 rounded-lg overflow-hidden bg-white shadow-sm">
+                                  <div className="border border-border rounded-lg overflow-hidden bg-background shadow-sm">
                                     <table className="w-full text-sm">
-                                      <thead className="bg-emerald-50 text-emerald-900 border-b border-emerald-200">
+                                      <thead className="bg-muted text-muted-foreground border-b border-border">
                                         <tr>
                                           <th className="text-right p-3 font-semibold">المادة</th>
                                           <th className="text-right p-3 font-semibold">تاريخ الغياب</th>
                                           <th className="text-center p-3 font-semibold w-24">إجراء</th>
                                         </tr>
                                       </thead>
-                                      <tbody className="divide-y divide-emerald-100">
+                                      <tbody className="divide-y divide-border">
                                         {(formData[field.key] as any[]).map((item: any, idx: number) => (
-                                          <tr key={idx} className="hover:bg-emerald-50/20">
+                                          <tr key={idx} className="hover:bg-muted/40">
                                             <td className="p-3 font-medium text-slate-800">
                                               {item.subjectName}
                                             </td>
@@ -433,49 +465,70 @@ export default function RequestSubmissionForm({
                                   </div>
                                 )}
                               </div>
-
+ 
                               {/* Form to add a new absence row */}
-                              <div className="bg-white border border-emerald-100 p-4 rounded-lg shadow-sm space-y-3">
-                                <h4 className="text-sm font-bold text-emerald-800">إضافة غياب جديد</h4>
+                              <div className="bg-background border border-border p-4 rounded-lg shadow-sm space-y-3">
+                                <h4 className="text-sm font-bold text-foreground">إضافة غياب جديد</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
                                   <div className="space-y-1.5 md:col-span-2">
                                     <Label className="text-xs font-semibold text-slate-600">المادة</Label>
-                                    <select
-                                      id="add-absence-subject"
-                                      className="select-field w-full"
-                                      defaultValue=""
+                                    <Select
+                                      value={selectedSubjectId}
+                                      onValueChange={(value) => setSelectedSubjectId(value)}
                                     >
-                                      <option value="">اختر المادة...</option>
-                                      {studentSubjects.map((s: any) => (
-                                        <option key={s.subject_id} value={s.subject_id}>
-                                          {s.name} {s.code ? `(${s.code})` : ""}
-                                        </option>
-                                      ))}
-                                    </select>
+                                      <SelectTrigger className="w-full h-11 text-base text-right !border-input !rounded-md bg-background focus:ring-ring/50 focus:ring-[3px] focus:outline-none" dir="rtl">
+                                        <SelectValue placeholder="اختر المادة..." />
+                                      </SelectTrigger>
+                                      <SelectContent dir="rtl">
+                                        {studentSubjects.map((s: any) => (
+                                          <SelectItem key={s.subject_id} value={s.subject_id.toString()} className="text-right">
+                                            {s.name} {s.code ? `(${s.code})` : ""}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
                                   </div>
-                                  <div className="space-y-1.5 md:col-span-2">
-                                    <Label className="text-xs font-semibold text-slate-600">تاريخ الغياب</Label>
-                                    <Input
-                                      id="add-absence-date"
-                                      type="date"
-                                      className="text-right h-11 text-base w-full bg-background border border-input rounded-md px-3"
-                                    />
+                                  <div className="space-y-1.5 md:col-span-2 flex flex-col">
+                                    <Label className="text-xs font-semibold text-slate-600 mb-1.5">تاريخ الغياب</Label>
+                                    <Popover>
+                                      <PopoverTrigger asChild>
+                                        <Button
+                                          variant={"outline"}
+                                          className={cn(
+                                            "w-full h-11 justify-start text-right font-normal border-input rounded-md bg-background focus:ring-ring/50 focus:ring-[3px] focus:outline-none transition-[color,box-shadow] px-3",
+                                            !selectedDate && "text-muted-foreground"
+                                          )}
+                                        >
+                                          <CalendarIcon className="ml-2 h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                          {selectedDate ? (
+                                            format(selectedDate, "PPP", { locale: ar })
+                                          ) : (
+                                            <span>اختر تاريخ الغياب...</span>
+                                          )}
+                                        </Button>
+                                      </PopoverTrigger>
+                                      <PopoverContent className="w-auto p-0" align="start">
+                                        <Calendar
+                                          mode="single"
+                                          selected={selectedDate}
+                                          onSelect={setSelectedDate}
+                                          initialFocus
+                                        />
+                                      </PopoverContent>
+                                    </Popover>
                                   </div>
                                   <div className="md:col-span-1">
                                     <Button
                                       type="button"
                                       onClick={() => {
-                                        const subjectSelect = document.getElementById('add-absence-subject') as HTMLSelectElement;
-                                        const dateInput = document.getElementById('add-absence-date') as HTMLInputElement;
-                                        
-                                        const subjectId = parseInt(subjectSelect?.value || "");
-                                        const date = dateInput?.value;
-
+                                        const subjectId = parseInt(selectedSubjectId || "");
+                                        const date = selectedDate ? format(selectedDate, "yyyy-MM-dd") : "";
+ 
                                         if (!subjectId || !date) {
                                           alert("الرجاء اختيار المادة وتحديد تاريخ الغياب");
                                           return;
                                         }
-
+ 
                                         const subjectName = studentSubjects.find((s: any) => s.subject_id === subjectId)?.name || "";
                                         
                                         const currentList = Array.isArray(formData[field.key]) ? formData[field.key] : [];
@@ -486,15 +539,15 @@ export default function RequestSubmissionForm({
                                           alert("هذا الغياب مضاف بالفعل في القائمة");
                                           return;
                                         }
-
+ 
                                         const newList = [...currentList, { subjectId, subjectName, date }];
                                         handleInputChange(field.key, newList);
-
+ 
                                         // Reset inputs
-                                        if (subjectSelect) subjectSelect.value = "";
-                                        if (dateInput) dateInput.value = "";
+                                        setSelectedSubjectId("");
+                                        setSelectedDate(undefined);
                                       }}
-                                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold h-11"
+                                      className="w-full bg-primary hover:bg-primary/90 text-white font-semibold h-11"
                                     >
                                       إضافة
                                     </Button>
@@ -503,7 +556,7 @@ export default function RequestSubmissionForm({
                               </div>
                             </div>
                           )}
-                          <p className="text-xs text-emerald-700 font-medium">✨ النظام سيقوم بمعالجة جميع الغيابات المحددة آلياً عند قبول هذا الطلب</p>
+                          <p className="text-xs text-muted-foreground font-medium">✨ النظام سيقوم بمعالجة جميع الغيابات المحددة آلياً عند قبول هذا الطلب</p>
                         </div>
                       )}
                     </>

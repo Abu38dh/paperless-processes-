@@ -39,6 +39,11 @@ import AdminDepartmentsPage from "@/components/admin/admin-departments-page"
 import AbsenceManager from "@/components/employee/absence-manager"
 import TermsManagement from "@/components/admin/terms-management"
 import LevelsSubjectsManager from "@/components/admin/levels-subjects-manager"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar } from "@/components/ui/calendar"
+import { format } from "date-fns"
+import { arSA } from "date-fns/locale"
+import { Calendar as CalendarIcon } from "lucide-react"
 
 import { RequestStats } from "@/components/dashboard/request-stats"
 import DelegationRequest from "@/components/dashboard/delegation-request"
@@ -1330,21 +1335,55 @@ export default function EmployeeDashboard({ onLogout, permissions = [], userData
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs font-semibold text-orange-800">من:</span>
-                  <Input 
-                    type="date" 
-                    className="h-8 w-[110px] text-xs px-2 py-1 bg-white border-orange-200 focus-visible:ring-orange-500"
-                    value={requesterHistoryDialog.startDate || ""} 
-                    onChange={(e) => setRequesterHistoryDialog(prev => ({ ...prev, startDate: e.target.value || null }))} 
-                  />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="h-8 w-[135px] text-xs px-2 py-1 bg-white border-orange-200 focus:ring-orange-500 rounded-md justify-start text-right font-normal text-muted-foreground"
+                      >
+                        <CalendarIcon className="ml-1 h-3.5 w-3.5 text-orange-500 flex-shrink-0" />
+                        {requesterHistoryDialog.startDate ? (
+                          format(new Date(requesterHistoryDialog.startDate), "PPP", { locale: arSA })
+                        ) : (
+                          <span>البداية...</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={requesterHistoryDialog.startDate ? new Date(requesterHistoryDialog.startDate) : undefined}
+                        onSelect={(date) => setRequesterHistoryDialog(prev => ({ ...prev, startDate: date ? format(date, "yyyy-MM-dd") : null }))}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs font-semibold text-orange-800">إلى:</span>
-                  <Input 
-                    type="date" 
-                    className="h-8 w-[110px] text-xs px-2 py-1 bg-white border-orange-200 focus-visible:ring-orange-500"
-                    value={requesterHistoryDialog.endDate || ""} 
-                    onChange={(e) => setRequesterHistoryDialog(prev => ({ ...prev, endDate: e.target.value || null }))} 
-                  />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="h-8 w-[135px] text-xs px-2 py-1 bg-white border-orange-200 focus:ring-orange-500 rounded-md justify-start text-right font-normal text-muted-foreground"
+                      >
+                        <CalendarIcon className="ml-1 h-3.5 w-3.5 text-orange-500 flex-shrink-0" />
+                        {requesterHistoryDialog.endDate ? (
+                          format(new Date(requesterHistoryDialog.endDate), "PPP", { locale: arSA })
+                        ) : (
+                          <span>النهاية...</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={requesterHistoryDialog.endDate ? new Date(requesterHistoryDialog.endDate) : undefined}
+                        onSelect={(date) => setRequesterHistoryDialog(prev => ({ ...prev, endDate: date ? format(date, "yyyy-MM-dd") : null }))}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
 
                 {(requesterHistoryDialog.startDate || requesterHistoryDialog.endDate || requesterHistoryDialog.textSearch) && (

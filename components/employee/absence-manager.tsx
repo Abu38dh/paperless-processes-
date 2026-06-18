@@ -25,6 +25,11 @@ import {
     AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
     AlertDialogHeader, AlertDialogTitle
 } from "@/components/ui/alert-dialog"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar } from "@/components/ui/calendar"
+import { format } from "date-fns"
+import { arSA } from "date-fns/locale"
+import { Calendar as CalendarIcon } from "lucide-react"
 
 interface AbsenceManagerProps {
     currentUserId: string
@@ -654,12 +659,30 @@ export default function AbsenceManager({ currentUserId }: AbsenceManagerProps) {
                                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                                                     <div>
                                                                         <Label className="text-xs mb-1 block">التاريخ *</Label>
-                                                                        <Input
-                                                                            type="date"
-                                                                            value={newDate}
-                                                                            onChange={e => setNewDate(e.target.value)}
-                                                                            max={new Date().toISOString().split('T')[0]}
-                                                                        />
+                                                                        <Popover>
+                                                                            <PopoverTrigger asChild>
+                                                                                <Button
+                                                                                    variant="outline"
+                                                                                    className={`w-full justify-start text-right font-normal border-input rounded-md bg-background focus:ring-ring/50 focus:ring-[3px] focus:outline-none transition-[color,box-shadow] h-10 px-3 ${!newDate && "text-muted-foreground"}`}
+                                                                                >
+                                                                                    <CalendarIcon className="ml-2 h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                                                                    {newDate ? (
+                                                                                        format(new Date(newDate), "PPP", { locale: arSA })
+                                                                                    ) : (
+                                                                                        <span>اختر التاريخ...</span>
+                                                                                    )}
+                                                                                </Button>
+                                                                            </PopoverTrigger>
+                                                                            <PopoverContent className="w-auto p-0" align="start">
+                                                                                <Calendar
+                                                                                    mode="single"
+                                                                                    selected={newDate ? new Date(newDate) : undefined}
+                                                                                    onSelect={(date) => setNewDate(date ? format(date, "yyyy-MM-dd") : "")}
+                                                                                    disabled={(date) => date > new Date()}
+                                                                                    initialFocus
+                                                                                />
+                                                                            </PopoverContent>
+                                                                        </Popover>
                                                                     </div>
                                                                     <div>
                                                                         <Label className="text-xs mb-1 block">ملاحظات (اختياري)</Label>

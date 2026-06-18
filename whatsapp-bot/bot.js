@@ -27,7 +27,12 @@ let isClientReady = false; // Track if WhatsApp client is ready
 console.log('🚀 Starting WhatsApp Bot...');
 const client = new Client({
     authStrategy: new LocalAuth(),
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+    webVersionCache: {
+        type: 'remote',
+        remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/{version}.html',
+        strict: false
+    },
     puppeteer: {
         executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
         headless: true,
